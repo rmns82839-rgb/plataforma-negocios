@@ -1,0 +1,1 @@
+{"name":"pruebas-plataforma","private":true,"type":"module","scripts":{"aislamiento":"node aislamiento.mjs"},"dependencies":{"@electric-sql/pglite":"^0.5.10"}}
