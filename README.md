@@ -93,3 +93,9 @@ Las públicas reciben el **slug**: `crear_pedido_tienda(p_slug, p_datos, p_items
 - Cupos diarios editables en `plataforma_limites`: `ors_calculos_km` y `ors_busquedas` (1.500). Cupo mensual por plan: `planes.max_calculos_km_mes`.
 - Panel: Mi tienda → «Domicilio por kilómetros» (ubicación, reglas, simulador que no gasta cupo, prueba con dirección real).
 - Pruebas: `cd pruebas; node aislamiento.mjs` (521), `node front.mjs` (66), `node api.mjs` (30).
+
+## Etapa C4b (mapa con pin)
+- Sin SQL nuevo. Leaflet + OpenStreetMap (`src/lib/mapa.js` es el único lugar de la configuración visual del mapa).
+- Tienda: el cliente busca su dirección, mueve el pin hasta su puerta y confirma; el servidor mide desde ese punto. Panel: ubicar la tienda con pin.
+- Para pasar a Google Maps más adelante: proveedor del servidor en `api/_proveedor.js` (`MAPA_PROVEEDOR`) y mosaicos/mapa visual en `src/lib/mapa.js` + `src/tienda/MapaPin.jsx`.
+- CSP: `vercel.json` permite imágenes de `https://tile.openstreetmap.org`.

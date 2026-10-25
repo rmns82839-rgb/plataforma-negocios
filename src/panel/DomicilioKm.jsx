@@ -1,12 +1,14 @@
 // Domicilio por kilómetros (panel del dueño): ubicar la tienda, definir las reglas, probar el cálculo y activarlo.
 // Cada paso tiene su botón "← Volver". El simulador NO usa el mapa ni gasta cupo; la prueba con dirección real gasta 1 cálculo.
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { mensajeError } from '../lib/errores'
 import { llamarDomicilio } from '../lib/domicilio'
 import { cop } from '../lib/pedido'
 import { Btn, Volver, Aviso, Campo, clsInput } from '../tienda/ui'
 import { Seccion, Insignia, Interruptor, Opciones } from './piezas'
+
+const MapaPin = lazy(() => import('../tienda/MapaPin'))
 
 const nTxt = (v) => (v === null || v === undefined || v === '' ? '' : String(v).replace('.', ','))
 const aNum = (t) => { const s = String(t ?? '').trim().replace(/[$\s]/g, '').replace(/\.(?=\d{3}(\D|$))/g, '').replace(',', '.'); return s === '' ? null : Number(s) }
@@ -98,48 +100,70 @@ export default function DomicilioKm({ ctx, onCambio }) {
 function Ubicacion({ cfg, slug, nid, lectura, volver, msg, setMsg, onGuardado }) {
   const [texto, setTexto] = useState([cfg.direccion, cfg.ciudad].filter(Boolean).join(', '))
   const [cand, setCand] = useState(null)
+  const [centro, setCentro] = useState(cfg.lat != null ? { lat: Number(cfg.lat), lng: Number(cfg.lng) } : null)
+  const [pin, setPin] = useState(cfg.lat != null ? { lat: Number(cfg.lat), lng: Number(cfg.lng) } : null)
+  const [mapa, setMapa] = useState(cfg.lat != null)       // el mapa se ve de una vez si la tienda ya tiene ubicación
   const [ocupado, setOcupado] = useState(false)
 
   async function buscar() {
     setOcupado(true); setMsg(null); setCand(null)
     const r = await llamarDomicilio({ accion: 'buscar', slug, texto })
     setOcupado(false)
-    if (r.estado === 'ok') setCand(r.candidatos)
-    else setMsg({ tipo: 'error', texto: r.mensaje || 'No pudimos buscar esa dirección. Inténtalo de nuevo en un momento.' })
+    if (r.estado === 'ok' || r.estado === 'no_encontrada') {
+      const lista = r.candidatos || []
+      setCand(lista); setMapa(true)
+      if (lista[0]) { setPin({ lat: lista[0].lat, lng: lista[0].lng }); setCentro({ lat: lista[0].lat, lng: lista[0].lng }) }
+      else if (r.centro) { setCentro(r.centro) }
+      if (r.estado === 'no_encontrada') setMsg({ tipo: 'error', texto: 'No encontramos esa dirección exacta. Toca el mapa donde está tu tienda.' })
+    } else setMsg({ tipo: 'error', texto: r.mensaje || 'No pudimos buscar esa dirección. Inténtalo de nuevo en un momento.' })
   }
-  async function guardar(c) {
+  function usarMiUbicacion() {
+    if (!navigator.geolocation) return setMsg({ tipo: 'error', texto: 'Este equipo no permite ver la ubicación. Toca el mapa donde está tu tienda.' })
     setOcupado(true); setMsg(null)
-    const { data, error } = await supabase.from('negocio_config').update({ lat: c.lat, lng: c.lng }).eq('negocio_id', nid).select('negocio_id')
+    navigator.geolocation.getCurrentPosition(
+      (pos) => { setOcupado(false); const p = { lat: Number(pos.coords.latitude.toFixed(6)), lng: Number(pos.coords.longitude.toFixed(6)) }; setPin(p); setCentro(p); setMapa(true) },
+      () => { setOcupado(false); setMsg({ tipo: 'error', texto: 'No pudimos ver tu ubicación. Revisa el permiso o toca el mapa.' }) },
+      { enableHighAccuracy: true, timeout: 12000 },
+    )
+  }
+  async function guardar() {
+    if (!pin) return
+    setOcupado(true); setMsg(null)
+    const { data, error } = await supabase.from('negocio_config').update({ lat: pin.lat, lng: pin.lng }).eq('negocio_id', nid).select('negocio_id')
     setOcupado(false)
     if (error) return setMsg({ tipo: 'error', texto: mensajeError(error) })
     if (!data?.length) return setMsg({ tipo: 'error', texto: 'No tienes permiso para cambiar esto.' })
-    onGuardado(c.lat, c.lng); setCand(null)
-    setMsg({ tipo: 'ok', texto: 'Ubicación guardada. Revísala en el mapa con el enlace de abajo.' })
+    onGuardado(pin.lat, pin.lng)
+    setMsg({ tipo: 'ok', texto: 'Ubicación guardada. Desde este punto se medirán todos los domicilios.' })
   }
-  const ver = cfg.lat != null ? `https://www.openstreetmap.org/?mlat=${cfg.lat}&mlon=${cfg.lng}#map=17/${cfg.lat}/${cfg.lng}` : null
 
   return (
     <Seccion titulo="1. Ubicación de mi tienda">
       <Volver onClick={volver} texto="Volver a domicilio por kilómetros" />
-      <p className="mb-3 text-lg leading-snug">Las distancias se miden desde aquí. Escribe la dirección de tu tienda y elige la correcta.</p>
-      {cfg.lat != null && (
-        <div className="mb-4 rounded-2xl border-2 border-green-300 bg-green-50 p-3 text-lg">
-          <p className="font-bold text-green-900">✓ Tu tienda ya tiene ubicación</p>
-          {ver && <a className="font-semibold text-principal underline" href={ver} target="_blank" rel="noopener noreferrer">Ver en el mapa</a>}
+      <p className="mb-3 text-lg leading-snug">Las distancias se miden desde aquí. Busca tu dirección y luego mueve el pin hasta la puerta de tu tienda.</p>
+      <Campo etiqueta="Dirección de la tienda"><input className={clsInput} value={texto} onChange={(e) => setTexto(e.target.value)} maxLength={160} disabled={lectura} /></Campo>
+      {!lectura && (
+        <div className="mt-3 space-y-3">
+          <Btn disabled={ocupado || texto.trim().length < 5} onClick={buscar}>{ocupado && !mapa ? 'Buscando…' : 'Buscar en el mapa'}</Btn>
+          <Btn variante="suave" disabled={ocupado} onClick={usarMiUbicacion}>Usar mi ubicación actual</Btn>
         </div>
       )}
-      <Campo etiqueta="Dirección de la tienda"><input className={clsInput} value={texto} onChange={(e) => setTexto(e.target.value)} maxLength={160} disabled={lectura} /></Campo>
-      {!lectura && <div className="mt-3"><Btn disabled={ocupado || texto.trim().length < 5} onClick={buscar}>{ocupado && !cand ? 'Buscando…' : 'Buscar en el mapa'}</Btn></div>}
-      {cand && (
+      {mapa && (
         <div className="mt-4 space-y-3">
-          {cand.length === 0 && <Aviso tipo="previa">No encontramos esa dirección. Prueba con otra forma de escribirla (barrio, ciudad).</Aviso>}
-          {cand.map((c) => (
-            <div key={c.etiqueta} className="rounded-2xl border-2 border-black/10 bg-white p-4">
-              <p className="break-words text-lg leading-snug">{c.etiqueta}</p>
-              {c.dudosa && <p className="mt-1 text-base font-semibold text-amber-800">No estamos seguros de esta ubicación.</p>}
-              <Btn className="mt-3" disabled={ocupado} onClick={() => guardar(c)}>Esta es mi tienda</Btn>
+          <p className="text-base text-tinta/70">Toca el mapa o arrastra el pin rojo. Acerca con + y − para más exactitud.</p>
+          <Suspense fallback={<p className="py-10 text-center text-lg text-tinta/60">Cargando el mapa…</p>}>
+            <MapaPin centro={centro} pin={pin} onPin={lectura ? () => {} : (lat, lng) => setPin({ lat, lng })} />
+          </Suspense>
+          {cand && cand.length > 1 && (
+            <div className="space-y-2">
+              <p className="text-lg font-semibold">Otras coincidencias</p>
+              {cand.map((c) => (
+                <button key={c.etiqueta} type="button" onClick={() => { setPin({ lat: c.lat, lng: c.lng }); setCentro({ lat: c.lat, lng: c.lng }) }}
+                  className="min-h-[56px] w-full rounded-2xl border-2 border-black/10 bg-white px-4 py-2 text-left text-lg leading-snug">{c.etiqueta}</button>
+              ))}
             </div>
-          ))}
+          )}
+          {!lectura && <Btn disabled={ocupado || !pin} onClick={guardar}>{ocupado ? 'Guardando…' : 'Esta es mi tienda: guardar ubicación'}</Btn>}
         </div>
       )}
       {msg && <div className="mt-3"><Aviso tipo={msg.tipo}>{msg.texto}</Aviso></div>}

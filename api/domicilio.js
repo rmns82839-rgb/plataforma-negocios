@@ -1,10 +1,10 @@
 // Ruta del servidor (Vercel): /api/domicilio
 // Variables de entorno (solo servidor, NUNCA con prefijo VITE_):
-//   ORS_API_KEY                clave de OpenRouteService
+//   ORS_API_KEY                clave de OpenRouteService (proveedor por defecto; ver _proveedor.js para cambiarlo)
 //   SUPABASE_SERVICE_ROLE_KEY  clave "service_role" del proyecto Supabase (para llamar las funciones domicilio_*)
 //   VITE_SUPABASE_URL          ya existe (es pública); también sirve SUPABASE_URL
 import { manejar } from './_domicilio.js'
-import { geocodificar, rutaKm } from './_ors.js'
+import { crearProveedor } from './_proveedor.js'
 
 const veces = new Map()   // freno simple por IP (mejor esfuerzo; el freno real son los cupos de la base)
 function demasiado(ip) {
@@ -41,12 +41,9 @@ export default async function handler(req, res) {
   if (typeof cuerpo === 'string') { try { cuerpo = JSON.parse(cuerpo) } catch { cuerpo = null } }
   if (!cuerpo || typeof cuerpo !== 'object' || JSON.stringify(cuerpo).length > 2000) return res.status(400).json({ estado: 'error', mensaje: 'Solicitud no válida' })
 
-  const clave = process.env.ORS_API_KEY
-  const d = {
-    rpc,
-    buscar: (texto, foco) => { if (!clave) throw new Error('Sin clave del mapa'); return geocodificar(texto, foco, clave) },
-    ruta: (o, dst) => { if (!clave) throw new Error('Sin clave del mapa'); return rutaKm(o, dst, clave) },
-  }
+  let prov
+  try { prov = crearProveedor() } catch { prov = { buscar: async () => { throw new Error('sin proveedor') }, ruta: async () => { throw new Error('sin proveedor') } } }
+  const d = { rpc, buscar: prov.buscar, ruta: prov.ruta }
   const r = await manejar(cuerpo, d)
   return res.status(r.http).json(r.cuerpo)
 }

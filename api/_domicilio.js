@@ -59,8 +59,8 @@ async function buscar(slug, c, d) {
   const conCiudad = ctx.ciudad && !texto.toLowerCase().includes(String(ctx.ciudad).toLowerCase()) ? `${texto}, ${ctx.ciudad}` : texto
   let cand
   try { cand = await d.buscar(conCiudad, foco) } catch { return { estado: 'mapa_fallo', respaldo: true, mensaje: MENSAJES.mapa_fallo } }
-  if (!cand.length) return { estado: 'no_encontrada', mensaje: MENSAJES.no_encontrada }
-  return { estado: 'ok', candidatos: cand.map(x => ({ etiqueta: x.etiqueta, lat: x.lat, lng: x.lng, dudosa: !(x.confianza >= 0.6) })) }
+  if (!cand.length) return { estado: 'no_encontrada', mensaje: MENSAJES.no_encontrada, centro: foco }
+  return { estado: 'ok', centro: foco || { lat: cand[0].lat, lng: cand[0].lng }, candidatos: cand.map(x => ({ etiqueta: x.etiqueta, lat: x.lat, lng: x.lng, dudosa: !(x.confianza >= 0.6) })) }
 }
 
 async function calcular(slug, c, d) {
