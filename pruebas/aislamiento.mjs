@@ -37,7 +37,7 @@ for (const n of ['duenoA', 'cajeroA', 'duenoB', 'soporte', 'extra', 'duenoV', 'g
 
 // ---------- Cargar los SQL del proyecto ----------
 let fallas = 0, pruebas = 0
-for (const f of ['01-plataforma.sql', '02-datos.sql', '03-seguridad.sql', '04-funciones-plataforma.sql', '05-storage-realtime.sql', '06-funciones-negocio.sql', '07-tablero-y-pedidos.sql', '08-permisos.sql', '10-planes-modulos.sql', '11-catalogo-clientes.sql', '12-redondeo-domicilio.sql']) {
+for (const f of ['01-plataforma.sql', '02-datos.sql', '03-seguridad.sql', '04-funciones-plataforma.sql', '05-storage-realtime.sql', '06-funciones-negocio.sql', '07-tablero-y-pedidos.sql', '08-permisos.sql', '10-planes-modulos.sql', '11-catalogo-clientes.sql', '12-redondeo-domicilio.sql', '14-panel.sql']) {
   try { await db.exec(fs.readFileSync(path.join(sqlDir, f), 'utf8')); console.log('OK   ', f) }
   catch (e) { console.log('FALLA', f, '→', e.message); process.exit(1) }
 }
@@ -803,6 +803,35 @@ await falla('el soporte no cambia el plan de una tienda', 'soporte', () => q(`up
 await falla('el dueño no se cambia el plan ni se publica', 'duenoV', () => q(`update negocios set plan='completo', publicada=true where id=$1`, [V]), 'permission denied')
 
 
+console.log('\n--- Archivo 14: panel del dueño (publicación y resumen) ---')
+{
+  const PP = (await sis(() => crear('pan-p', 'Panel P', 'tienda', 'duenoV@prueba.com', 'vitrina'))).id
+  await ok('tienda nueva: faltan WhatsApp y un producto publicado', 'duenoV', () => q(`select estado_publicacion($1) e`, [PP]), r => r.rows[0].e.lista === false && r.rows[0].e.faltantes.length === 2 && r.rows[0].e.publicada === false)
+  await falla('no se pide la publicación si falta algo', 'duenoV', () => q(`select pedir_publicacion($1)`, [PP]), 'Todavía falta')
+  await sis(() => q(`update negocio_config set whatsapp='3001112233' where negocio_id=$1`, [PP]))
+  await sis(() => q(`insert into productos (negocio_id,codigo,nombre,precio_venta,publicado) values ($1,'p1','Producto P',1000,true)`, [PP]))
+  await ok('con todo listo, la lista queda completa', 'duenoV', () => q(`select estado_publicacion($1) e`, [PP]), r => r.rows[0].e.lista === true && r.rows[0].e.faltantes.length === 0)
+  await falla('el dueño de otra tienda no pide la publicación', 'duenoA', () => q(`select pedir_publicacion($1)`, [PP]), 'No autorizado')
+  await falla('el soporte no pide la publicación', 'soporte', () => q(`select pedir_publicacion($1)`, [PP]), 'No autorizado')
+  await falla('anon no ve el estado de publicación', 'anon', () => q(`select estado_publicacion($1)`, [PP]), 'permission denied')
+  await ok('el soporte sí ve el estado', 'soporte', () => q(`select estado_publicacion($1) e`, [PP]), r => r.rows[0].e.lista === true)
+  await ok('el dueño pide la publicación', 'duenoV', () => q(`select pedir_publicacion($1) e`, [PP]), r => r.rows[0].e.solicitada_en !== null)
+  await falla('el dueño no se publica solo (la columna no se escribe)', 'duenoV', () => q(`update negocios set publicada=true where id=$1`, [PP]), 'permission denied')
+  await falla('ni cambia la fecha de solicitud', 'duenoV', () => q(`update negocios set publicacion_solicitada_en=null where id=$1`, [PP]), 'permission denied')
+  await sis(() => q(`select publicar_negocio($1,true)`, [PP]))
+  await ok('publicada: ya no hay solicitud pendiente', 'duenoV', () => q(`select estado_publicacion($1) e`, [PP]), r => r.rows[0].e.publicada === true && r.rows[0].e.solicitada_en === null)
+  await falla('no se vuelve a pedir una tienda ya publicada', 'duenoV', () => q(`select pedir_publicacion($1)`, [PP]), 'ya está publicada')
+
+  console.log('\n--- Resumen del panel ---')
+  await ok('A ve sus números (pedidos pendientes, de hoy y productos)', 'duenoA', () => q(`select resumen_panel($1) r`, [A]), r => r.rows[0].r.pedidos_pendientes >= 1 && r.rows[0].r.pedidos_hoy >= 1 && r.rows[0].r.productos_activos >= 1)
+  await ok('el cajero también ve el resumen', 'cajeroA', () => q(`select resumen_panel($1) r`, [A]), r => r.rows[0].r.productos_activos >= 1)
+  await ok('el soporte lo ve', 'soporte', () => q(`select resumen_panel($1) r`, [A]), r => r.rows[0].r.productos_activos >= 1)
+  await ok('los pedidos de práctica no cuentan en el resumen', 'duenoA', async () => ({ r: (await q(`select resumen_panel($1) r`, [A])).rows[0].r, n: (await q(`select count(*) n from pedidos_tienda where estado='pendiente' and not es_practica`)).rows[0].n }), r => r.r.pedidos_pendientes == r.n)
+  await falla('el dueño de B no ve el resumen de A', 'duenoB', () => q(`select resumen_panel($1)`, [A]), 'No autorizado')
+  await falla('un cliente con Google no ve resúmenes', 'google1', () => q(`select resumen_panel($1)`, [A]), 'No autorizado')
+  await falla('anon no ve resúmenes', 'anon', () => q(`select resumen_panel($1)`, [A]), 'permission denied')
+  await ok('el resumen cuenta agotados en una vitrina con "disponible"', 'duenoV', () => q(`select resumen_panel($1) r`, [V]), r => r.rows[0].r.productos_activos == 2)
+}
 console.log('\n--- Archivo 13 (tienda demo publicada) ---')
 {
   const sql = fs.readFileSync(path.join(sqlDir, '13-demo-tienda.sql'), 'utf8').replace('CORREO_DEL_USUARIO_DE_PRUEBA@gmail.com', 'duenoA@prueba.com').replace("'3000000000'", "'3001112233'")

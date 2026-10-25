@@ -1,6 +1,7 @@
 // Pruebas de las funciones de cálculo del carrito y del mensaje de WhatsApp (sin navegador ni base de datos)
 import assert from 'node:assert/strict'
 import * as P from '../src/lib/pedido.js'
+import * as C from '../src/lib/csv.js'
 let ok = 0
 const t = (n, f) => { try { f(); ok++; console.log('✓', n) } catch (e) { console.log('✗', n, '→', e.message); process.exitCode = 1 } }
 
@@ -45,4 +46,23 @@ t('validar datos: a recoger no pide dirección', () => assert.deepEqual(P.valida
 t('validar datos: en modo km pide la distancia', () => assert.ok(P.validarDatos({ entrega: 'domicilio', nombre: 'Ana Pérez', telefono: '3205550001', direccion: 'Calle 1 # 2-3' }, km).km))
 t('km con coma', () => assert.equal(P.parseKm('2,5'), 2.5))
 t('km inválido', () => assert.equal(P.parseKm('abc'), null))
+
+// ---- carga masiva ----
+t('csv: separa por punto y coma', () => assert.deepEqual(C.leerTabla('a;b\n1;2'), [['a','b'],['1','2']]))
+t('csv: separa por tabulador (pegado desde Excel)', () => assert.deepEqual(C.leerTabla('a\tb\n1\t2'), [['a','b'],['1','2']]))
+t('csv: respeta comillas', () => assert.deepEqual(C.leerTabla('a,b\n"x, y",2'), [['a','b'],['x, y','2']]))
+t('csv: quita el BOM y las líneas vacías', () => assert.equal(C.leerTabla('\uFEFFa;b\n\n1;2\n\n').length, 2))
+t('precio: $2.500 → 2500', () => assert.equal(C.leerPrecio('$2.500'), 2500))
+t('precio: 2500 → 2500', () => assert.equal(C.leerPrecio('2500'), 2500))
+t('precio: 12.500,50 → 12500.5', () => assert.equal(C.leerPrecio('12.500,50'), 12500.5))
+t('precio: 1,250 (miles en inglés) → 1250', () => assert.equal(C.leerPrecio('1,250'), 1250))
+t('precio: texto → null', () => assert.equal(C.leerPrecio('barato'), null))
+t('carga: la plantilla es válida', () => { const r = C.procesarProductos(C.PLANTILLA); assert.equal(r.filas.length, 2); assert.ok(r.filas.every((f) => f.errores.length === 0)); assert.equal(r.filas[0].datos.precio_venta, 2500); assert.equal(r.filas[0].datos.stock, 40) })
+t('carga: faltan columnas obligatorias', () => assert.deepEqual(C.procesarProductos('nombre;categoria\nA;B').columnasFaltantes, ['precio']))
+t('carga: errores por fila', () => { const r = C.procesarProductos('nombre;precio;unidad;publicado\n;100;und;si\nArroz;abc;und;si\nSal;500;galones;si\nAzúcar;800;kg;quizás'); assert.equal(r.filas.filter((f) => f.errores.length).length, 4) })
+t('carga: encabezados con tilde y mayúsculas', () => { const r = C.procesarProductos('Producto;Categoría;Precio;Código\nArroz;Granos;2500;77'); assert.equal(r.filas[0].errores.length, 0); assert.equal(r.filas[0].datos.codigo, '77') })
+t('carga: código repetido', () => { const r = C.procesarProductos('nombre;precio;codigo\nA;100;1\nB;200;1'); assert.ok(r.filas[1].errores.some((e) => /repetido/.test(e))) })
+t('carga: publicado vacío = sí, "no" = no', () => { const r = C.procesarProductos('nombre;precio;publicado\nA;100;\nB;200;no'); assert.equal(r.filas[0].datos.publicado, true); assert.equal(r.filas[1].datos.publicado, false) })
+t('carga: más de 500 filas se recorta', () => { const t = 'nombre;precio\n' + Array.from({ length: 520 }, (_, i) => `P${i};100`).join('\n'); const r = C.procesarProductos(t); assert.equal(r.filas.length, 500); assert.equal(r.truncado, true) })
+t('carga: texto vacío', () => assert.equal(C.procesarProductos('').vacio, true))
 console.log(`\n${ok} pruebas correctas`)

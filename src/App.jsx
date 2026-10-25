@@ -5,7 +5,7 @@ import { Pagina, Tarjeta, Cargando } from './pages/Piezas'
 import Login from './pages/Login'
 import Inicio from './pages/Inicio'
 import Tienda from './tienda/Tienda'
-import Panel from './pages/Panel'
+import PanelApp from './panel/PanelApp'
 
 export default function App() {
   const { vista, slug } = useRuta()
@@ -24,7 +24,7 @@ export default function App() {
     )
   }
   if (vista === 'publico') return <Tienda slug={slug} />
-  if (vista === 'panel') return <Panel slug={slug} />
+  if (vista === 'panel') return <PanelApp slug={slug} />
   if (sesion === undefined) return <Cargando />
   return sesion ? <Inicio /> : <Login />
 }

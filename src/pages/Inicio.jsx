@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { ir } from '../lib/ruta'
-import { Pagina, Tarjeta, Boton, Mensaje, Cargando } from './Piezas'
+import { Btn, Aviso, PiePlataforma } from '../tienda/ui'
 
 const ROL = { dueno: 'Dueño', cajero: 'Cajero', soporte: 'Soporte (solo lectura)' }
 
@@ -16,27 +16,26 @@ export default function Inicio() {
   }, [])
 
   return (
-    <Pagina>
+    <main className="mx-auto w-full max-w-3xl px-4 py-8 text-lg">
       <div className="mb-6 flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold">Mis negocios</h1>
-        <Boton variante="suave" onClick={() => supabase.auth.signOut()}>Salir</Boton>
+        <h1 className="text-3xl font-bold">Mis tiendas</h1>
+        <div className="w-32"><Btn variante="suave" onClick={() => supabase.auth.signOut()}>Salir</Btn></div>
       </div>
-      {error && <Mensaje tipo="error">{error}</Mensaje>}
-      {!negocios && !error && <Cargando />}
-      {negocios?.length === 0 && (
-        <Mensaje>Tu usuario todavía no está asociado a ningún negocio. Pídele al administrador que te agregue.</Mensaje>
-      )}
+      {error && <Aviso tipo="error">{error}</Aviso>}
+      {!negocios && !error && <p className="py-10 text-center text-xl text-tinta/60">Cargando…</p>}
+      {negocios?.length === 0 && <Aviso>Tu usuario todavía no está asociado a ninguna tienda. Pídele al administrador que te agregue.</Aviso>}
       <div className="grid gap-4 sm:grid-cols-2">
         {negocios?.map((n) => (
-          <Tarjeta key={n.negocio_id} className="flex flex-col justify-between gap-4">
+          <section key={n.negocio_id} className="flex flex-col justify-between gap-4 rounded-2xl border-2 border-black/5 bg-white p-5 shadow-sm">
             <div>
-              <h2 className="text-lg font-semibold">{n.nombre_comercial}</h2>
-              <p className="text-sm text-tinta/60">{ROL[n.rol] || n.rol}</p>
+              <h2 className="break-words text-2xl font-bold leading-tight">{n.nombre_comercial}</h2>
+              <p className="text-lg text-tinta/60">{ROL[n.rol] || n.rol}</p>
             </div>
-            <Boton onClick={() => ir(`/t/${n.slug}/panel`)}>Abrir panel</Boton>
-          </Tarjeta>
+            <Btn onClick={() => ir(`/t/${n.slug}/panel`)}>Abrir mi panel</Btn>
+          </section>
         ))}
       </div>
-    </Pagina>
+      <PiePlataforma />
+    </main>
   )
 }

@@ -78,3 +78,9 @@ Las públicas reciben el **slug**: `crear_pedido_tienda(p_slug, p_datos, p_items
 - Soporte (solo lectura) recorre todo y el pedido es simulado; dueño/cajero hacen pedidos de práctica; tienda sin publicar = vista previa.
 - Pruebas: `cd pruebas; node aislamiento.mjs` (461) y `node front.mjs` (32).
 - `supabase/13-demo-tienda.sql` → tienda demo publicada en `/t/demo` (cambiar correo y WhatsApp al inicio antes de correrla).
+
+## Etapa C3 (panel del dueño)
+- `supabase/14-panel.sql` → `estado_publicacion`, `pedir_publicacion` (el dueño pide; la plataforma publica con `publicar_negocio`), `resumen_panel`.
+- Panel en `/t/<slug>/panel` (`src/panel/`): Pedidos (con seguimiento), Productos (fotos, agotado, ocultar, stock), carga masiva (pegar desde Excel o CSV), Categorías, Mi tienda (datos, logo, colores, domicilio, publicación), Mi equipo, Mi plan.
+- Roles: cajero = pedidos, productos, categorías; dueño = todo; soporte = todo en solo lectura.
+- Para publicar una tienda que la pidió: `select slug, publicacion_solicitada_en from negocios where publicacion_solicitada_en is not null and not publicada;` y luego `select publicar_negocio('<id>', true);`.

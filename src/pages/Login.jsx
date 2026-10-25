@@ -1,37 +1,38 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { Pagina, Tarjeta, Boton, Mensaje } from './Piezas'
+import { Btn, Aviso, Campo, clsInput, PiePlataforma } from '../tienda/ui'
 
 export default function Login({ titulo = 'Ingresar' }) {
   const [correo, setCorreo] = useState('')
   const [clave, setClave] = useState('')
   const [error, setError] = useState('')
   const [ocupado, setOcupado] = useState(false)
+  const [ver, setVer] = useState(false)
 
   async function entrar(e) {
     e.preventDefault()
     setOcupado(true); setError('')
     const { error } = await supabase.auth.signInWithPassword({ email: correo.trim(), password: clave })
-    if (error) setError('Correo o contraseña incorrectos')
+    if (error) setError(/Invalid login|invalid_credentials/i.test(error.message) ? 'El correo o la contraseña no coinciden. Revísalos e intenta de nuevo.' : `No pudimos entrar: ${error.message}`)
     setOcupado(false)
   }
 
   return (
-    <Pagina ancho="max-w-md">
-      <Tarjeta>
-        <h1 className="mb-1 text-xl font-semibold">{titulo}</h1>
-        <p className="mb-5 text-sm text-tinta/60">Usa el correo y la contraseña que te dio el administrador.</p>
-        <form onSubmit={entrar} className="grid gap-3">
-          <input type="email" required autoComplete="username" placeholder="Correo" value={correo}
-            onChange={(e) => setCorreo(e.target.value)}
-            className="min-h-[44px] rounded-xl border border-black/10 px-4 text-sm outline-none focus:border-principal" />
-          <input type="password" required autoComplete="current-password" placeholder="Contraseña" value={clave}
-            onChange={(e) => setClave(e.target.value)}
-            className="min-h-[44px] rounded-xl border border-black/10 px-4 text-sm outline-none focus:border-principal" />
-          {error && <Mensaje tipo="error">{error}</Mensaje>}
-          <Boton type="submit" disabled={ocupado}>{ocupado ? 'Entrando…' : 'Entrar'}</Boton>
-        </form>
-      </Tarjeta>
-    </Pagina>
+    <main className="mx-auto w-full max-w-md px-4 py-10 text-lg">
+      <h1 className="mb-1 text-3xl font-bold">{titulo}</h1>
+      <p className="mb-6 text-lg text-tinta/70">Escribe el correo y la contraseña de tu cuenta.</p>
+      <form onSubmit={entrar} className="space-y-5 rounded-2xl border-2 border-black/5 bg-white p-5">
+        <Campo etiqueta="Correo"><input type="email" required autoComplete="username" inputMode="email" value={correo} onChange={(e) => setCorreo(e.target.value)} className={clsInput} /></Campo>
+        <Campo etiqueta="Contraseña">
+          <div className="grid grid-cols-[1fr_auto] gap-2">
+            <input type={ver ? 'text' : 'password'} required autoComplete="current-password" value={clave} onChange={(e) => setClave(e.target.value)} className={clsInput} />
+            <button type="button" onClick={() => setVer(!ver)} className="min-h-[56px] rounded-2xl border-2 border-black/10 px-4 text-lg font-semibold">{ver ? 'Ocultar' : 'Ver'}</button>
+          </div>
+        </Campo>
+        {error && <Aviso tipo="error">{error}</Aviso>}
+        <Btn type="submit" disabled={ocupado}>{ocupado ? 'Entrando…' : 'Entrar'}</Btn>
+      </form>
+      <PiePlataforma />
+    </main>
   )
 }
