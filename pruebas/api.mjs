@@ -78,6 +78,31 @@ await t('respaldo: un motivo inventado se vuelve "manual"', async () => { const 
 await t('el texto se limpia (sin etiquetas ni saltos)', async () => { const d = simulado(); await manejar({ slug: 'demo', accion: 'respaldo', etiqueta: '<b>Casa</b>\n\n  azul' }, d); assert.equal(d.llamadas.find(x => x[0] === 'domicilio_guardar')[1].p_direccion, 'bCasa/b azul') })
 await t('distancia en línea recta: Barranquilla–Santa Marta ≈ 85 km', () => { const k = distanciaLineaKm({ lat: 10.9685, lng: -74.7813 }, { lat: 11.2408, lng: -74.1990 }); assert.ok(k > 60 && k < 80, String(k)) })
 
+// ---- Casos de Colombia: sin placas de casa ----
+await t('GPS ("Usar mi ubicación"): calcula directo sin buscar en el mapa', async () => {
+  const d = simulado(); const r = (await manejar({ slug: 'demo', accion: 'calcular', lat: 10.9935, lng: -74.7961, etiqueta: 'Ubicación marcada en el mapa' }, d)).cuerpo
+  assert.equal(r.estado, 'ok'); assert.ok(!nombres(d).includes('buscar'))
+})
+await t('barrio + ciudad ("Villa Elisa, Suba, Bogotá"): sirve como aproximación y se marca dudosa', async () => {
+  const d = simulado({ candidatos: [{ etiqueta: 'Villa Elisa, Suba, Bogotá, Colombia', lat: 10.9951, lng: -74.7990, confianza: 0.8, aproximada: true }] })
+  const r = (await manejar({ slug: 'demo', accion: 'buscar', texto: 'Villa Elisa, Suba, Bogotá' }, d)).cuerpo
+  assert.equal(r.estado, 'ok'); assert.equal(r.candidatos[0].aproximada, true); assert.equal(r.candidatos[0].dudosa, true)
+})
+await t('un resultado a menos de 0,1 km de la tienda se descarta y se pide barrio o GPS', async () => {
+  const d = simulado({ candidatos: [{ etiqueta: 'Bogotá, Colombia', lat: TIENDA.lat + 0.0003, lng: TIENDA.lng, confianza: 0.9 }] })
+  const r = (await manejar({ slug: 'demo', accion: 'buscar', texto: 'calle 10 # 5-20' }, d)).cuerpo
+  assert.equal(r.estado, 'no_encontrada'); assert.match(r.mensaje, /barrio/); assert.match(r.mensaje, /ubicación actual/)
+})
+await t('la búsqueda se limita cerca de la tienda: 2,5 × radio, entre 15 y 60 km', async () => {
+  const radios = async (max) => { const d = simulado({ ctx: { radio_max_km: max } }); let r; d.buscar = async (x, f, o) => { r = o.radioKm; return [] }; await manejar({ slug: 'demo', accion: 'buscar', texto: 'calle 84 50 20' }, d); return r }
+  assert.equal(await radios(10), 25); assert.equal(await radios(2), 15); assert.equal(await radios(40), 60); assert.equal(await radios(null), 60)
+})
+await t('tope por minuto del servicio: pasada la cuota se rechaza (el pedido sigue con tarifa fija)', async () => {
+  const { permitirLlamada } = await import('../api/_proveedor.js')
+  const t0 = 1_000_000; let ok = 0; for (let i = 0; i < 40; i++) if (permitirLlamada(t0 + i, 36)) ok++
+  assert.equal(ok, 36); assert.equal(permitirLlamada(t0 + 61_000, 36), true)
+})
+
 // OpenRouteService: forma de las llamadas y de las respuestas (fetch simulado)
 await t('ORS geocode: clave en el encabezado (nunca en la URL), país CO, foco en la tienda', async () => {
   let visto
@@ -85,10 +110,22 @@ await t('ORS geocode: clave en el encabezado (nunca en la URL), país CO, foco e
     { geometry: { coordinates: [-74.8, 10.99] }, properties: { label: 'A, Barranquilla', confidence: 0.9 } },
     { geometry: { coordinates: [-74.8, 10.99] }, properties: { label: 'A, Barranquilla', confidence: 0.8 } },
     { geometry: { coordinates: ['x', 1] }, properties: { label: 'roto' } }] }) } }
-  const r = await geocodificar('calle 1', TIENDA, 'CLAVE-SECRETA', f)
+  const r = await geocodificar('calle 1', TIENDA, 'CLAVE-SECRETA', f, { radioKm: 25 })
   assert.equal(r.length, 1); assert.ok(!visto.url.includes('CLAVE-SECRETA')); assert.equal(visto.o.headers.Authorization, 'CLAVE-SECRETA')
-  assert.match(visto.url, /boundary\.country=CO/); assert.match(visto.url, /focus\.point\.lat=10\.9878/)
+  assert.match(visto.url, /boundary\.country=CO/); assert.match(visto.url, /focus\.point\.lat=10\.9878/); assert.match(visto.url, /^https:\/\/api\.heigit\.org\/pelias\/v1\/search/); assert.match(visto.url, /boundary\.circle\.radius=25/); assert.match(visto.url, /layers=address%2Cstreet%2Cvenue%2Cneighbourhood/)
 })
+await t('ORS geocode: descarta municipio/departamento y deja barrio', async () => {
+  const f = async () => ({ ok: true, json: async () => ({ features: [
+    { geometry: { coordinates: [-74.07, 4.71] }, properties: { label: 'Bogotá, Colombia', layer: 'locality' } },
+    { geometry: { coordinates: [-74.08, 4.74] }, properties: { label: 'Villa Elisa, Suba, Bogotá', layer: 'neighbourhood', confidence: 0.8 } }] }) })
+  const r = await geocodificar('villa elisa', TIENDA, 'K', f, { radioKm: 25 })
+  assert.equal(r.length, 1); assert.equal(r[0].aproximada, true)
+})
+await t('ORS geocode: si el servicio pide la clave en la consulta (401), reintenta así', async () => {
+  const urls = []; const f = async (u) => { urls.push(u); return urls.length === 1 ? { ok: false, status: 401 } : { ok: true, json: async () => ({ features: [] }) } }
+  await geocodificar('x', TIENDA, 'CLAVE', f); assert.equal(urls.length, 2); assert.ok(!urls[0].includes('api_key')); assert.ok(urls[1].includes('api_key=CLAVE'))
+})
+await t('ORS ruta usa la dirección nueva (api.heigit.org)', async () => { let u; await rutaKm(TIENDA, TIENDA, 'K', async (x) => { u = x; return { ok: true, json: async () => ({ routes: [{ summary: { distance: 1000 } }] }) } }); assert.match(u, /^https:\/\/api\.heigit\.org\/openrouteservice\/v2\/directions/) })
 await t('ORS ruta: convierte metros a km y manda [lng, lat]', async () => {
   let body
   const f = async (url, o) => { body = JSON.parse(o.body); return { ok: true, json: async () => ({ routes: [{ summary: { distance: 5234.5 } }] }) } }

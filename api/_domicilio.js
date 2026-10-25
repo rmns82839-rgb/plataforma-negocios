@@ -20,7 +20,7 @@ const coordOk = (lat, lng) => Number.isFinite(lat) && Number.isFinite(lng) && la
 export const MENSAJES = {
   sin_cupo: 'Hoy el mapa no está disponible. No te preocupes: tu pedido sigue y se cobra la tarifa fija de domicilio.',
   mapa_fallo: 'No pudimos medir la distancia con el mapa. No te preocupes: tu pedido sigue y se cobra la tarifa fija de domicilio.',
-  no_encontrada: 'No encontramos esa dirección en el mapa. Puedes marcar tu ubicación o escribirla y seguir con la tarifa fija de domicilio.',
+  no_encontrada: 'No encontramos esa dirección en el mapa. Escribe también el barrio, toca «Usar mi ubicación actual» o marca tu puerta en el mapa.',
   manual: 'Listo, usaremos la dirección que escribiste con la tarifa fija de domicilio.',
 }
 
@@ -58,9 +58,16 @@ async function buscar(slug, c, d) {
   const foco = ctx.lat != null && ctx.lng != null ? { lat: Number(ctx.lat), lng: Number(ctx.lng) } : null
   const conCiudad = ctx.ciudad && !texto.toLowerCase().includes(String(ctx.ciudad).toLowerCase()) ? `${texto}, ${ctx.ciudad}` : texto
   let cand
-  try { cand = await d.buscar(conCiudad, foco) } catch { return { estado: 'mapa_fallo', respaldo: true, mensaje: MENSAJES.mapa_fallo } }
+  const max = ctx.radio_max_km == null ? null : Number(ctx.radio_max_km)
+  const radioKm = Math.min(60, Math.max(15, max == null ? 60 : max * 2.5))   // solo se busca cerca de la tienda
+  try { cand = await d.buscar(conCiudad, foco, { radioKm }) } catch { return { estado: 'mapa_fallo', respaldo: true, mensaje: MENSAJES.mapa_fallo } }
+  // Un resultado a menos de 0,1 km de la tienda casi siempre es el centro del municipio o un punto genérico: no sirve
+  if (foco) cand = cand.filter(x => distanciaLineaKm(foco, { lat: x.lat, lng: x.lng }) >= 0.1)
   if (!cand.length) return { estado: 'no_encontrada', mensaje: MENSAJES.no_encontrada, centro: foco }
-  return { estado: 'ok', centro: foco || { lat: cand[0].lat, lng: cand[0].lng }, candidatos: cand.map(x => ({ etiqueta: x.etiqueta, lat: x.lat, lng: x.lng, dudosa: !(x.confianza >= 0.6) })) }
+  return {
+    estado: 'ok', centro: foco || { lat: cand[0].lat, lng: cand[0].lng },
+    candidatos: cand.map(x => ({ etiqueta: x.etiqueta, lat: x.lat, lng: x.lng, aproximada: !!x.aproximada, dudosa: !!x.aproximada || !(x.confianza >= 0.6) })),
+  }
 }
 
 async function calcular(slug, c, d) {

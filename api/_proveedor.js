@@ -5,14 +5,22 @@
 // y poner la variable MAPA_PROVEEDOR=google en Vercel (con su clave). Nada más del sistema cambia.
 import { geocodificar, rutaKm } from './_ors.js'
 
+// Tope de llamadas al servicio por minuto (la cuenta permite 40; dejamos margen). Si se pasa, el pedido sigue con tarifa fija.
+const ventana = []
+export function permitirLlamada(ahora = Date.now(), maxPorMinuto = 36) {
+  while (ventana.length && ahora - ventana[0] > 60_000) ventana.shift()
+  if (ventana.length >= maxPorMinuto) return false
+  ventana.push(ahora); return true
+}
+
 export function crearProveedor(env = process.env) {
   const nombre = String(env.MAPA_PROVEEDOR || 'ors').toLowerCase()
   if (nombre === 'ors') {
     const clave = env.ORS_API_KEY
     return {
       nombre,
-      buscar: (texto, foco) => { if (!clave) throw new Error('Sin clave del mapa'); return geocodificar(texto, foco, clave) },
-      ruta: (o, d) => { if (!clave) throw new Error('Sin clave del mapa'); return rutaKm(o, d, clave) },
+      buscar: (texto, foco, opc) => { if (!clave) throw new Error('Sin clave del mapa'); if (!permitirLlamada()) throw new Error('Tope por minuto'); return geocodificar(texto, foco, clave, fetch, opc) },
+      ruta: (o, d) => { if (!clave) throw new Error('Sin clave del mapa'); if (!permitirLlamada()) throw new Error('Tope por minuto'); return rutaKm(o, d, clave) },
     }
   }
   throw new Error(`Proveedor de mapa no disponible: ${nombre}`)

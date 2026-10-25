@@ -122,7 +122,7 @@ export default function CalculoDomicilio({ n, slug, subtotal, direccion, calculo
           <MapaPin centro={centro} pin={pin} onPin={moverPin} />
         </Suspense>
         {!tocado && pin?.etiqueta && <p className="break-words rounded-2xl bg-white p-3 text-lg leading-snug">Pin en: {pin.etiqueta}</p>}
-        {dudosa && <p className="text-base font-semibold text-amber-800">No estamos seguros de esta ubicación: mueve el pin hasta tu puerta.</p>}
+        {dudosa && <p className="text-base font-semibold text-amber-800">{candidatos[0]?.aproximada ? 'Solo pudimos ubicar tu barrio: mueve el pin hasta tu puerta para un cobro exacto.' : 'No estamos seguros de esta ubicación: mueve el pin hasta tu puerta.'}</p>}
         <Btn type="button" disabled={ocupado || !puedeConfirmar} onClick={confirmarPin}>{ocupado ? 'Calculando…' : 'Confirmar este punto'}</Btn>
         {!puedeConfirmar && <p className="text-base text-tinta/60">Toca el mapa para poner el pin y poder confirmar.</p>}
         {candidatos.length > 1 && (

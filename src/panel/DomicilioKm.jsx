@@ -114,7 +114,7 @@ function Ubicacion({ cfg, slug, nid, lectura, volver, msg, setMsg, onGuardado })
       setCand(lista); setMapa(true)
       if (lista[0]) { setPin({ lat: lista[0].lat, lng: lista[0].lng }); setCentro({ lat: lista[0].lat, lng: lista[0].lng }) }
       else if (r.centro) { setCentro(r.centro) }
-      if (r.estado === 'no_encontrada') setMsg({ tipo: 'error', texto: 'No encontramos esa dirección exacta. Toca el mapa donde está tu tienda.' })
+      if (r.estado === 'no_encontrada') setMsg({ tipo: 'error', texto: 'No encontramos esa dirección. Escribe también el barrio, pulsa «Usar mi ubicación actual» estando en la tienda, o toca el mapa donde está tu puerta.' })
     } else setMsg({ tipo: 'error', texto: r.mensaje || 'No pudimos buscar esa dirección. Inténtalo de nuevo en un momento.' })
   }
   function usarMiUbicacion() {
@@ -140,7 +140,7 @@ function Ubicacion({ cfg, slug, nid, lectura, volver, msg, setMsg, onGuardado })
   return (
     <Seccion titulo="1. Ubicación de mi tienda">
       <Volver onClick={volver} texto="Volver a domicilio por kilómetros" />
-      <p className="mb-3 text-lg leading-snug">Las distancias se miden desde aquí. Busca tu dirección y luego mueve el pin hasta la puerta de tu tienda.</p>
+      <p className="mb-3 text-lg leading-snug">Las distancias se miden desde aquí. Lo más exacto: pulsa «Usar mi ubicación actual» estando en tu tienda. También puedes buscar el barrio y mover el pin hasta tu puerta.</p>
       <Campo etiqueta="Dirección de la tienda"><input className={clsInput} value={texto} onChange={(e) => setTexto(e.target.value)} maxLength={160} disabled={lectura} /></Campo>
       {!lectura && (
         <div className="mt-3 space-y-3">

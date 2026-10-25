@@ -99,3 +99,8 @@ Las públicas reciben el **slug**: `crear_pedido_tienda(p_slug, p_datos, p_items
 - Tienda: el cliente busca su dirección, mueve el pin hasta su puerta y confirma; el servidor mide desde ese punto. Panel: ubicar la tienda con pin.
 - Para pasar a Google Maps más adelante: proveedor del servidor en `api/_proveedor.js` (`MAPA_PROVEEDOR`) y mosaicos/mapa visual en `src/lib/mapa.js` + `src/tienda/MapaPin.jsx`.
 - CSP: `vercel.json` permite imágenes de `https://tile.openstreetmap.org`.
+
+## Etapa C4c (direcciones de Colombia)
+- Direcciones nuevas del servicio: rutas `https://api.heigit.org/openrouteservice`, direcciones `https://api.heigit.org/pelias/v1` (la clave sigue en `ORS_API_KEY`, solo servidor).
+- La búsqueda de texto es de apoyo: se agrega la ciudad de la tienda, se busca solo cerca de ella (2,5 × radio máximo, entre 15 y 60 km), se aceptan solo dirección, calle, sitio y barrio, y se descartan resultados a menos de 0,1 km de la tienda.
+- Lo principal: «Usar mi ubicación actual» (GPS) y el pin del mapa. Tope de 36 llamadas por minuto al servicio (la cuenta permite 40).
