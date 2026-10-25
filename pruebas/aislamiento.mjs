@@ -803,6 +803,15 @@ await falla('el soporte no cambia el plan de una tienda', 'soporte', () => q(`up
 await falla('el dueño no se cambia el plan ni se publica', 'duenoV', () => q(`update negocios set plan='completo', publicada=true where id=$1`, [V]), 'permission denied')
 
 
+console.log('\n--- Archivo 13 (tienda demo publicada) ---')
+{
+  const sql = fs.readFileSync(path.join(sqlDir, '13-demo-tienda.sql'), 'utf8').replace('CORREO_DEL_USUARIO_DE_PRUEBA@gmail.com', 'duenoA@prueba.com').replace("'3000000000'", "'3001112233'")
+  const [bloque, verif] = sql.split('-- Verificación')
+  await ok('el script de la tienda demo corre y la deja publicada', 'sistema', async () => { await q(bloque); return q(verif.replace(/^[^\n]*\n/, '')) }, r => r.rows.length === 5 && r.rows.every(x => x.ok === true))
+  await ok('correrlo otra vez no duplica nada', 'sistema', async () => { await q(bloque); return q(`select (select count(*) from productos p join negocios n on n.id=p.negocio_id where n.slug='demo') p, (select count(*) from negocios where slug='demo') n`) }, r => r.rows[0].p == 5 && r.rows[0].n == 1)
+  await ok('el público ve la demo con su catálogo', 'anon', () => q(`select catalogo_tienda('demo') c`), r => r.rows[0].c.productos.length === 5 && r.rows[0].c.productos.filter(x => !x.disponible).length === 1)
+  await sis(() => q(`update negocios set slug='demo-script' where slug='demo'`))   // libera el nombre para la prueba del archivo 09
+}
 console.log('\n--- Archivo 09 (negocio de prueba) ---')
 await como('sistema', async () => { await db.exec(fs.readFileSync(path.join(sqlDir, '09-negocio-prueba.sql'), 'utf8').replace('CORREO_DUENO@gmail.com', 'extra@prueba.com')) })
 await ok('09 crea el negocio demo con sus datos', 'extra', () => q(`select (select count(*) from productos) p, (select slug from negocios) s`), r => r.rows[0].p == 3 && r.rows[0].s === 'demo')

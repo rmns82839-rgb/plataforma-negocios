@@ -77,3 +77,4 @@ Las públicas reciben el **slug**: `crear_pedido_tienda(p_slug, p_datos, p_items
 - El pedido se guarda primero en la base (precio, ofertas y domicilio los decide el servidor) y luego el cliente toca el botón verde para enviarlo por WhatsApp.
 - Soporte (solo lectura) recorre todo y el pedido es simulado; dueño/cajero hacen pedidos de práctica; tienda sin publicar = vista previa.
 - Pruebas: `cd pruebas; node aislamiento.mjs` (461) y `node front.mjs` (32).
+- `supabase/13-demo-tienda.sql` → tienda demo publicada en `/t/demo` (cambiar correo y WhatsApp al inicio antes de correrla).

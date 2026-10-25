@@ -21,6 +21,7 @@ export default function Tienda({ slug }) {
   const [n, setN] = useState(undefined)
   const [catalogo, setCatalogo] = useState(null)
   const [error, setError] = useState('')
+  const [detalle, setDetalle] = useState('')
   const [carrito, setCarrito] = useState(() => leer(`carrito:${slug}`, {}))
   const [paso, setPaso] = useState('catalogo')   // catalogo · carrito · datos · revisar · listo
   const [datos, setDatos] = useState(() => ({ entrega: 'domicilio', nombre: '', telefono: '', direccion: '', km: '', nota: '', ...leer('cliente', {}) }))
@@ -38,8 +39,9 @@ export default function Tienda({ slug }) {
     let vivo = true
     setN(undefined); setCatalogo(null); setError('')
     ;(async () => {
-      const { data: t } = await supabase.rpc('negocio_publico', { p_slug: slug })
+      const { data: t, error: et } = await supabase.rpc('negocio_publico', { p_slug: slug })
       if (!vivo) return
+      if (et) setDetalle(`${et.code || ''} ${et.message || ''}`.trim())
       setN(t ?? null)
       if (!t) return
       aplicarMarca(t)
@@ -84,6 +86,7 @@ export default function Tienda({ slug }) {
       <main className="mx-auto max-w-xl px-4 py-16 text-center">
         <h1 className="mb-3 text-3xl font-bold">Esta tienda no está disponible</h1>
         <p className="text-xl text-tinta/70">Puede que todavía no haya abierto o que la dirección esté mal escrita.</p>
+        {detalle && <p className="mt-6 break-words rounded-xl border border-black/10 bg-white p-3 text-left text-sm text-tinta/70">Detalle técnico: {detalle}</p>}
         <PiePlataforma />
       </main>
     )
