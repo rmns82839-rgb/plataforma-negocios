@@ -37,7 +37,7 @@ for (const n of ['duenoA', 'cajeroA', 'duenoB', 'soporte', 'extra', 'duenoV', 'g
 
 // ---------- Cargar los SQL del proyecto ----------
 let fallas = 0, pruebas = 0
-for (const f of ['01-plataforma.sql', '02-datos.sql', '03-seguridad.sql', '04-funciones-plataforma.sql', '05-storage-realtime.sql', '06-funciones-negocio.sql', '07-tablero-y-pedidos.sql', '08-permisos.sql', '10-planes-modulos.sql', '11-catalogo-clientes.sql']) {
+for (const f of ['01-plataforma.sql', '02-datos.sql', '03-seguridad.sql', '04-funciones-plataforma.sql', '05-storage-realtime.sql', '06-funciones-negocio.sql', '07-tablero-y-pedidos.sql', '08-permisos.sql', '10-planes-modulos.sql', '11-catalogo-clientes.sql', '12-redondeo-domicilio.sql']) {
   try { await db.exec(fs.readFileSync(path.join(sqlDir, f), 'utf8')); console.log('OK   ', f) }
   catch (e) { console.log('FALLA', f, '→', e.message); process.exit(1) }
 }
@@ -657,6 +657,14 @@ const conKm = (km, extra = {}) => pedido('tienda-a', [{ producto_id: pA, cantida
 await ok('dentro de los km incluidos: solo la base (1,5 km → 4 000)', 'anon', () => conKm('1.5'), r => r.rows[0].p.domicilio == 4000)
 await ok('5 km: 4 000 + 3 km × 1 000 = 7 000', 'anon', () => pedido('tienda-a', [{ producto_id: pA, cantidad: 1 }], datosPedido({ telefono: '3205550011', km: '5' })), r => r.rows[0].p.domicilio == 7000)
 await ok('5,3 km: 7 300 se redondea hacia arriba a 7 500', 'anon', () => pedido('tienda-a', [{ producto_id: pA, cantidad: 1 }], datosPedido({ telefono: '3205550012', km: '5,3' })), r => r.rows[0].p.domicilio == 7500)
+await ok('5,1 km: 7 100 se redondea al más cercano (7 000), no hacia arriba', 'anon', () => pedido('tienda-a', [{ producto_id: pA, cantidad: 1 }], datosPedido({ telefono: '3205550017', km: '5.1' })), r => r.rows[0].p.domicilio == 7000)
+await ok('5,25 km: 7 250 queda justo en medio y sube a 7 500', 'anon', () => pedido('tienda-a', [{ producto_id: pA, cantidad: 1 }], datosPedido({ telefono: '3205550018', km: '5.25' })), r => r.rows[0].p.domicilio == 7500)
+await ok('paso 1000: 7 300 → 7 000', 'duenoA', () => q(`update negocio_reglas set domicilio_redondeo=1000 where negocio_id=$1 returning 1`, [A]), r => r.rows.length === 1)
+await ok('…con paso 1000, 5,3 km cobra 7 000', 'anon', () => pedido('tienda-a', [{ producto_id: pA, cantidad: 1 }], datosPedido({ telefono: '3205550019', km: '5.3' })), r => r.rows[0].p.domicilio == 7000)
+await ok('paso 0 (al peso): 5,3 km cobra 7 300', 'duenoA', async () => { await q(`update negocio_reglas set domicilio_redondeo=0 where negocio_id=$1`, [A]); return q(`select 1`) }, () => true)
+await ok('…al peso, 5,3 km cobra 7 300', 'anon', () => pedido('tienda-a', [{ producto_id: pA, cantidad: 1 }], datosPedido({ telefono: '3205550020', km: '5.3' })), r => r.rows[0].p.domicilio == 7300)
+await ok('se vuelve al paso 500', 'duenoA', () => q(`update negocio_reglas set domicilio_redondeo=500 where negocio_id=$1 returning 1`, [A]), r => r.rows.length === 1)
+await ok('las tiendas nuevas nacen con redondeo 500', 'sistema', () => q(`select domicilio_redondeo from negocio_reglas where negocio_id=$1`, [V]), r => r.rows[0].domicilio_redondeo == 500)
 await ok('envío gratis desde 50 000, aunque sean 5 km', 'anon', () => pedido('tienda-a', [{ producto_id: pA, cantidad: 20 }], datosPedido({ telefono: '3205550013', km: '5' })), r => r.rows[0].p.domicilio == 0)
 let pRec
 await ok('a recoger no paga domicilio', 'anon', async () => (pRec = (await pedido('tienda-a', [{ producto_id: pA, cantidad: 1 }], datosPedido({ telefono: '3205550014', km: '5', entrega: 'recoger' }))).rows[0].p, q(`select 1`)), () => pRec.domicilio == 0)

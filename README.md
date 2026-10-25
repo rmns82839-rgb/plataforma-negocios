@@ -70,3 +70,10 @@ Las públicas reciben el **slug**: `crear_pedido_tienda(p_slug, p_datos, p_items
 - `supabase/10-planes-modulos.sql` → planes, módulos nuevos, invitaciones, `crear_negocio(slug,nombre,tipo,email,plan)` (nace sin publicar, URL `/t/<slug>`), `publicar_negocio`, cupos de km.
 - `supabase/11-catalogo-clientes.sql` → categorías, proveedores, pedidos con seguimiento/práctica/km, perfil de cliente, servicios (logo), `verificar_aislamiento()` de 11 filas (reemplaza al de 08).
 - Orden: 01…09, luego 10, luego 11. Pruebas: `cd pruebas; node aislamiento.mjs` (453).
+
+## Etapa C2 (tienda pública)
+- `supabase/12-redondeo-domicilio.sql` → el domicilio por km se redondea al múltiplo MÁS CERCANO del paso de cada tienda (0, 500 o 1000; por defecto 500), como en Matriz. Correr después del 11.
+- Front: `/t/<slug>` = catálogo, carrito, datos, revisión y pedido por WhatsApp (`src/tienda/`, cálculos en `src/lib/pedido.js`). `/t/<slug>/panel` = acceso del personal (`/n/<slug>` sigue funcionando).
+- El pedido se guarda primero en la base (precio, ofertas y domicilio los decide el servidor) y luego el cliente toca el botón verde para enviarlo por WhatsApp.
+- Soporte (solo lectura) recorre todo y el pedido es simulado; dueño/cajero hacen pedidos de práctica; tienda sin publicar = vista previa.
+- Pruebas: `cd pruebas; node aislamiento.mjs` (461) y `node front.mjs` (32).

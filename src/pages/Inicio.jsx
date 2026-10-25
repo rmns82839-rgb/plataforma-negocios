@@ -33,7 +33,7 @@ export default function Inicio() {
               <h2 className="text-lg font-semibold">{n.nombre_comercial}</h2>
               <p className="text-sm text-tinta/60">{ROL[n.rol] || n.rol}</p>
             </div>
-            <Boton onClick={() => ir(`/n/${n.slug}/panel`)}>Abrir panel</Boton>
+            <Boton onClick={() => ir(`/t/${n.slug}/panel`)}>Abrir panel</Boton>
           </Tarjeta>
         ))}
       </div>

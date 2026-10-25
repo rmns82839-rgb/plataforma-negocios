@@ -4,7 +4,7 @@ import { useSesion } from './lib/sesion'
 import { Pagina, Tarjeta, Cargando } from './pages/Piezas'
 import Login from './pages/Login'
 import Inicio from './pages/Inicio'
-import Publico from './pages/Publico'
+import Tienda from './tienda/Tienda'
 import Panel from './pages/Panel'
 
 export default function App() {
@@ -23,7 +23,7 @@ export default function App() {
       </Pagina>
     )
   }
-  if (vista === 'publico') return <Publico slug={slug} />
+  if (vista === 'publico') return <Tienda slug={slug} />
   if (vista === 'panel') return <Panel slug={slug} />
   if (sesion === undefined) return <Cargando />
   return sesion ? <Inicio /> : <Login />
