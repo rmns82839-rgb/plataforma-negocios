@@ -7,6 +7,7 @@ import { totales, costoDomicilioCalculado, mensajePedido, urlWhatsapp, cop } fro
 import { Btn, Volver, Aviso, Logo, BarraFija, PiePlataforma } from './ui'
 import Catalogo from './Catalogo'
 import { Carrito, Datos, Revisar } from './Pasos'
+import { entrarConGoogle } from '../lib/google'
 
 const guardar = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)) } catch { /* sin almacenamiento: la tienda funciona igual */ } }
 const leer = (k, def) => { try { const t = localStorage.getItem(k); return t ? JSON.parse(t) : def } catch { return def } }
@@ -65,6 +66,14 @@ export default function Tienda({ slug }) {
 
   useEffect(() => { guardar(`carrito:${slug}`, carrito) }, [carrito, slug])
 
+  // Cliente con Google: sus datos guardados llenan el pedido (solo lo que esté vacío)
+  useEffect(() => {
+    if (!sesion || !n?.modulos?.includes('mis_pedidos')) return
+    supabase.rpc('mi_perfil_cliente').then(({ data }) => {
+      if (data) setDatos((d) => ({ ...d, nombre: d.nombre || data.nombre || '', telefono: d.telefono || data.telefono || '', direccion: d.direccion || data.direccion || '' }))
+    }, () => {})
+  }, [sesion, n])
+
   // El carrito solo conserva productos que siguen existiendo y disponibles
   const items = useMemo(() => {
     if (!catalogo) return []
@@ -96,6 +105,8 @@ export default function Tienda({ slug }) {
   const simulado = rol === 'soporte'
   const personal = rol === 'dueno' || rol === 'cajero'
   const pedidosOk = n.modulos.includes('pedidos_en_linea') && n.modulos.includes('productos')
+  const conCuenta = n.modulos.includes('mis_pedidos')
+  const entrarGoogle = () => entrarConGoogle()
   const esPractica = personal && (n.vista_previa || practica)
 
   async function confirmar() {
@@ -137,12 +148,12 @@ export default function Tienda({ slug }) {
 
   const cuerpo = (() => {
     if (paso === 'carrito') return <Carrito tot={tot} cambiar={cambiar} volver={() => irA('catalogo')} seguir={() => irA('datos')} />
-    if (paso === 'datos') return <Datos n={n} slug={slug} tot={tot} datos={datos} setDatos={setDatos} calculo={calculo} setCalculo={setCalculo} soloLectura={false} volver={() => irA('carrito')} seguir={() => irA('revisar')} />
+    if (paso === 'datos') return <Datos invitarGoogle={conCuenta && !sesion && !personal} entrarGoogle={entrarGoogle} n={n} slug={slug} tot={tot} datos={datos} setDatos={setDatos} calculo={calculo} setCalculo={setCalculo} soloLectura={false} volver={() => irA('carrito')} seguir={() => irA('revisar')} />
     if (paso === 'revisar') {
       return <Revisar n={n} tot={tot} datos={datos} calculo={calculo} volver={() => irA('datos')} confirmar={confirmar} enviando={enviando} error={errPedido}
         personal={personal} simulado={simulado} practica={practica} setPractica={setPractica} acepta={acepta} setAcepta={setAcepta} promos={promos} setPromos={setPromos} />
     }
-    if (paso === 'listo' && resultado) return <Listo n={n} r={resultado} slug={slug} volver={() => { setResultado(null); setAcepta(false); irA('catalogo') }} />
+    if (paso === 'listo' && resultado) return <Listo n={n} r={resultado} slug={slug} conSesion={conCuenta && !!sesion && !personal} verMisPedidos={() => ir(`/t/${slug}/mis-pedidos`)} volver={() => { setResultado(null); setAcepta(false); irA('catalogo') }} />
     return null
   })()
 
@@ -158,6 +169,11 @@ export default function Tienda({ slug }) {
 
       {paso === 'catalogo' && (
         <>
+          {conCuenta && !personal && !simulado && (
+            <div className="mb-4 grid grid-cols-1 gap-2">
+              {sesion ? <Btn variante="suave" onClick={() => ir(`/t/${slug}/mis-pedidos`)}>Mis pedidos</Btn> : <Btn variante="suave" onClick={entrarGoogle}>Entrar con Google</Btn>}
+            </div>
+          )}
           <header className="mb-6 flex flex-col items-center gap-3 text-center">
             <Logo n={n} />
             <h1 className="break-words text-3xl font-bold leading-tight text-principal sm:text-4xl">{n.nombre}</h1>
@@ -198,7 +214,7 @@ export default function Tienda({ slug }) {
   )
 }
 
-function Listo({ n, r, volver }) {
+function Listo({ n, r, volver, conSesion, verMisPedidos }) {
   const practica = r.es_practica
   const texto = mensajePedido({ tienda: n.nombre, numero: r.numero, nombre: r.nombre, lineas: r.lineas, subtotal: r.subtotal, domicilio: r.domicilio, total: r.total, entrega: r.entrega, direccion: r.direccion, nota: r.nota, practica })
   const wa = urlWhatsapp(n.whatsapp, texto)
@@ -230,6 +246,7 @@ function Listo({ n, r, volver }) {
           <a href={wa} onClick={aviso} target="_blank" rel="noopener noreferrer" className="mb-3 flex min-h-[64px] w-full items-center justify-center rounded-2xl bg-[#128C4A] px-6 text-xl font-bold text-white shadow-sm">Enviar por WhatsApp</a>
         </>
       ) : <div className="mb-4"><Aviso>La tienda ya tiene tu pedido y te contactará al número que dejaste.</Aviso></div>}
+      {conSesion && !practica && <div className="mb-3"><Btn variante="suave" onClick={verMisPedidos}>Ver el estado de mi pedido</Btn></div>}
       <Btn variante="suave" onClick={volver}>Volver a la tienda</Btn>
     </div>
   )

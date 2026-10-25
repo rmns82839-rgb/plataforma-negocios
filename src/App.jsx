@@ -1,4 +1,5 @@
-import { configurado } from './lib/supabase'
+import { useEffect } from 'react'
+import { configurado, supabase } from './lib/supabase'
 import { useRuta } from './lib/ruta'
 import { useSesion } from './lib/sesion'
 import { Pagina, Tarjeta, Cargando } from './pages/Piezas'
@@ -6,10 +7,17 @@ import Login from './pages/Login'
 import Inicio from './pages/Inicio'
 import Tienda from './tienda/Tienda'
 import PanelApp from './panel/PanelApp'
+import PaginaMisPedidos from './tienda/PaginaMisPedidos'
 
 export default function App() {
   const { vista, slug } = useRuta()
   const sesion = useSesion()
+
+  // Quien entra con un correo que tiene una invitación pendiente (cajero, p. ej.) queda agregado a esa tienda
+  useEffect(() => {
+    if (!sesion || !supabase) return
+    supabase.rpc('reclamar_invitaciones').then(({ data }) => { if (Number(data) > 0) window.location.reload() }, () => {})
+  }, [sesion?.user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!configurado) {
     return (
@@ -25,6 +33,7 @@ export default function App() {
   }
   if (vista === 'publico') return <Tienda slug={slug} />
   if (vista === 'panel') return <PanelApp slug={slug} />
+  if (vista === 'mis-pedidos') return <PaginaMisPedidos slug={slug} />
   if (sesion === undefined) return <Cargando />
   return sesion ? <Inicio /> : <Login />
 }

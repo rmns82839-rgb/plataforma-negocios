@@ -104,3 +104,9 @@ Las públicas reciben el **slug**: `crear_pedido_tienda(p_slug, p_datos, p_items
 - Direcciones nuevas del servicio: rutas `https://api.heigit.org/openrouteservice`, direcciones `https://api.heigit.org/pelias/v1` (la clave sigue en `ORS_API_KEY`, solo servidor).
 - La búsqueda de texto es de apoyo: se agrega la ciudad de la tienda, se busca solo cerca de ella (2,5 × radio máximo, entre 15 y 60 km), se aceptan solo dirección, calle, sitio y barrio, y se descartan resultados a menos de 0,1 km de la tienda.
 - Lo principal: «Usar mi ubicación actual» (GPS) y el pin del mapa. Tope de 36 llamadas por minuto al servicio (la cuenta permite 40).
+
+## Etapa C5 (Mis pedidos y Google)
+- Sin SQL nuevo (las funciones ya existen desde el archivo 11). Requiere activar el proveedor Google en Supabase (Authentication → Providers) y crear el cliente OAuth en Google Cloud.
+- Ruta `/t/<slug>/mis-pedidos`: perfil con consentimiento (Ley 1581), estado de cada pedido (se actualiza cada 20 s), borrar mis datos y salir.
+- Botón «Entrar con Google» en la tienda (módulo `mis_pedidos`), aviso opcional en el paso de datos, y los datos guardados llenan el pedido. Pedir como invitado sigue igual.
+- Cajeros invitados: entran con Google en «Acceso del personal»; al iniciar sesión se reclaman sus invitaciones (`reclamar_invitaciones`).

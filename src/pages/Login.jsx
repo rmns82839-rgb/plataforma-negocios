@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { Btn, Aviso, Campo, clsInput, PiePlataforma } from '../tienda/ui'
+import { entrarConGoogle } from '../lib/google'
 
 export default function Login({ titulo = 'Ingresar' }) {
   const [correo, setCorreo] = useState('')
@@ -32,6 +33,10 @@ export default function Login({ titulo = 'Ingresar' }) {
         {error && <Aviso tipo="error">{error}</Aviso>}
         <Btn type="submit" disabled={ocupado}>{ocupado ? 'Entrando…' : 'Entrar'}</Btn>
       </form>
+      <div className="mt-5 space-y-3 rounded-2xl border-2 border-black/5 bg-white p-5">
+        <p className="text-lg font-semibold leading-snug">¿Te invitaron a una tienda con tu correo de Google?</p>
+        <Btn variante="suave" type="button" onClick={async () => { const e = await entrarConGoogle(); if (e) setError(e) }}>Entrar con Google</Btn>
+      </div>
       <PiePlataforma />
     </main>
   )

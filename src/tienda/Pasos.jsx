@@ -43,7 +43,7 @@ export function Carrito({ tot, cambiar, volver, seguir }) {
 }
 
 // ---------- Paso 2: entrega y datos ----------
-export function Datos({ n, slug, tot, datos, setDatos, calculo, setCalculo, volver, seguir, soloLectura }) {
+export function Datos({ invitarGoogle, entrarGoogle, n, slug, tot, datos, setDatos, calculo, setCalculo, volver, seguir, soloLectura }) {
   const [errores, setErrores] = useState({})
   const km = n.domicilio_modo === 'km' && (n.modulos || []).includes('domicilio_km')
   const set = (k) => (e) => setDatos({ ...datos, [k]: e.target.value })
@@ -71,6 +71,14 @@ export function Datos({ n, slug, tot, datos, setDatos, calculo, setCalculo, volv
             className={`min-h-[72px] rounded-2xl border-2 px-3 text-lg font-bold leading-tight ${datos.entrega === v ? 'border-principal bg-principal text-white' : 'border-black/10 bg-white'}`}>{t}</button>
         ))}
       </div>
+
+      {invitarGoogle && (
+        <div className="mb-5 space-y-3 rounded-2xl border-2 border-black/5 bg-white p-4">
+          <p className="text-lg font-semibold leading-snug">¿Quieres ver el estado de tu pedido y guardar tus datos?</p>
+          <Btn variante="suave" type="button" onClick={entrarGoogle}>Entrar con Google (opcional)</Btn>
+          <p className="text-base text-tinta/60">Si no, sigue aquí: puedes pedir sin cuenta.</p>
+        </div>
+      )}
 
       {Object.keys(errores).length > 0 && <div id="errores-datos" className="mb-4"><Aviso tipo="error">Revisa los datos marcados en rojo para poder continuar.</Aviso></div>}
 
