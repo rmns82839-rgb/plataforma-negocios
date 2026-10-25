@@ -7,7 +7,7 @@ import { Titulo, Seccion, Insignia, Opciones, SoloLectura, fechaHora } from './p
 
 const FILTROS = [['pendiente', 'Pendientes'], ['atendido', 'Atendidos'], ['cancelado', 'Cancelados']]
 const SEG = [['recibido', 'Recibido'], ['preparando', 'Preparando'], ['en_camino', 'En camino'], ['entregado', 'Entregado']]
-const COLS = 'id,numero,creado_en,nombre,telefono,direccion,nota,total,estado,domicilio,entrega,seguimiento,km_informado,es_practica'
+const COLS = 'id,numero,creado_en,nombre,telefono,direccion,nota,total,estado,domicilio,entrega,seguimiento,km_informado,domicilio_tarifa_fija,es_practica'
 
 export default function Pedidos({ ctx, volver }) {
   const [filtro, setFiltro] = useState('pendiente')
@@ -104,7 +104,8 @@ function Detalle({ ctx, pedido, cerrar }) {
         <p className="break-words text-xl font-semibold">{p.nombre}</p>
         <p className="text-xl">{p.telefono}</p>
         <p className="mt-2 text-lg">{p.entrega === 'recoger' ? 'Lo recoge en la tienda' : p.direccion}</p>
-        {p.km_informado != null && p.entrega === 'domicilio' && <p className="text-lg text-tinta/70">Distancia que informó: {p.km_informado} km</p>}
+        {p.km_informado != null && p.entrega === 'domicilio' && <p className="text-lg text-tinta/70">Distancia medida con el mapa: {String(p.km_informado).replace('.', ',')} km</p>}
+        {p.domicilio_tarifa_fija && p.entrega === 'domicilio' && <p className="text-lg font-semibold text-amber-800">Domicilio con tarifa fija: el mapa no pudo medir la distancia. Confirma la dirección con el cliente.</p>}
         {p.nota && <p className="mt-2 break-words rounded-xl bg-amber-50 p-3 text-lg">Nota: {p.nota}</p>}
         <div className="mt-4 grid grid-cols-2 gap-3">
           <a href={`tel:${p.telefono}`} className="flex min-h-[56px] items-center justify-center rounded-2xl border-2 border-principal/30 text-lg font-semibold text-principal">Llamar</a>

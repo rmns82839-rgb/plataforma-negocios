@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import { aplicarMarca, quitarMarca } from '../lib/marca'
 import { ir } from '../lib/ruta'
 import { useSesion } from '../lib/sesion'
-import { totales, costoDomicilio, parseKm, mensajePedido, urlWhatsapp, cop } from '../lib/pedido'
+import { totales, costoDomicilioCalculado, mensajePedido, urlWhatsapp, cop } from '../lib/pedido'
 import { Btn, Volver, Aviso, Logo, BarraFija, PiePlataforma } from './ui'
 import Catalogo from './Catalogo'
 import { Carrito, Datos, Revisar } from './Pasos'
@@ -24,7 +24,8 @@ export default function Tienda({ slug }) {
   const [detalle, setDetalle] = useState('')
   const [carrito, setCarrito] = useState(() => leer(`carrito:${slug}`, {}))
   const [paso, setPaso] = useState('catalogo')   // catalogo · carrito · datos · revisar · listo
-  const [datos, setDatos] = useState(() => ({ entrega: 'domicilio', nombre: '', telefono: '', direccion: '', km: '', nota: '', ...leer('cliente', {}) }))
+  const [datos, setDatos] = useState(() => ({ entrega: 'domicilio', nombre: '', telefono: '', direccion: '', nota: '', ...leer('cliente', {}) }))
+  const [calculo, setCalculo] = useState(null)   // cálculo de domicilio hecho por el servidor (solo en el modo por km)
   const [acepta, setAcepta] = useState(false)
   const [promos, setPromos] = useState(false)
   const [practica, setPractica] = useState(false)
@@ -104,14 +105,14 @@ export default function Tienda({ slug }) {
     try {
       let r
       if (simulado) {
-        const d = dom ? costoDomicilio(n, tot.subtotal, km ? parseKm(datos.km) : null) : 0
+        const d = dom ? costoDomicilioCalculado(n, tot.subtotal, calculo) : 0
         r = { numero: 'PRUEBA', subtotal: tot.subtotal, domicilio: d || 0, total: tot.subtotal + (d || 0), entrega: datos.entrega,
               lineas: tot.lineas.map((l) => ({ nombre: l.producto.nombre, unidad: l.producto.unidad, cantidad: l.cantidad, subtotal: l.total, promo: l.promo })), es_practica: true }
       } else {
         const payload = {
           entrega: datos.entrega, nombre: datos.nombre.trim(), telefono: datos.telefono, direccion: dom ? datos.direccion.trim() : '',
           nota: datos.nota.trim(), acepta_datos: true, acepta_promos: promos,
-          ...(dom && km ? { km: String(datos.km).trim() } : {}), ...(esPractica ? { practica: 'true' } : {}),
+          ...(dom && km ? (calculo?.calculo_id ? { calculo_id: calculo.calculo_id } : { sin_calculo: 'true' }) : {}), ...(esPractica ? { practica: 'true' } : {}),
         }
         const { data, error: e } = await supabase.rpc('crear_pedido_tienda', {
           p_slug: slug, p_datos: payload, p_items: items.map((x) => ({ producto_id: x.producto.id, cantidad: x.cantidad })),
@@ -119,11 +120,12 @@ export default function Tienda({ slug }) {
         if (e) throw new Error(e.message)
         r = data
         guardar('cliente', { nombre: datos.nombre.trim(), telefono: datos.telefono, direccion: datos.direccion.trim() })
-        setCarrito({})
+        setCarrito({}); setCalculo(null)
       }
       setResultado({ ...r, direccion: dom ? datos.direccion.trim() : '', nota: datos.nota.trim(), nombre: datos.nombre.trim() })
       irA('listo')
     } catch (e) {
+      if (/venció|vuelve a calcular/i.test(e.message)) { setCalculo(null); irA('datos'); setErrPedido(''); return }
       setErrPedido(/^[\wÀ-ÿ"«»¿¡]/.test(e.message) && e.message.length < 200 ? e.message : 'No pudimos enviar tu pedido. Intenta de nuevo o escríbenos por WhatsApp.')
     } finally { setEnviando(false) }
   }
@@ -135,9 +137,9 @@ export default function Tienda({ slug }) {
 
   const cuerpo = (() => {
     if (paso === 'carrito') return <Carrito tot={tot} cambiar={cambiar} volver={() => irA('catalogo')} seguir={() => irA('datos')} />
-    if (paso === 'datos') return <Datos n={n} tot={tot} datos={datos} setDatos={setDatos} volver={() => irA('carrito')} seguir={() => irA('revisar')} />
+    if (paso === 'datos') return <Datos n={n} slug={slug} tot={tot} datos={datos} setDatos={setDatos} calculo={calculo} setCalculo={setCalculo} soloLectura={false} volver={() => irA('carrito')} seguir={() => irA('revisar')} />
     if (paso === 'revisar') {
-      return <Revisar n={n} tot={tot} datos={datos} volver={() => irA('datos')} confirmar={confirmar} enviando={enviando} error={errPedido}
+      return <Revisar n={n} tot={tot} datos={datos} calculo={calculo} volver={() => irA('datos')} confirmar={confirmar} enviando={enviando} error={errPedido}
         personal={personal} simulado={simulado} practica={practica} setPractica={setPractica} acepta={acepta} setAcepta={setAcepta} promos={promos} setPromos={setPromos} />
     }
     if (paso === 'listo' && resultado) return <Listo n={n} r={resultado} slug={slug} volver={() => { setResultado(null); setAcepta(false); irA('catalogo') }} />

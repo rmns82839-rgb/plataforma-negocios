@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { cop, validarDatos, parseKm, costoDomicilio } from '../lib/pedido'
+import { cop, validarDatos, costoDomicilioCalculado } from '../lib/pedido'
 import { Btn, Volver, Aviso, Campo, Cantidad, BarraFija, clsInput } from './ui'
+import CalculoDomicilio from './CalculoDomicilio'
 
 const Titulo = ({ paso, children }) => (
   <>
@@ -42,20 +43,21 @@ export function Carrito({ tot, cambiar, volver, seguir }) {
 }
 
 // ---------- Paso 2: entrega y datos ----------
-export function Datos({ n, tot, datos, setDatos, volver, seguir }) {
+export function Datos({ n, slug, tot, datos, setDatos, calculo, setCalculo, volver, seguir, soloLectura }) {
   const [errores, setErrores] = useState({})
   const km = n.domicilio_modo === 'km' && (n.modulos || []).includes('domicilio_km')
   const set = (k) => (e) => setDatos({ ...datos, [k]: e.target.value })
   const dom = datos.entrega === 'domicilio'
 
   function continuar() {
-    const e = validarDatos(datos, n)
+    const e = validarDatos(datos, n, calculo)
     setErrores(e)
     if (Object.keys(e).length === 0) seguir()
     else document.getElementById('errores-datos')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
 
-  const estimado = dom ? costoDomicilio(n, tot.subtotal, km ? parseKm(datos.km) : null) : 0
+  const estimado = dom ? costoDomicilioCalculado(n, tot.subtotal, calculo) : 0
+  const cambiarDireccion = (e) => { setDatos({ ...datos, direccion: e.target.value }); if (calculo) setCalculo(null) }
   const gratis = Number(n.envio_gratis_desde) > 0
 
   return (
@@ -81,13 +83,16 @@ export function Datos({ n, tot, datos, setDatos, volver, seguir }) {
         </Campo>
         {dom && (
           <Campo etiqueta="Dirección de entrega" error={errores.direccion} ayuda="Calle o carrera, número, barrio y alguna seña.">
-            <input className={clsInput} autoComplete="street-address" value={datos.direccion} onChange={set('direccion')} />
+            <input className={clsInput} autoComplete="street-address" value={datos.direccion} onChange={cambiarDireccion} />
           </Campo>
         )}
         {dom && km && (
-          <Campo etiqueta="Distancia aproximada a tu casa (km)" error={errores.km} ayuda="Escribe los kilómetros desde la tienda, por ejemplo 2,5. Más adelante se calculará sola con el mapa.">
-            <input className={clsInput} inputMode="decimal" value={datos.km} onChange={set('km')} />
-          </Campo>
+          <div id="calculo-domicilio">
+            <p className="mb-2 text-lg font-semibold">Confirma tu dirección en el mapa</p>
+            {errores.calculo && <p className="mb-2 text-base font-semibold text-red-700">{errores.calculo}</p>}
+            <CalculoDomicilio n={n} slug={slug} subtotal={tot.subtotal} direccion={datos.direccion} calculo={calculo} setCalculo={setCalculo}
+              soloLectura={soloLectura} recoger={() => { setCalculo(null); setDatos({ ...datos, entrega: 'recoger' }) }} />
+          </div>
         )}
         <Campo etiqueta="Algo que quieras avisarnos (opcional)">
           <textarea className={`${clsInput} min-h-[96px] py-3`} maxLength={200} value={datos.nota} onChange={set('nota')} />
@@ -96,7 +101,7 @@ export function Datos({ n, tot, datos, setDatos, volver, seguir }) {
 
       <BarraFija>
         <Fila k="Productos" v={cop(tot.subtotal)} />
-        {dom && <Fila k="Domicilio" v={estimado === null ? 'Falta la distancia' : estimado === undefined ? 'Fuera de la zona' : estimado === 0 ? 'Sin costo' : cop(estimado)} />}
+        {dom && <Fila k="Domicilio" v={estimado === null ? 'Falta confirmar tu dirección' : estimado === undefined ? 'Fuera de la zona' : estimado === 0 ? 'Sin costo' : cop(estimado)} />}
         {dom && gratis && estimado > 0 && <p className="text-base text-tinta/60">Domicilio sin costo desde {cop(n.envio_gratis_desde)}</p>}
         <Btn className="mt-2" onClick={continuar}>Revisar mi pedido</Btn>
       </BarraFija>
@@ -105,10 +110,10 @@ export function Datos({ n, tot, datos, setDatos, volver, seguir }) {
 }
 
 // ---------- Paso 3: revisar y confirmar ----------
-export function Revisar({ n, tot, datos, volver, confirmar, enviando, error, personal, simulado, practica, setPractica, acepta, setAcepta, promos, setPromos }) {
+export function Revisar({ n, tot, datos, calculo, volver, confirmar, enviando, error, personal, simulado, practica, setPractica, acepta, setAcepta, promos, setPromos }) {
   const km = n.domicilio_modo === 'km' && (n.modulos || []).includes('domicilio_km')
   const dom = datos.entrega === 'domicilio'
-  const est = dom ? costoDomicilio(n, tot.subtotal, km ? parseKm(datos.km) : null) : 0
+  const est = dom ? costoDomicilioCalculado(n, tot.subtotal, calculo) : 0
   const domOk = typeof est === 'number'
   const total = tot.subtotal + (domOk ? est : 0)
 
@@ -129,11 +134,12 @@ export function Revisar({ n, tot, datos, volver, confirmar, enviando, error, per
         <p className="font-bold">{dom ? 'Entrega a domicilio' : 'Lo recoges en la tienda'}</p>
         <p>{datos.nombre} · {datos.telefono}</p>
         {dom && <p>{datos.direccion}</p>}
-        {dom && km && <p>Distancia: {datos.km} km</p>}
+        {dom && km && calculo?.estado === 'ok' && <p>Distancia: {String(calculo.km).replace('.', ',')} km</p>}
+        {dom && km && calculo?.respaldo && <p>Domicilio con tarifa fija</p>}
         {datos.nota && <p className="text-tinta/70">Nota: {datos.nota}</p>}
       </div>
 
-      {!domOk && dom && <div className="mb-4"><Aviso tipo="error">{est === undefined ? 'Tu dirección queda fuera de la zona de entrega de esta tienda.' : 'Falta la distancia para calcular el domicilio.'}</Aviso></div>}
+      {!domOk && dom && <div className="mb-4"><Aviso tipo="error">{est === undefined ? 'Tu dirección queda fuera de la zona de entrega de esta tienda.' : 'Falta confirmar tu dirección para calcular el domicilio.'}</Aviso></div>}
       {tot.descuento > 0 && <p className="mb-4 text-lg font-semibold text-[#0d6b38]">Ya incluye tus ofertas: ahorras {cop(tot.descuento)}</p>}
 
       <div className="mb-5 space-y-4 rounded-2xl border-2 border-black/5 bg-white p-4">

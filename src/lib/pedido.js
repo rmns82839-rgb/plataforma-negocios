@@ -43,6 +43,23 @@ export function costoDomicilio(n, subtotal, km) {
   return gratis > 0 && subtotal >= gratis ? 0 : Number(n.domicilio_costo)
 }
 
+// Tarifa fija de respaldo (cuando el mapa no pudo calcular): la que define la tienda, o la base del domicilio
+export function tarifaRespaldo(n, subtotal) {
+  const gratis = Number(n?.envio_gratis_desde) || 0
+  if (gratis > 0 && subtotal >= gratis) return 0
+  return Number(n?.domicilio_tarifa_respaldo ?? n?.domicilio_costo ?? 0) || 0
+}
+
+// Domicilio según el cálculo del servidor. calculo = { estado: 'ok', km } | { respaldo: true } | { estado: 'fuera_de_zona' } | null
+// Devuelve: número · null (falta calcular) · undefined (fuera de zona)
+export function costoDomicilioCalculado(n, subtotal, calculo) {
+  if (!(n?.domicilio_modo === 'km' && (n.modulos || []).includes('domicilio_km'))) return costoDomicilio(n, subtotal, null)
+  if (!calculo) return null
+  if (calculo.estado === 'fuera_de_zona') return undefined
+  if (calculo.respaldo) return tarifaRespaldo(n, subtotal)
+  return costoDomicilio(n, subtotal, Number(calculo.km))
+}
+
 // Totales del carrito: items = [{ producto, cantidad }]
 export function totales(items, promos) {
   let bruto = 0, desc = 0
@@ -86,7 +103,7 @@ export function urlWhatsapp(tel, texto) {
 }
 
 // Validación de los datos del cliente (la base de datos vuelve a validar)
-export function validarDatos(d, n) {
+export function validarDatos(d, n, calculo) {
   const e = {}
   if (String(d.nombre || '').trim().length < 3) e.nombre = 'Escribe tu nombre completo'
   let t = soloDigitos(d.telefono)
@@ -95,8 +112,8 @@ export function validarDatos(d, n) {
   if (d.entrega === 'domicilio') {
     if (String(d.direccion || '').trim().length < 6) e.direccion = 'Escribe tu dirección completa (barrio y número)'
     if (n.domicilio_modo === 'km' && (n.modulos || []).includes('domicilio_km')) {
-      const km = parseKm(d.km)
-      if (km == null) e.km = 'Escribe los kilómetros aproximados hasta tu casa (ej. 2,5)'
+      if (!calculo) e.calculo = 'Confirma tu dirección en el mapa para calcular el domicilio'
+      else if (calculo.estado === 'fuera_de_zona') e.calculo = 'Tu dirección queda fuera de la zona de entrega'
     }
   }
   return e

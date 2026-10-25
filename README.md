@@ -84,3 +84,12 @@ Las públicas reciben el **slug**: `crear_pedido_tienda(p_slug, p_datos, p_items
 - Panel en `/t/<slug>/panel` (`src/panel/`): Pedidos (con seguimiento), Productos (fotos, agotado, ocultar, stock), carga masiva (pegar desde Excel o CSV), Categorías, Mi tienda (datos, logo, colores, domicilio, publicación), Mi equipo, Mi plan.
 - Roles: cajero = pedidos, productos, categorías; dueño = todo; soporte = todo en solo lectura.
 - Para publicar una tienda que la pidió: `select slug, publicacion_solicitada_en from negocios where publicacion_solicitada_en is not null and not publicada;` y luego `select publicar_negocio('<id>', true);`.
+
+## Etapa C4 (domicilio por kilómetros)
+- **SQL:** `supabase/15-domicilio-km.sql` (7 filas true). Aditivo e idempotente.
+- **Servidor:** `api/domicilio.js` (+ `_domicilio.js`, `_ors.js`). Acciones: `buscar`, `calcular`, `respaldo`.
+- **Variables en Vercel (solo servidor, sin `VITE_`):** `ORS_API_KEY` y `SUPABASE_SERVICE_ROLE_KEY`. La URL usa `VITE_SUPABASE_URL`, que ya existe.
+- El navegador ya no manda los km: el pedido trae un `calculo_id` de un solo uso (vence en 3 h). Sin cupo, mapa caído o dirección no encontrada → tarifa fija de respaldo; la venta nunca se bloquea.
+- Cupos diarios editables en `plataforma_limites`: `ors_calculos_km` y `ors_busquedas` (1.500). Cupo mensual por plan: `planes.max_calculos_km_mes`.
+- Panel: Mi tienda → «Domicilio por kilómetros» (ubicación, reglas, simulador que no gasta cupo, prueba con dirección real).
+- Pruebas: `cd pruebas; node aislamiento.mjs` (521), `node front.mjs` (66), `node api.mjs` (30).

@@ -43,7 +43,7 @@ t('mensaje de práctica se marca', () => assert.match(P.mensajePedido({ tienda: 
 t('url de WhatsApp codificada', () => assert.match(P.urlWhatsapp('3001112233', 'Hola\n1 × A'), /^https:\/\/wa\.me\/573001112233\?text=Hola%0A1%20%C3%97%20A$/))
 t('validar datos: faltan campos', () => { const e = P.validarDatos({ entrega: 'domicilio', nombre: 'A', telefono: '123', direccion: '' }, tienda); assert.ok(e.nombre && e.telefono && e.direccion) })
 t('validar datos: a recoger no pide dirección', () => assert.deepEqual(P.validarDatos({ entrega: 'recoger', nombre: 'Ana Pérez', telefono: '3205550001' }, tienda), {}))
-t('validar datos: en modo km pide la distancia', () => assert.ok(P.validarDatos({ entrega: 'domicilio', nombre: 'Ana Pérez', telefono: '3205550001', direccion: 'Calle 1 # 2-3' }, km).km))
+t('validar datos: en modo km pide confirmar la dirección', () => assert.ok(P.validarDatos({ entrega: 'domicilio', nombre: 'Ana Pérez', telefono: '3205550001', direccion: 'Calle 1 # 2-3' }, km, null).calculo))
 t('km con coma', () => assert.equal(P.parseKm('2,5'), 2.5))
 t('km inválido', () => assert.equal(P.parseKm('abc'), null))
 
@@ -65,4 +65,37 @@ t('carga: código repetido', () => { const r = C.procesarProductos('nombre;preci
 t('carga: publicado vacío = sí, "no" = no', () => { const r = C.procesarProductos('nombre;precio;publicado\nA;100;\nB;200;no'); assert.equal(r.filas[0].datos.publicado, true); assert.equal(r.filas[1].datos.publicado, false) })
 t('carga: más de 500 filas se recorta', () => { const t = 'nombre;precio\n' + Array.from({ length: 520 }, (_, i) => `P${i};100`).join('\n'); const r = C.procesarProductos(t); assert.equal(r.filas.length, 500); assert.equal(r.truncado, true) })
 t('carga: texto vacío', () => assert.equal(C.procesarProductos('').vacio, true))
+
+// ---- C4: cálculo del servidor ----
+import { llamarDomicilio, MENSAJE_RESPALDO } from '../src/lib/domicilio.js'
+const kmR = { ...km, domicilio_costo: 4000, domicilio_tarifa_respaldo: 6000 }
+t('calculado: km 5 → 7 000', () => assert.equal(P.costoDomicilioCalculado(km, 10000, { estado: 'ok', km: 5 }), 7000))
+t('calculado: sin cálculo todavía → null', () => assert.equal(P.costoDomicilioCalculado(km, 10000, null), null))
+t('calculado: fuera de zona → undefined', () => assert.equal(P.costoDomicilioCalculado(km, 10000, { estado: 'fuera_de_zona' }), undefined))
+t('calculado: respaldo usa la tarifa de respaldo (6 000)', () => assert.equal(P.costoDomicilioCalculado(kmR, 10000, { respaldo: true }), 6000))
+t('calculado: respaldo sin tarifa propia usa la base (4 000)', () => assert.equal(P.costoDomicilioCalculado(km, 10000, { respaldo: true }), 4000))
+t('calculado: respaldo con compra grande → sin costo', () => assert.equal(P.costoDomicilioCalculado(kmR, 60000, { respaldo: true }), 0))
+t('calculado: tienda en modo fijo ignora el cálculo', () => assert.equal(P.costoDomicilioCalculado(tienda, 10000, { estado: 'ok', km: 9 }), 4000))
+const dat = { nombre: 'Ana Pérez', telefono: '3001234567', direccion: 'Calle 10 # 5-20, Centro', entrega: 'domicilio' }
+t('validar: en modo km falta confirmar la dirección', () => assert.ok(P.validarDatos(dat, km, null).calculo))
+t('validar: con cálculo ok pasa', () => assert.deepEqual(P.validarDatos(dat, km, { estado: 'ok', km: 3 }), {}))
+t('validar: con respaldo pasa (no se bloquea)', () => assert.deepEqual(P.validarDatos(dat, km, { respaldo: true }), {}))
+t('validar: fuera de zona no pasa', () => assert.ok(P.validarDatos(dat, km, { estado: 'fuera_de_zona' }).calculo))
+t('validar: recoger no pide cálculo', () => assert.deepEqual(P.validarDatos({ ...dat, entrega: 'recoger' }, km, null), {}))
+t('validar: tienda de tarifa fija no pide cálculo', () => assert.deepEqual(P.validarDatos(dat, tienda, null), {}))
+
+{
+  const casos = [
+    ['red caída', async () => { throw new Error('offline') }],
+    ['servidor 500 con HTML', async () => ({ json: async () => { throw new Error('no json') } })],
+    ['respuesta sin estado', async () => ({ json: async () => ({ x: 1 }) })],
+  ]
+  for (const [n, f] of casos) {
+    const r = await llamarDomicilio({ accion: 'buscar' }, f)
+    try { assert.equal(r.respaldo, true); assert.equal(r.mensaje, MENSAJE_RESPALDO); assert.ok(!/error|500|undefined/i.test(r.mensaje)); ok++; console.log('✓ API caída (' + n + '): respaldo con mensaje claro') } catch (e) { console.log('✗', n, e.message); process.exitCode = 1 }
+  }
+  const buena = await llamarDomicilio({ accion: 'buscar' }, async () => ({ json: async () => ({ estado: 'ok', candidatos: [] }) }))
+  try { assert.equal(buena.estado, 'ok'); ok++; console.log('✓ API responde: se devuelve tal cual') } catch (e) { console.log('✗', e.message); process.exitCode = 1 }
+}
+
 console.log(`\n${ok} pruebas correctas`)

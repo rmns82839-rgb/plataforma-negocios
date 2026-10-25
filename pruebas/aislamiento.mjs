@@ -37,7 +37,7 @@ for (const n of ['duenoA', 'cajeroA', 'duenoB', 'soporte', 'extra', 'duenoV', 'g
 
 // ---------- Cargar los SQL del proyecto ----------
 let fallas = 0, pruebas = 0
-for (const f of ['01-plataforma.sql', '02-datos.sql', '03-seguridad.sql', '04-funciones-plataforma.sql', '05-storage-realtime.sql', '06-funciones-negocio.sql', '07-tablero-y-pedidos.sql', '08-permisos.sql', '10-planes-modulos.sql', '11-catalogo-clientes.sql', '12-redondeo-domicilio.sql', '14-panel.sql']) {
+for (const f of ['01-plataforma.sql', '02-datos.sql', '03-seguridad.sql', '04-funciones-plataforma.sql', '05-storage-realtime.sql', '06-funciones-negocio.sql', '07-tablero-y-pedidos.sql', '08-permisos.sql', '10-planes-modulos.sql', '11-catalogo-clientes.sql', '12-redondeo-domicilio.sql', '14-panel.sql', '15-domicilio-km.sql']) {
   try { await db.exec(fs.readFileSync(path.join(sqlDir, f), 'utf8')); console.log('OK   ', f) }
   catch (e) { console.log('FALLA', f, '→', e.message); process.exit(1) }
 }
@@ -653,32 +653,113 @@ await sis(() => q(`select activar_modulo($1,'domicilio_km',true)`, [B]))
 await ok('el dueño A activa el modo km con sus reglas (base 4 000, 2 km incluidos, 1 000 por km, redondeo 500, máximo 10 km)', 'duenoA', () => q(`update negocio_reglas set domicilio_modo='km', domicilio_km_incluidos=2, domicilio_valor_km=1000, domicilio_redondeo=500, domicilio_radio_max_km=10 where negocio_id=$1 returning 1`, [A]), r => r.rows.length === 1)
 await falla('redondeo no permitido', 'duenoA', () => q(`update negocio_reglas set domicilio_redondeo=300 where negocio_id=$1`, [A]), 'check')
 await falla('valor por km negativo', 'duenoA', () => q(`update negocio_reglas set domicilio_valor_km=-5 where negocio_id=$1`, [A]), 'check')
-const conKm = (km, extra = {}) => pedido('tienda-a', [{ producto_id: pA, cantidad: 1 }], datosPedido({ telefono: '3205550010', km, ...extra }))
+// C4: el km ya no viene del navegador; lo guarda el servidor en calculos_domicilio y el pedido trae solo el calculo_id
+async function conCalculo(km, motivo = 'ok', neg = A) {
+  await db.exec('reset role')
+  const r = await q(`select domicilio_guardar($1,$2,'Calle 10 # 5-20',10.99,-74.79,$3) id`, [neg, km === null ? null : String(km).replace(',', '.'), motivo])
+  await db.exec('set role anon')
+  return r.rows[0].id
+}
+const conKm = async (km, extra = {}) => pedido('tienda-a', [{ producto_id: pA, cantidad: 1 }], datosPedido({ telefono: '3205550010', calculo_id: await conCalculo(km), ...extra }))
 await ok('dentro de los km incluidos: solo la base (1,5 km → 4 000)', 'anon', () => conKm('1.5'), r => r.rows[0].p.domicilio == 4000)
-await ok('5 km: 4 000 + 3 km × 1 000 = 7 000', 'anon', () => pedido('tienda-a', [{ producto_id: pA, cantidad: 1 }], datosPedido({ telefono: '3205550011', km: '5' })), r => r.rows[0].p.domicilio == 7000)
-await ok('5,3 km: 7 300 se redondea hacia arriba a 7 500', 'anon', () => pedido('tienda-a', [{ producto_id: pA, cantidad: 1 }], datosPedido({ telefono: '3205550012', km: '5,3' })), r => r.rows[0].p.domicilio == 7500)
-await ok('5,1 km: 7 100 se redondea al más cercano (7 000), no hacia arriba', 'anon', () => pedido('tienda-a', [{ producto_id: pA, cantidad: 1 }], datosPedido({ telefono: '3205550017', km: '5.1' })), r => r.rows[0].p.domicilio == 7000)
-await ok('5,25 km: 7 250 queda justo en medio y sube a 7 500', 'anon', () => pedido('tienda-a', [{ producto_id: pA, cantidad: 1 }], datosPedido({ telefono: '3205550018', km: '5.25' })), r => r.rows[0].p.domicilio == 7500)
+await ok('5 km: 4 000 + 3 km × 1 000 = 7 000', 'anon', async () => pedido('tienda-a', [{ producto_id: pA, cantidad: 1 }], datosPedido({ telefono: '3205550011', calculo_id: await conCalculo('5') })), r => r.rows[0].p.domicilio == 7000)
+await ok('5,3 km: 7 300 se redondea hacia arriba a 7 500', 'anon', async () => pedido('tienda-a', [{ producto_id: pA, cantidad: 1 }], datosPedido({ telefono: '3205550012', calculo_id: await conCalculo('5,3') })), r => r.rows[0].p.domicilio == 7500)
+await ok('5,1 km: 7 100 se redondea al más cercano (7 000), no hacia arriba', 'anon', async () => pedido('tienda-a', [{ producto_id: pA, cantidad: 1 }], datosPedido({ telefono: '3205550017', calculo_id: await conCalculo('5.1') })), r => r.rows[0].p.domicilio == 7000)
+await ok('5,25 km: 7 250 queda justo en medio y sube a 7 500', 'anon', async () => pedido('tienda-a', [{ producto_id: pA, cantidad: 1 }], datosPedido({ telefono: '3205550018', calculo_id: await conCalculo('5.25') })), r => r.rows[0].p.domicilio == 7500)
 await ok('paso 1000: 7 300 → 7 000', 'duenoA', () => q(`update negocio_reglas set domicilio_redondeo=1000 where negocio_id=$1 returning 1`, [A]), r => r.rows.length === 1)
-await ok('…con paso 1000, 5,3 km cobra 7 000', 'anon', () => pedido('tienda-a', [{ producto_id: pA, cantidad: 1 }], datosPedido({ telefono: '3205550019', km: '5.3' })), r => r.rows[0].p.domicilio == 7000)
+await ok('…con paso 1000, 5,3 km cobra 7 000', 'anon', async () => pedido('tienda-a', [{ producto_id: pA, cantidad: 1 }], datosPedido({ telefono: '3205550019', calculo_id: await conCalculo('5.3') })), r => r.rows[0].p.domicilio == 7000)
 await ok('paso 0 (al peso): 5,3 km cobra 7 300', 'duenoA', async () => { await q(`update negocio_reglas set domicilio_redondeo=0 where negocio_id=$1`, [A]); return q(`select 1`) }, () => true)
-await ok('…al peso, 5,3 km cobra 7 300', 'anon', () => pedido('tienda-a', [{ producto_id: pA, cantidad: 1 }], datosPedido({ telefono: '3205550020', km: '5.3' })), r => r.rows[0].p.domicilio == 7300)
+await ok('…al peso, 5,3 km cobra 7 300', 'anon', async () => pedido('tienda-a', [{ producto_id: pA, cantidad: 1 }], datosPedido({ telefono: '3205550020', calculo_id: await conCalculo('5.3') })), r => r.rows[0].p.domicilio == 7300)
 await ok('se vuelve al paso 500', 'duenoA', () => q(`update negocio_reglas set domicilio_redondeo=500 where negocio_id=$1 returning 1`, [A]), r => r.rows.length === 1)
 await ok('las tiendas nuevas nacen con redondeo 500', 'sistema', () => q(`select domicilio_redondeo from negocio_reglas where negocio_id=$1`, [V]), r => r.rows[0].domicilio_redondeo == 500)
-await ok('envío gratis desde 50 000, aunque sean 5 km', 'anon', () => pedido('tienda-a', [{ producto_id: pA, cantidad: 20 }], datosPedido({ telefono: '3205550013', km: '5' })), r => r.rows[0].p.domicilio == 0)
+await ok('envío gratis desde 50 000, aunque sean 5 km', 'anon', async () => pedido('tienda-a', [{ producto_id: pA, cantidad: 20 }], datosPedido({ telefono: '3205550013', calculo_id: await conCalculo('5') })), r => r.rows[0].p.domicilio == 0)
 let pRec
-await ok('a recoger no paga domicilio', 'anon', async () => (pRec = (await pedido('tienda-a', [{ producto_id: pA, cantidad: 1 }], datosPedido({ telefono: '3205550014', km: '5', entrega: 'recoger' }))).rows[0].p, q(`select 1`)), () => pRec.domicilio == 0)
+await ok('a recoger no paga domicilio', 'anon', async () => (pRec = (await pedido('tienda-a', [{ producto_id: pA, cantidad: 1 }], datosPedido({ telefono: '3205550014', calculo_id: await conCalculo('5'), entrega: 'recoger' }))).rows[0].p, q(`select 1`)), () => pRec.domicilio == 0)
 await ok('…ni guarda km', 'sistema', () => q(`select km_informado from pedidos_tienda where id=$1`, [pRec.id]), r => r.rows[0].km_informado === null)
 await ok('el km informado queda guardado en el pedido', 'sistema', () => q(`select km_informado from pedidos_tienda where negocio_id=$1 and nombre='Ana Pérez' and km_informado is not null order by creado_en limit 1`, [A]), r => r.rows[0].km_informado == 1.5)
 await falla('fuera del radio máximo (12 km > 10)', 'anon', () => conKm('12'), 'fuera de la zona')
-await falla('en modo km hay que traer la distancia', 'anon', () => pedido('tienda-a', [{ producto_id: pA, cantidad: 1 }], datosPedido({ telefono: '3205550015' })), 'Calcula la distancia')
-await falla('distancia con letras', 'anon', () => conKm('abc'), 'no es válida')
-await falla('distancia negativa', 'anon', () => conKm('-2'), 'no es válida')
-await falla('distancia absurda', 'anon', () => conKm('5000'), 'no es válida')
+await falla('en modo km hay que traer el cálculo del servidor', 'anon', () => pedido('tienda-a', [{ producto_id: pA, cantidad: 1 }], datosPedido({ telefono: '3205550015' })), 'Calcula la distancia')
 await sis(() => q(`select activar_modulo($1,'domicilio_km',false)`, [A]))
 await ok('si el plan deja de incluir domicilio por km, el pedido cae a la tarifa fija (4 000)', 'anon', () => conKm('5'), r => r.rows[0].p.domicilio == 4000)
 await sis(() => q(`select activar_modulo($1,'domicilio_km',true)`, [A]))
-await ok('una tienda en modo fijo ignora el km que mande el navegador', 'anon', () => pedido('tienda-b', [{ producto_id: pB, cantidad: 1 }], datosPedido({ telefono: '3205550016', km: '3' })), r => r.rows[0].p.domicilio == 9999)
+await ok('una tienda en modo fijo ignora el km que mande el navegador', 'anon', async () => pedido('tienda-b', [{ producto_id: pB, cantidad: 1 }], datosPedido({ telefono: '3205550016', calculo_id: await conCalculo('3', 'ok', B) })), r => r.rows[0].p.domicilio == 9999)
+
+
+console.log('\n--- C4: cálculo de domicilio en el servidor ---')
+await falla('un cálculo de otra tienda no sirve', 'anon', async () => pedido('tienda-a', [{ producto_id: pA, cantidad: 1 }], datosPedido({ telefono: '3205550030', calculo_id: await conCalculo('3', 'ok', B) })), 'venció')
+let calcUso
+await ok('un cálculo sirve una vez', 'anon', async () => { calcUso = await conCalculo('3'); return pedido('tienda-a', [{ producto_id: pA, cantidad: 1 }], datosPedido({ telefono: '3205550031', calculo_id: calcUso })) }, r => r.rows[0].p.domicilio == 5000 && r.rows[0].p.km == 3)
+await falla('…y no se puede reutilizar para otro pedido', 'anon', () => pedido('tienda-a', [{ producto_id: pA, cantidad: 1 }], datosPedido({ telefono: '3205550032', calculo_id: calcUso })), 'venció')
+await falla('un calculo_id inventado se rechaza', 'anon', () => pedido('tienda-a', [{ producto_id: pA, cantidad: 1 }], datosPedido({ telefono: '3205550033', calculo_id: '00000000-0000-0000-0000-000000000000' })), 'venció')
+await falla('un calculo_id con formato raro se rechaza', 'anon', () => pedido('tienda-a', [{ producto_id: pA, cantidad: 1 }], datosPedido({ telefono: '3205550034', calculo_id: "x'; drop table pedidos_tienda;--" })), 'no es válido')
+await falla('el km que mande el navegador ya no cuenta', 'anon', () => pedido('tienda-a', [{ producto_id: pA, cantidad: 1 }], datosPedido({ telefono: '3205550035', km: '1' })), 'Calcula la distancia')
+await falla('un cálculo vencido (más de 3 horas) se rechaza', 'anon', async () => {
+  const id = await conCalculo('3'); await db.exec('reset role'); await q(`update calculos_domicilio set creado_en = now() - interval '4 hours' where id=$1`, [id]); await db.exec('set role anon')
+  return pedido('tienda-a', [{ producto_id: pA, cantidad: 1 }], datosPedido({ telefono: '3205550036', calculo_id: id }))
+}, 'venció')
+
+console.log('\n--- C4: el pedido nunca se bloquea (tarifa fija de respaldo) ---')
+await ok('sin cupo del mapa: el pedido sigue con la tarifa fija (la base, 4 000)', 'anon', async () => pedido('tienda-a', [{ producto_id: pA, cantidad: 1 }], datosPedido({ telefono: '3205550037', calculo_id: await conCalculo(null, 'sin_cupo') })), r => r.rows[0].p.domicilio == 4000 && r.rows[0].p.tarifa_fija === true && r.rows[0].p.km === null)
+await ok('el pedido queda marcado como tarifa fija', 'sistema', () => q(`select count(*)::int n from pedidos_tienda where negocio_id=$1 and domicilio_tarifa_fija`, [A]), r => r.rows[0].n === 1)
+await ok('el dueño define una tarifa de respaldo propia (6 000)', 'duenoA', () => q(`update negocio_reglas set domicilio_tarifa_respaldo=6000 where negocio_id=$1 returning 1`, [A]), r => r.rows.length === 1)
+await falla('tarifa de respaldo negativa', 'duenoA', () => q(`update negocio_reglas set domicilio_tarifa_respaldo=-1 where negocio_id=$1`, [A]), 'check')
+await ok('mapa caído: cobra la tarifa de respaldo (6 000)', 'anon', async () => pedido('tienda-a', [{ producto_id: pA, cantidad: 1 }], datosPedido({ telefono: '3205550038', calculo_id: await conCalculo(null, 'mapa_fallo') })), r => r.rows[0].p.domicilio == 6000)
+await ok('dirección no encontrada: igual cobra la tarifa de respaldo', 'anon', async () => pedido('tienda-a', [{ producto_id: pA, cantidad: 1 }], datosPedido({ telefono: '3205550039', calculo_id: await conCalculo(null, 'no_encontrada') })), r => r.rows[0].p.domicilio == 6000)
+await ok('dirección escrita a mano: igual cobra la tarifa de respaldo', 'anon', async () => pedido('tienda-a', [{ producto_id: pA, cantidad: 1 }], datosPedido({ telefono: '3205550040', calculo_id: await conCalculo(null, 'manual') })), r => r.rows[0].p.domicilio == 6000)
+await ok('si la ruta del servidor no responde, el navegador pide el pedido sin cálculo y cobra la tarifa de respaldo', 'anon', () => pedido('tienda-a', [{ producto_id: pA, cantidad: 1 }], datosPedido({ telefono: '3205550043', sin_calculo: 'true' })), r => r.rows[0].p.domicilio == 6000 && r.rows[0].p.tarifa_fija === true)
+await ok('con compra grande, el respaldo también respeta el envío gratis', 'anon', async () => pedido('tienda-a', [{ producto_id: pA, cantidad: 20 }], datosPedido({ telefono: '3205550041', calculo_id: await conCalculo(null, 'sin_cupo') })), r => r.rows[0].p.domicilio == 0)
+await ok('a recoger no necesita ningún cálculo', 'anon', () => pedido('tienda-a', [{ producto_id: pA, cantidad: 1 }], datosPedido({ telefono: '3205550042', entrega: 'recoger' })), r => r.rows[0].p.domicilio == 0)
+await ok('la tienda pública publica la tarifa de respaldo', 'anon', () => q(`select negocio_publico('tienda-a') n`), r => r.rows[0].n.domicilio_tarifa_respaldo == 6000)
+
+console.log('\n--- C4: funciones del servidor (solo service_role) ---')
+await falla('anon no lee los cálculos', 'anon', () => q(`select * from calculos_domicilio`), 'permission denied')
+await falla('el dueño tampoco lee los cálculos', 'duenoA', () => q(`select * from calculos_domicilio`), 'permission denied')
+await falla('anon no ejecuta domicilio_guardar', 'anon', () => q(`select domicilio_guardar($1,3,'x',1,1,'ok')`, [A]), 'permission denied')
+await falla('el dueño no ejecuta domicilio_consumir', 'duenoA', () => q(`select domicilio_consumir($1,'buscar')`, [A]), 'permission denied')
+await falla('el dueño no ejecuta domicilio_contexto', 'duenoA', () => q(`select domicilio_contexto('tienda-a','buscar')`), 'permission denied')
+async function comoServidor(fn) { await db.exec('reset role; set role service_role'); try { return await fn() } finally { await db.exec('reset role') } }
+pruebas++; try {
+  const r = await comoServidor(() => q(`select domicilio_contexto('tienda-a','calcular') c`))
+  const c = r.rows[0].c
+  if (c.ok === true && c.negocio_id === A && Number(c.lat) === 10.9878 && c.radio_max_km == 10 && c.tarifa_respaldo == 6000) console.log('✓ el servidor lee el contexto de la tienda (ubicación, radio, respaldo)')
+  else { fallas++; console.log('✗ contexto inesperado', JSON.stringify(c)) }
+} catch (e) { fallas++; console.log('✗ el servidor no pudo leer el contexto:', e.message) }
+pruebas++; try {
+  const c1 = (await comoServidor(() => q(`select domicilio_contexto('no-existe','buscar') c`))).rows[0].c
+  const c2 = (await comoServidor(() => q(`select domicilio_contexto('tienda-b','calcular') c`))).rows[0].c   // B está en modo fijo
+  const c3 = (await comoServidor(() => q(`select domicilio_contexto('tienda-b','buscar') c`))).rows[0].c
+  if (c1.ok === false && c2.ok === false && c2.motivo === 'modo_fijo' && c3.ok === true) console.log('✓ tienda inexistente o en modo fijo: el servidor no calcula (pero sí puede buscar para ubicar la tienda)')
+  else { fallas++; console.log('✗ contexto inesperado', JSON.stringify([c1, c2, c3])) }
+} catch (e) { fallas++; console.log('✗', e.message) }
+pruebas++; try {
+  await comoServidor(() => q(`update plataforma_limites set max_dia=2 where concepto='ors_busquedas'`))
+  const t = []; for (let i = 0; i < 3; i++) t.push((await comoServidor(() => q(`select domicilio_consumir($1,'buscar') r`, [A]))).rows[0].r)
+  await comoServidor(() => q(`update plataforma_limites set max_dia=1500 where concepto='ors_busquedas'`))
+  if (t[0] === true && t[1] === true && t[2] === false) console.log('✓ el cupo diario de búsquedas frena a la tercera (editable)')
+  else { fallas++; console.log('✗ cupo de búsquedas inesperado', t) }
+} catch (e) { fallas++; console.log('✗', e.message) }
+await falla('tipo de consumo inválido', 'sistema', () => q(`select domicilio_consumir($1,'otro')`, [A]), 'no es válido|no válido')
+pruebas++; try {
+  await comoServidor(() => q(`update plataforma_limites set max_dia=0 where concepto='ors_calculos_km'`))
+  const r = (await comoServidor(() => q(`select domicilio_consumir($1,'calcular') r`, [A]))).rows[0].r
+  await comoServidor(() => q(`update plataforma_limites set max_dia=1500 where concepto='ors_calculos_km'`))
+  if (r === false) console.log('✓ cupo diario de cálculos agotado → false (la ruta usa la tarifa fija)')
+  else { fallas++; console.log('✗ debía dar false') }
+} catch (e) { fallas++; console.log('✗', e.message) }
+
+console.log('\n--- C4: prueba del cálculo en el panel (no gasta cupo) ---')
+let usoAntes
+await ok('(medición) cupo usado antes de simular', 'sistema', async () => { usoAntes = (await q(`select coalesce(sum(cantidad),0)::int n from uso_plataforma`)).rows[0].n; return q(`select 1`) }, () => true)
+await ok('simular 5 km: base 4 000 + 3 × 1 000 = 7 000', 'duenoA', () => q(`select simular_domicilio($1, 5, 0) s`, [A]), r => r.rows[0].s.costo == 7000 && r.rows[0].s.km_exceso == 3 && r.rows[0].s.fuera_de_zona === false)
+await ok('simular 5,3 km: 7 300 → 7 500', 'duenoA', () => q(`select simular_domicilio($1, 5.3, 0) s`, [A]), r => r.rows[0].s.costo == 7500 && r.rows[0].s.antes_de_redondear == 7300)
+await ok('simular 12 km: avisa que queda fuera de la zona', 'duenoA', () => q(`select simular_domicilio($1, 12, 0) s`, [A]), r => r.rows[0].s.fuera_de_zona === true && r.rows[0].s.radio_max_km == 10)
+await ok('simular con compra grande: envío gratis', 'duenoA', () => q(`select simular_domicilio($1, 5, 60000) s`, [A]), r => r.rows[0].s.costo == 0 && r.rows[0].s.envio_gratis === true)
+await ok('el soporte también puede simular (solo lectura)', 'soporte', () => q(`select simular_domicilio($1, 5, 0) s`, [A]), r => r.rows[0].s.costo == 7000)
+await falla('el cajero no simula', 'cajeroA', () => q(`select simular_domicilio($1, 5, 0)`, [A]), 'No autorizado')
+await falla('el dueño de otra tienda no simula', 'duenoB', () => q(`select simular_domicilio($1, 5, 0)`, [A]), 'No autorizado')
+await falla('anónimo no simula', 'anon', () => q(`select simular_domicilio($1, 5, 0)`, [A]), 'permission denied')
+await falla('km absurdo al simular', 'duenoA', () => q(`select simular_domicilio($1, 500, 0)`, [A]), 'no es válida')
+await ok('simular no gastó ningún cupo', 'sistema', () => q(`select coalesce(sum(cantidad),0)::int n from uso_plataforma`), r => r.rows[0].n === usoAntes)
 
 console.log('\n--- Cupo mensual de cálculos de domicilio por km ---')
 await falla('un usuario no consume cupos', 'duenoA', () => q(`select _consumir_cuota_km($1)`, [A]), 'permission denied')
@@ -844,6 +925,18 @@ console.log('\n--- Archivo 13 (tienda demo publicada) ---')
 console.log('\n--- Archivo 09 (negocio de prueba) ---')
 await como('sistema', async () => { await db.exec(fs.readFileSync(path.join(sqlDir, '09-negocio-prueba.sql'), 'utf8').replace('CORREO_DUENO@gmail.com', 'extra@prueba.com')) })
 await ok('09 crea el negocio demo con sus datos', 'extra', () => q(`select (select count(*) from productos) p, (select slug from negocios) s`), r => r.rows[0].p == 3 && r.rows[0].s === 'demo')
+
+
+// Archivo 15: su verificación final (7 filas en true) y que se pueda correr dos veces
+{
+  const sql15 = fs.readFileSync(path.join(sqlDir, '15-domicilio-km.sql'), 'utf8')
+  const idx = sql15.lastIndexOf("select 'La tabla calculos_domicilio existe")
+  await db.exec(sql15.slice(0, idx))   // segunda corrida (idempotente)
+  const v15 = await db.query(sql15.slice(idx))
+  pruebas++
+  if (v15.rows.length === 7 && v15.rows.every(r => r.ok === true)) console.log('✓ archivo 15: 7 filas true, y se puede correr dos veces')
+  else { fallas++; console.log('✗ archivo 15: verificación inesperada', JSON.stringify(v15.rows)) }
+}
 
 console.log('\n--- Verificación automática de la base ---')
 const ver = await como('sistema', () => q(`select * from verificar_aislamiento()`))

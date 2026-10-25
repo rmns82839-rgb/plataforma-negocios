@@ -4,6 +4,7 @@ import { reducirImagen, nombreArchivo } from '../lib/imagen'
 import { mensajeError } from '../lib/errores'
 import { Btn, Volver, Aviso, Campo, Logo, clsInput } from '../tienda/ui'
 import { Titulo, Seccion, Insignia, SoloLectura } from './piezas'
+import DomicilioKm from './DomicilioKm'
 
 const num = (t) => (String(t).trim() === '' ? null : Number(String(t).replace(/[$.\s]/g, '').replace(',', '.')))
 
@@ -27,6 +28,10 @@ export default function MiTienda({ ctx, volver }) {
     setC({ ...a.data, ...Object.fromEntries(Object.entries(a.data).map(([k, v]) => [k, v ?? ''])), logo_path: a.data.logo_path })
     setR({ domicilio_costo: b.data?.domicilio_costo ?? '', envio_gratis_desde: b.data?.envio_gratis_desde ?? '', zona_domicilio: b.data?.zona_domicilio ?? '', formas_pago_tienda: b.data?.formas_pago_tienda ?? '' })
     setPub(p.data)
+  }
+  async function recargarReglas() {   // solo el bloque de domicilio fijo; no pisa lo que se esté escribiendo en otras secciones
+    const { data: b } = await supabase.from('negocio_reglas').select('domicilio_costo,envio_gratis_desde,zona_domicilio,formas_pago_tienda').eq('negocio_id', nid).single()
+    if (b) setR({ domicilio_costo: b.domicilio_costo ?? '', envio_gratis_desde: b.envio_gratis_desde ?? '', zona_domicilio: b.zona_domicilio ?? '', formas_pago_tienda: b.formas_pago_tienda ?? '' })
   }
   useEffect(() => { cargar() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -165,6 +170,8 @@ export default function MiTienda({ ctx, volver }) {
           {!lectura && <div className="mt-4"><Btn disabled={guardando === 'domicilio'} onClick={domicilio}>{guardando === 'domicilio' ? 'Guardando…' : 'Guardar domicilio y pagos'}</Btn></div>}
           <M k="domicilio" />
         </Seccion>
+
+        <DomicilioKm ctx={ctx} onCambio={recargarReglas} />
       </fieldset>
     </div>
   )
