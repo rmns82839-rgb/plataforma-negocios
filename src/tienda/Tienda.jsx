@@ -8,6 +8,8 @@ import { Btn, Volver, Aviso, Logo, BarraFija, PiePlataforma } from './ui'
 import Catalogo from './Catalogo'
 import { Carrito, Datos, Revisar } from './Pasos'
 import { entrarConGoogle } from '../lib/google'
+import EntrarCodigo from './EntrarCodigo'
+import { listar, textoDireccion } from '../lib/direcciones'
 
 const guardar = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)) } catch { /* sin almacenamiento: la tienda funciona igual */ } }
 const leer = (k, def) => { try { const t = localStorage.getItem(k); return t ? JSON.parse(t) : def } catch { return def } }
@@ -71,6 +73,15 @@ export default function Tienda({ slug }) {
     if (!sesion || !n?.modulos?.includes('mis_pedidos')) return
     supabase.rpc('mi_perfil_cliente').then(({ data }) => {
       if (data) setDatos((d) => ({ ...d, nombre: d.nombre || data.nombre || '', telefono: d.telefono || data.telefono || '', direccion: d.direccion || data.direccion || '' }))
+    }, () => {})
+  }, [sesion, n])
+
+  // Modo tarifa fija: la última dirección guardada llena el campo (si está vacío). En modo km lo hace la pantalla de direcciones.
+  useEffect(() => {
+    if (!n || n.domicilio_modo === 'km') return
+    listar(sesion ? {} : null, (...a) => supabase.rpc(...a)).then((r) => {
+      const d = r.lista[0]
+      if (d) setDatos((x) => (x.direccion ? x : { ...x, direccion: textoDireccion(d) }))
     }, () => {})
   }, [sesion, n])
 
@@ -148,7 +159,7 @@ export default function Tienda({ slug }) {
 
   const cuerpo = (() => {
     if (paso === 'carrito') return <Carrito tot={tot} cambiar={cambiar} volver={() => irA('catalogo')} seguir={() => irA('datos')} />
-    if (paso === 'datos') return <Datos invitarGoogle={conCuenta && !sesion && !personal} entrarGoogle={entrarGoogle} n={n} slug={slug} tot={tot} datos={datos} setDatos={setDatos} calculo={calculo} setCalculo={setCalculo} soloLectura={false} volver={() => irA('carrito')} seguir={() => irA('revisar')} />
+    if (paso === 'datos') return <Datos invitarGoogle={conCuenta && !sesion && !personal} entrarGoogle={entrarGoogle} sesion={sesion} n={n} slug={slug} tot={tot} datos={datos} setDatos={setDatos} calculo={calculo} setCalculo={setCalculo} soloLectura={false} volver={() => irA('carrito')} seguir={() => irA('revisar')} />
     if (paso === 'revisar') {
       return <Revisar n={n} tot={tot} datos={datos} calculo={calculo} volver={() => irA('datos')} confirmar={confirmar} enviando={enviando} error={errPedido}
         personal={personal} simulado={simulado} practica={practica} setPractica={setPractica} acepta={acepta} setAcepta={setAcepta} promos={promos} setPromos={setPromos} />
@@ -171,7 +182,7 @@ export default function Tienda({ slug }) {
         <>
           {conCuenta && !personal && !simulado && (
             <div className="mb-4 grid grid-cols-1 gap-2">
-              {sesion ? <Btn variante="suave" onClick={() => ir(`/t/${slug}/mis-pedidos`)}>Mis pedidos</Btn> : <Btn variante="suave" onClick={entrarGoogle}>Entrar con Google</Btn>}
+              {sesion ? <Btn variante="suave" onClick={() => ir(`/t/${slug}/mis-pedidos`)}>Mis pedidos</Btn> : <><Btn variante="suave" onClick={entrarGoogle}>Entrar con Google</Btn><EntrarCodigo /></>}
             </div>
           )}
           <header className="mb-6 flex flex-col items-center gap-3 text-center">

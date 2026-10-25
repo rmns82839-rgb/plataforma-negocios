@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { cop, validarDatos, costoDomicilioCalculado } from '../lib/pedido'
 import { Btn, Volver, Aviso, Campo, Cantidad, BarraFija, clsInput } from './ui'
-import CalculoDomicilio from './CalculoDomicilio'
+import DireccionRapida from './DireccionRapida'
+import EntrarCodigo from './EntrarCodigo'
 
 const Titulo = ({ paso, children }) => (
   <>
@@ -43,7 +44,7 @@ export function Carrito({ tot, cambiar, volver, seguir }) {
 }
 
 // ---------- Paso 2: entrega y datos ----------
-export function Datos({ invitarGoogle, entrarGoogle, n, slug, tot, datos, setDatos, calculo, setCalculo, volver, seguir, soloLectura }) {
+export function Datos({ invitarGoogle, entrarGoogle, sesion, n, slug, tot, datos, setDatos, calculo, setCalculo, volver, seguir, soloLectura }) {
   const [errores, setErrores] = useState({})
   const km = n.domicilio_modo === 'km' && (n.modulos || []).includes('domicilio_km')
   const set = (k) => (e) => setDatos({ ...datos, [k]: e.target.value })
@@ -76,6 +77,7 @@ export function Datos({ invitarGoogle, entrarGoogle, n, slug, tot, datos, setDat
         <div className="mb-5 space-y-3 rounded-2xl border-2 border-black/5 bg-white p-4">
           <p className="text-lg font-semibold leading-snug">¿Quieres ver el estado de tu pedido y guardar tus datos?</p>
           <Btn variante="suave" type="button" onClick={entrarGoogle}>Entrar con Google (opcional)</Btn>
+          <EntrarCodigo />
           <p className="text-base text-tinta/60">Si no, sigue aquí: puedes pedir sin cuenta.</p>
         </div>
       )}
@@ -89,16 +91,16 @@ export function Datos({ invitarGoogle, entrarGoogle, n, slug, tot, datos, setDat
         <Campo etiqueta="Tu celular" error={errores.telefono} ayuda="10 dígitos. La tienda te escribe por aquí si hay algún cambio.">
           <input className={clsInput} inputMode="tel" autoComplete="tel" value={datos.telefono} onChange={set('telefono')} />
         </Campo>
-        {dom && (
+        {dom && !km && (
           <Campo etiqueta="Dirección de entrega" error={errores.direccion} ayuda="Calle o carrera, número, barrio y alguna seña.">
             <input className={clsInput} autoComplete="street-address" value={datos.direccion} onChange={cambiarDireccion} />
           </Campo>
         )}
         {dom && km && (
           <div id="calculo-domicilio">
-            <p className="mb-2 text-lg font-semibold">Confirma tu dirección en el mapa</p>
             {errores.calculo && <p className="mb-2 text-base font-semibold text-red-700">{errores.calculo}</p>}
-            <CalculoDomicilio n={n} slug={slug} subtotal={tot.subtotal} direccion={datos.direccion} calculo={calculo} setCalculo={setCalculo}
+            {errores.direccion && !errores.calculo && <p className="mb-2 text-base font-semibold text-red-700">{errores.direccion}</p>}
+            <DireccionRapida n={n} slug={slug} sesion={sesion} subtotal={tot.subtotal} datos={datos} setDatos={setDatos} calculo={calculo} setCalculo={setCalculo}
               soloLectura={soloLectura} recoger={() => { setCalculo(null); setDatos({ ...datos, entrega: 'recoger' }) }} />
           </div>
         )}

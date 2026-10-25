@@ -32,10 +32,13 @@ export default function MisPedidos({ slug, n, sesion }) {
   const [msg, setMsg] = useState(null)
   const [ocupado, setOcupado] = useState(false)
   const [confirmarBorrado, setConfirmarBorrado] = useState(false)
+  const [dirs, setDirs] = useState([])
+  const [dirBorrar, setDirBorrar] = useState(null)
   const activo = n?.modulos?.includes('mis_pedidos')
 
   const cargar = useCallback(async () => {
-    const [a, b] = await Promise.all([supabase.rpc('mi_perfil_cliente'), supabase.rpc('mis_pedidos')])
+    const [a, b, c] = await Promise.all([supabase.rpc('mi_perfil_cliente'), supabase.rpc('mis_pedidos'), supabase.rpc('mis_direcciones')])
+    if (!c.error) setDirs(c.data || [])
     if (!a.error) { setPerfil(a.data || null); if (a.data) setF((x) => ({ ...x, nombre: a.data.nombre, telefono: a.data.telefono, direccion: a.data.direccion || '', acepta_promos: !!a.data.acepta_promos })) }
     else setPerfil(null)
     if (!b.error) setPedidos(b.data || []); else setPedidos([])
@@ -61,12 +64,20 @@ export default function MisPedidos({ slug, n, sesion }) {
     setPerfil(data); setMsg({ tipo: 'ok', texto: 'Tus datos quedaron guardados.' })
   }
 
+  async function borrarDir(id) {
+    setOcupado(true); setMsg(null)
+    const { error } = await supabase.rpc('borrar_direccion', { p_id: id })
+    setOcupado(false); setDirBorrar(null)
+    if (error) return setMsg({ tipo: 'error', texto: mensajeError(error) })
+    setDirs((d) => d.filter((x) => x.id !== id)); setMsg({ tipo: 'ok', texto: 'Borramos esa dirección.' })
+  }
+
   async function borrar() {
     setOcupado(true); setMsg(null)
     const { error } = await supabase.rpc('borrar_mi_perfil')
     setOcupado(false); setConfirmarBorrado(false)
     if (error) return setMsg({ tipo: 'error', texto: mensajeError(error) })
-    setPerfil(null); setF({ nombre: '', telefono: '', direccion: '', acepta_datos: false, acepta_promos: false }); setPedidos([])
+    setPerfil(null); setDirs([]); setF({ nombre: '', telefono: '', direccion: '', acepta_datos: false, acepta_promos: false }); setPedidos([])
     setMsg({ tipo: 'ok', texto: 'Borramos tu perfil y soltamos tu cuenta de tus pedidos. La tienda conserva solo el registro de la venta.' })
   }
 
@@ -140,9 +151,27 @@ export default function MisPedidos({ slug, n, sesion }) {
         <Btn disabled={ocupado} onClick={guardar}>{ocupado ? 'Guardando…' : perfil ? 'Guardar cambios' : 'Guardar mis datos'}</Btn>
       </div>
 
+      <h2 className="mb-3 mt-8 text-2xl font-bold">Mis direcciones</h2>
+      {dirs.length === 0 && <Aviso>Aquí aparecerán las direcciones que guardes al hacer un pedido, para que no tengas que escribirlas otra vez.</Aviso>}
+      <div className="space-y-3">
+        {dirs.map((d) => (
+          <section key={d.id} className="rounded-2xl border-2 border-black/5 bg-white p-4">
+            <p className="text-xl font-bold leading-snug">{d.etiqueta}</p>
+            <p className="break-words text-lg">{d.direccion}</p>
+            {d.sena && <p className="break-words text-base text-tinta/70">Seña: {d.sena}</p>}
+            {dirBorrar === d.id ? (
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                <Btn variante="suave" onClick={() => setDirBorrar(null)}>No, volver</Btn>
+                <Btn disabled={ocupado} onClick={() => borrarDir(d.id)}>Sí, borrar</Btn>
+              </div>
+            ) : <button onClick={() => setDirBorrar(d.id)} className="mt-2 min-h-[48px] text-lg font-semibold text-red-700 underline">Borrar esta dirección</button>}
+          </section>
+        ))}
+      </div>
+
       <div className="mt-6 grid gap-3">
         <Btn variante="suave" onClick={() => supabase.auth.signOut()}>Salir de mi cuenta</Btn>
-        {perfil && !confirmarBorrado && <button onClick={() => setConfirmarBorrado(true)} className="min-h-[56px] text-lg font-semibold text-red-700 underline">Borrar mis datos</button>}
+        {(perfil || dirs.length > 0) && !confirmarBorrado && <button onClick={() => setConfirmarBorrado(true)} className="min-h-[56px] text-lg font-semibold text-red-700 underline">Borrar mis datos</button>}
         {confirmarBorrado && (
           <div className="space-y-3 rounded-2xl border-2 border-red-300 bg-red-50 p-4">
             <p className="text-lg font-semibold text-red-900">¿Seguro? Se borra tu perfil y tus pedidos dejan de aparecer aquí.</p>

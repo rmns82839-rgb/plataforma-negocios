@@ -98,4 +98,63 @@ t('validar: tienda de tarifa fija no pide cálculo', () => assert.deepEqual(P.va
   try { assert.equal(buena.estado, 'ok'); ok++; console.log('✓ API responde: se devuelve tal cual') } catch (e) { console.log('✗', e.message); process.exitCode = 1 }
 }
 
+// ---- C5b: direcciones guardadas ----
+{
+  const D = await import('../src/lib/direcciones.js')
+  const mem = () => { const m = {}; return { getItem: k => (k in m ? m[k] : null), setItem: (k, v) => { m[k] = String(v) } } }
+  const base = { etiqueta: 'Casa', direccion: 'Calle 133b # 95b-19, Villa Elisa', sena: 'Portón verde', lat: 4.7512, lng: -74.0931 }
+  const tt = async (n, f) => { try { await f(); ok++; console.log('✓', n) } catch (e) { console.log('✗', n, '→', e.message); process.exitCode = 1 } }
+  await tt('texto del pedido: dirección + seña', () => assert.equal(D.textoDireccion(base), 'Calle 133b # 95b-19, Villa Elisa · Seña: Portón verde'))
+  await tt('texto sin seña', () => assert.equal(D.textoDireccion({ ...base, sena: '' }), 'Calle 133b # 95b-19, Villa Elisa'))
+  await tt('texto nunca pasa de 160', () => assert.ok(D.textoDireccion({ direccion: 'a'.repeat(160), sena: 'b'.repeat(100) }).length <= 160))
+  await tt('validar: dirección corta y punto ausente', () => { const e = D.validarDireccion({ direccion: 'ab', lat: null, lng: null }); assert.ok(e.direccion && e.punto) })
+  await tt('validar: dirección y punto correctos', () => assert.deepEqual(D.validarDireccion(base), {}))
+  await tt('sin cuenta: se guarda en el celular y se lista', async () => {
+    const a = mem(); const g = await D.guardar(null, null, base, true, a)
+    assert.ok(D.esLocal(g.dir.id)); const l = await D.listar(null, null, a)
+    assert.equal(l.lista.length, 1); assert.equal(l.lista[0].lat, 4.7512); assert.equal(l.cuenta, false)
+  })
+  await tt('sin cuenta: corregir no crea otra', async () => {
+    const a = mem(); const g = await D.guardar(null, null, base, true, a)
+    await D.guardar(null, null, { ...base, id: g.dir.id, direccion: 'Calle 133b # 95b-20' }, true, a)
+    const l = await D.listar(null, null, a); assert.equal(l.lista.length, 1); assert.ok(l.lista[0].direccion.endsWith('20'))
+  })
+  await tt('sin cuenta: máximo 5', async () => {
+    const a = mem(); for (let i = 0; i < 5; i++) await D.guardar(null, null, { ...base, direccion: 'Carrera ' + i + ' # 1-2 Suba' }, true, a)
+    const g = await D.guardar(null, null, base, true, a); assert.match(g.error, /5 direcciones/)
+  })
+  await tt('la última usada va primero', async () => {
+    const a = mem(); const g1 = await D.guardar(null, null, base, true, a); await new Promise(r => setTimeout(r, 5))
+    await D.guardar(null, null, { ...base, etiqueta: 'Trabajo', direccion: 'Carrera 7 # 12-30 Centro' }, true, a); await new Promise(r => setTimeout(r, 5))
+    await D.marcarUso(null, null, g1.dir.id, a); const l = await D.listar(null, null, a); assert.equal(l.lista[0].id, g1.dir.id)
+  })
+  await tt('borrar en el celular', async () => {
+    const a = mem(); const g = await D.guardar(null, null, base, true, a); assert.equal(await D.borrar(null, null, g.dir.id, a), true)
+    assert.equal((await D.listar(null, null, a)).lista.length, 0)
+  })
+  await tt('almacenamiento dañado no rompe', async () => { const a = { getItem: () => '{no json', setItem: () => { throw new Error('lleno') } }; assert.equal((await D.listar(null, null, a)).lista.length, 0); const g = await D.guardar(null, null, base, true, a); assert.ok(g.dir) })
+  await tt('con cuenta y aceptación: va a la base con los datos limpios', async () => {
+    let llamada; const rpc = async (n, a) => { llamada = { n, a }; return { data: { ...a.p_datos, id: 'uuid-1' }, error: null } }
+    const g = await D.guardar({}, rpc, base, true, mem())
+    assert.equal(llamada.n, 'guardar_direccion'); assert.equal(llamada.a.p_datos.acepta_datos, true); assert.equal(llamada.a.p_datos.id, null); assert.equal(g.dir.id, 'uuid-1')
+  })
+  await tt('con cuenta y sin aceptar: no se guarda nada', async () => {
+    let n = 0; const rpc = async () => { n++; return { data: null, error: null } }; const a = mem()
+    const g = await D.guardar({}, rpc, base, false, a); assert.equal(g.dir, null); assert.equal(n, 0); assert.equal(D.leerLocal(a).length, 0)
+  })
+  await tt('con cuenta: error de la base se muestra claro', async () => { const g = await D.guardar({}, async () => ({ data: null, error: { message: 'Ya tienes 5 direcciones guardadas' } }), base, true, mem()); assert.match(g.error, /5 direcciones/) })
+  await tt('con cuenta: si la base cae, no lanza', async () => { const g = await D.guardar({}, async () => { throw new Error('red') }, base, true, mem()); assert.ok(g.error) })
+  await tt('con cuenta: lista de la base; si falla, usa el celular', async () => {
+    const a = mem(); await D.guardar(null, null, base, true, a)
+    const l1 = await D.listar({}, async () => ({ data: [{ id: 'u1', etiqueta: 'Casa', direccion: 'x', lat: 1, lng: 2, ultimo_uso: '2026-01-01' }], error: null }), a)
+    assert.equal(l1.lista[0].id, 'u1'); assert.equal(l1.cuenta, true)
+    const l2 = await D.listar({}, async () => { throw new Error('red') }, a); assert.equal(l2.lista.length, 1); assert.equal(l2.cuenta, false)
+    const l3 = await D.listar({}, async () => ({ data: [], error: null }), a); assert.equal(l3.lista.length, 1)
+  })
+  await tt('una dirección del celular nunca se manda a corregir en la base', async () => {
+    let enviado; const rpc = async (n, a) => { enviado = a; return { data: { id: 'u9' }, error: null } }
+    await D.guardar({}, rpc, { ...base, id: 'l-abc' }, true, mem()); assert.equal(enviado.p_datos.id, null)
+  })
+}
+
 console.log(`\n${ok} pruebas correctas`)

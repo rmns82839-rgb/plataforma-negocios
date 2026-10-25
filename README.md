@@ -110,3 +110,22 @@ Las públicas reciben el **slug**: `crear_pedido_tienda(p_slug, p_datos, p_items
 - Ruta `/t/<slug>/mis-pedidos`: perfil con consentimiento (Ley 1581), estado de cada pedido (se actualiza cada 20 s), borrar mis datos y salir.
 - Botón «Entrar con Google» en la tienda (módulo `mis_pedidos`), aviso opcional en el paso de datos, y los datos guardados llenan el pedido. Pedir como invitado sigue igual.
 - Cajeros invitados: entran con Google en «Acceso del personal»; al iniciar sesión se reclaman sus invitaciones (`reclamar_invitaciones`).
+
+## C5b — Pedido en un toque (direcciones guardadas y código al correo)
+
+**Qué hace**
+- La primera vez, la persona toca «Usar mi ubicación», confirma «¿Es aquí tu puerta?», escribe su dirección exacta (obligatoria), una seña opcional y un nombre (Casa, Trabajo, Otra).
+- Se guarda el trío **dirección + seña + punto exacto (lat/lng)**. Las veces siguientes solo toca **«Sí, enviar a Casa»**: el servidor mide los km desde el punto guardado (sigue siendo el servidor quien calcula).
+- Si está en otro lugar: **«Estoy en otro lugar (usar mi ubicación)»**. Si quiere otra casa: **«Agregar otra dirección»** (hasta 5). **«Corregir»** mueve el pin de una dirección sin crear otra.
+- Sin cuenta: se guarda solo en ese celular (localStorage). Con cuenta (Google o código al correo): se guarda en la base, con aceptación expresa (casilla sin marcar), y la acompaña a cualquier celular.
+- «Mis pedidos» → «Mis direcciones» permite borrarlas una a una; «Borrar mis datos» las borra todas.
+- Si el celular no da la ubicación: «Prefiero escribir la dirección y buscarla» (el flujo de C4).
+
+**Archivos**: `supabase/16-direcciones-cliente.sql` (verificación: 5 filas true), `src/lib/direcciones.js`, `src/tienda/DireccionRapida.jsx`, `src/tienda/EntrarCodigo.jsx`, `src/lib/google.js` (código por correo), `src/tienda/MisPedidos.jsx`.
+
+**Código al correo (hay que configurar Supabase una vez)**
+1. Supabase → Authentication → Emails → plantillas **«Magic Link»** y **«Confirm signup»**: el mensaje debe incluir `{{ .Token }}`. Ejemplo: `Tu código para entrar es: {{ .Token }}`.
+2. El correo que trae Supabase por defecto solo envía ~2 correos por hora. Para uso real: Authentication → SMTP Settings → SMTP propio (por ejemplo Resend).
+3. Authentication → Sign In / Providers → Email debe estar activado.
+
+**Queda para después**: código por SMS/WhatsApp (cuesta dinero por mensaje), usar el celular como llave principal.

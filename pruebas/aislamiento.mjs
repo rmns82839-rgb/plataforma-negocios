@@ -37,7 +37,7 @@ for (const n of ['duenoA', 'cajeroA', 'duenoB', 'soporte', 'extra', 'duenoV', 'g
 
 // ---------- Cargar los SQL del proyecto ----------
 let fallas = 0, pruebas = 0
-for (const f of ['01-plataforma.sql', '02-datos.sql', '03-seguridad.sql', '04-funciones-plataforma.sql', '05-storage-realtime.sql', '06-funciones-negocio.sql', '07-tablero-y-pedidos.sql', '08-permisos.sql', '10-planes-modulos.sql', '11-catalogo-clientes.sql', '12-redondeo-domicilio.sql', '14-panel.sql', '15-domicilio-km.sql']) {
+for (const f of ['01-plataforma.sql', '02-datos.sql', '03-seguridad.sql', '04-funciones-plataforma.sql', '05-storage-realtime.sql', '06-funciones-negocio.sql', '07-tablero-y-pedidos.sql', '08-permisos.sql', '10-planes-modulos.sql', '11-catalogo-clientes.sql', '12-redondeo-domicilio.sql', '14-panel.sql', '15-domicilio-km.sql', '16-direcciones-cliente.sql']) {
   try { await db.exec(fs.readFileSync(path.join(sqlDir, f), 'utf8')); console.log('OK   ', f) }
   catch (e) { console.log('FALLA', f, '→', e.message); process.exit(1) }
 }
@@ -936,6 +936,41 @@ await ok('09 crea el negocio demo con sus datos', 'extra', () => q(`select (sele
   pruebas++
   if (v15.rows.length === 7 && v15.rows.every(r => r.ok === true)) console.log('✓ archivo 15: 7 filas true, y se puede correr dos veces')
   else { fallas++; console.log('✗ archivo 15: verificación inesperada', JSON.stringify(v15.rows)) }
+}
+
+// Archivo 16: direcciones guardadas del cliente (C5b)
+console.log('\n--- Archivo 16: direcciones guardadas ---')
+const dirBase = { etiqueta: 'Casa', direccion: 'Calle 133b # 95b-19, Villa Elisa', sena: 'Portón verde', lat: 4.7512, lng: -74.0931, acepta_datos: true }
+let dirId
+await falla('sin sesión no se guardan direcciones', 'anon', () => q(`select guardar_direccion($1::jsonb)`, [J(dirBase)]), 'permission denied')
+await falla('sin aceptar la política no se guarda', 'google1', () => q(`select guardar_direccion($1::jsonb)`, [J({ ...dirBase, acepta_datos: false })]), 'política')
+await falla('dirección muy corta', 'google1', () => q(`select guardar_direccion($1::jsonb)`, [J({ ...dirBase, direccion: 'abc' })]), 'dirección completa')
+await falla('ubicación fuera de rango', 'google1', () => q(`select guardar_direccion($1::jsonb)`, [J({ ...dirBase, lat: 95 })]), 'ubicación')
+await falla('ubicación ausente', 'google1', () => q(`select guardar_direccion($1::jsonb)`, [J({ ...dirBase, lat: null })]), 'ubicación')
+await ok('google1 guarda su dirección con el punto exacto', 'google1', async () => (dirId = (await q(`select guardar_direccion($1::jsonb) d`, [J(dirBase)])).rows[0].d.id, q(`select mis_direcciones() d`)), r => r.rows[0].d.length === 1 && Number(r.rows[0].d[0].lat) === 4.7512 && r.rows[0].d[0].sena === 'Portón verde')
+await ok('google2 no ve las direcciones de google1', 'google2', () => q(`select mis_direcciones() d, (select count(*) from direcciones_cliente) c`), r => r.rows[0].d.length === 0 && r.rows[0].c == 0)
+await ok('el dueño de una tienda tampoco las ve', 'duenoA', () => q(`select (select count(*) from direcciones_cliente) c`), r => r.rows[0].c == 0)
+await falla('nadie escribe directo en la tabla', 'google1', () => q(`update direcciones_cliente set lat = 0`), 'permission denied')
+await falla('google2 no puede corregir la dirección de google1', 'google2', () => q(`select guardar_direccion($1::jsonb)`, [J({ ...dirBase, id: dirId, direccion: 'Calle falsa 123' })]), 'No encontramos')
+await ok('google1 corrige su dirección (mismo id, sin crear otra)', 'google1', async () => { await q(`select guardar_direccion($1::jsonb)`, [J({ id: dirId, etiqueta: 'Casa', direccion: 'Calle 133b # 95b-20', lat: 4.7513, lng: -74.0932 })]); return q(`select mis_direcciones() d`) }, r => r.rows[0].d.length === 1 && r.rows[0].d[0].direccion.endsWith('20') && r.rows[0].d[0].sena === null)
+await ok('hasta 5 direcciones y la última usada va primero', 'google1', async () => {
+  for (let i = 2; i <= 5; i++) await q(`select guardar_direccion($1::jsonb)`, [J({ ...dirBase, etiqueta: 'Otra ' + i, direccion: 'Carrera ' + i + ' # 10-20 Suba' })])
+  await q(`select usar_direccion($1)`, [dirId])
+  return q(`select mis_direcciones() d`)
+}, r => r.rows[0].d.length === 5 && r.rows[0].d[0].id === dirId)
+await falla('la sexta dirección se rechaza', 'google1', () => q(`select guardar_direccion($1::jsonb)`, [J({ ...dirBase, direccion: 'Carrera 99 # 10-20 Suba' })]), '5 direcciones')
+await ok('google2 no puede borrar la dirección de google1', 'google2', async () => { await q(`select borrar_direccion($1)`, [dirId]); return q(`select 1`) }, () => true)
+await ok('...y la dirección sigue ahí', 'google1', () => q(`select mis_direcciones() d`), r => r.rows[0].d.length === 5)
+await ok('google1 borra una dirección', 'google1', async () => { await q(`select borrar_direccion($1)`, [dirId]); return q(`select mis_direcciones() d`) }, r => r.rows[0].d.length === 4)
+await ok('"Borrar mis datos" borra todas sus direcciones', 'google1', async () => { await q(`select borrar_mi_perfil()`); return q(`select mis_direcciones() d`) }, r => r.rows[0].d.length === 0)
+{
+  const sql16 = fs.readFileSync(path.join(sqlDir, '16-direcciones-cliente.sql'), 'utf8')
+  const idx = sql16.lastIndexOf("select 'La tabla direcciones_cliente existe")
+  await db.exec(sql16.slice(0, idx))   // segunda corrida (idempotente)
+  const v16 = await db.query(sql16.slice(idx))
+  pruebas++
+  if (v16.rows.length === 5 && v16.rows.every(r => r.ok === true)) console.log('✓ archivo 16: 5 filas true, y se puede correr dos veces')
+  else { fallas++; console.log('✗ archivo 16: verificación inesperada', JSON.stringify(v16.rows)) }
 }
 
 console.log('\n--- Verificación automática de la base ---')
