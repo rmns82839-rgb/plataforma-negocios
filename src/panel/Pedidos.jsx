@@ -2,12 +2,13 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { cop, numeroWhatsapp } from '../lib/pedido'
 import { mensajeError } from '../lib/errores'
-import { Btn, Volver, Aviso } from '../tienda/ui'
+import { Btn, Volver, Aviso, Campo, clsInput } from '../tienda/ui'
+import { aNumero, armarPagos, cambio } from '../lib/caja'
 import { Titulo, Seccion, Insignia, Opciones, SoloLectura, fechaHora } from './piezas'
 
 const FILTROS = [['pendiente', 'Pendientes'], ['atendido', 'Atendidos'], ['cancelado', 'Cancelados']]
 const SEG = [['recibido', 'Recibido'], ['preparando', 'Preparando'], ['en_camino', 'En camino'], ['entregado', 'Entregado']]
-const COLS = 'id,numero,creado_en,nombre,telefono,direccion,nota,total,estado,domicilio,entrega,seguimiento,km_informado,domicilio_tarifa_fija,es_practica'
+const COLS = 'id,numero,creado_en,nombre,telefono,direccion,nota,total,estado,domicilio,entrega,seguimiento,km_informado,domicilio_tarifa_fija,es_practica,venta_id,cliente_id'
 
 export default function Pedidos({ ctx, volver }) {
   const [filtro, setFiltro] = useState('pendiente')
@@ -59,6 +60,14 @@ function Detalle({ ctx, pedido, cerrar }) {
   const [ocupado, setOcupado] = useState(false)
   const [error, setError] = useState('')
   const [confirmar, setConfirmar] = useState(false)
+  const [cobrando, setCobrando] = useState(false)     // elegir cómo pagó el cliente
+  const [formas, setFormas] = useState([])
+  const [metodo, setMetodo] = useState('efectivo')
+  const [recibido, setRecibido] = useState('')
+  const [aviso, setAviso] = useState('')
+  const [devolviendo, setDevolviendo] = useState(false)
+  const [motivo, setMotivo] = useState('')
+  const conCaja = ctx.modulos.includes('caja') && !p.es_practica
   const nid = ctx.neg.negocio_id
   const puede = !ctx.soloLectura
 
@@ -75,6 +84,38 @@ function Detalle({ ctx, pedido, cerrar }) {
     if (e) return setError(mensajeError(e))
     if (!data?.length) return setError('No se pudo cambiar el pedido. Intenta de nuevo.')
     setP(data[0])
+  }
+
+  async function abrirCobro() {
+    setCobrando(true); setError('')
+    if (formas.length === 0) {
+      const { data } = await supabase.from('formas_pago').select('id,nombre,tipo,orden').eq('negocio_id', nid).eq('activa', true).order('orden')
+      setFormas(data || [])
+    }
+  }
+
+  async function atender() {
+    setOcupado(true); setError('')
+    const f = formas.find((x) => x.id === metodo)
+    const r = armarPagos([{ metodo }], p.total, f?.tipo === 'efectivo' ? recibido : '')
+    if (r.error) { setOcupado(false); return setError(r.error) }
+    if (f?.tipo === 'fiado' && !p.cliente_id) { setOcupado(false); return setError('Este pedido no tiene un cliente para dejarle la deuda. Elige otra forma de pago.') }
+    const { data, error: e } = await supabase.rpc('atender_pedido_tienda', { p_negocio_id: nid, p_pedido_id: p.id, p_pagos: r.pagos })
+    setOcupado(false)
+    if (e) return setError(mensajeError(e))
+    setP({ ...p, estado: 'atendido', venta_id: data?.venta_id ?? null })
+    setCobrando(false)
+    const dev = f?.tipo === 'efectivo' ? cambio(recibido, p.total) : null
+    setAviso(`Listo: venta #${data?.numero ?? ''} registrada${dev ? `. Devuelve ${cop(dev)}` : ''}.`)
+  }
+
+  async function devolver() {
+    setOcupado(true); setError('')
+    const { error: e } = await supabase.rpc('deshacer_atencion_pedido', { p_negocio_id: nid, p_pedido_id: p.id, p_motivo: motivo })
+    setOcupado(false)
+    if (e) return setError(mensajeError(e))
+    setDevolviendo(false); setMotivo(''); setAviso('El pedido volvió a pendiente y la venta quedó anulada.')
+    setP({ ...p, estado: 'pendiente', venta_id: null })
   }
 
   async function cambiarSeguimiento(seg) {
@@ -97,7 +138,9 @@ function Detalle({ ctx, pedido, cerrar }) {
       <div className="mb-4 flex flex-wrap gap-2">
         <Insignia tono={p.estado === 'pendiente' ? 'ambar' : p.estado === 'atendido' ? 'verde' : 'rojo'}>{p.estado === 'pendiente' ? 'Pendiente' : p.estado === 'atendido' ? 'Atendido' : 'Cancelado'}</Insignia>
         {p.es_practica && <Insignia tono="ambar">Pedido de prueba</Insignia>}
+        {p.venta_id && <Insignia tono="azul">Venta registrada en caja</Insignia>}
       </div>
+      {aviso && <div className="mb-4"><Aviso tipo="ok">{aviso}</Aviso></div>}
       {error && <div className="mb-4"><Aviso tipo="error">{error}</Aviso></div>}
 
       <Seccion titulo="Cliente">
@@ -140,11 +183,34 @@ function Detalle({ ctx, pedido, cerrar }) {
 
       {puede && (
         <div className="space-y-3">
-          {p.estado === 'pendiente' && !confirmar && (
+          {p.estado === 'pendiente' && !confirmar && !cobrando && (
             <>
-              <Btn variante="verde" disabled={ocupado} onClick={() => cambiarEstado('atendido')}>Marcar como atendido</Btn>
+              <Btn variante="verde" disabled={ocupado} onClick={() => (conCaja ? abrirCobro() : cambiarEstado('atendido'))}>Marcar como atendido</Btn>
               <Btn variante="suave" disabled={ocupado} onClick={() => setConfirmar(true)}>Cancelar este pedido</Btn>
             </>
+          )}
+          {cobrando && (
+            <Seccion titulo="¿Cómo pagó el cliente?">
+              <p className="mb-3 text-lg text-tinta/70">Se registra la venta por {cop(p.total)} y se descuenta del inventario.</p>
+              <div className="mb-4 grid grid-cols-2 gap-2" role="group" aria-label="Forma de pago">
+                {formas.map((f) => (
+                  <button key={f.id} type="button" aria-pressed={metodo === f.id} onClick={() => setMetodo(f.id)}
+                    className={`min-h-[64px] rounded-2xl border-2 px-2 text-lg font-bold leading-tight ${metodo === f.id ? 'border-principal bg-principal text-white' : 'border-black/10 bg-white'}`}>{f.nombre}</button>
+                ))}
+              </div>
+              {formas.find((f) => f.id === metodo)?.tipo === 'efectivo' && (
+                <div className="mb-4">
+                  <Campo etiqueta="¿Con cuánto pagó? (opcional)"><input className={clsInput} inputMode="numeric" placeholder="$ 0" value={recibido} onChange={(e) => setRecibido(e.target.value)} /></Campo>
+                  {cambio(recibido, p.total) > 0 && <p className="mt-2 text-2xl font-bold text-principal">Devuelve {cop(cambio(recibido, p.total))}</p>}
+                </div>
+              )}
+              {formas.find((f) => f.id === metodo)?.tipo === 'fiado' && <p className="mb-4 text-lg font-semibold text-amber-800">{p.cliente_id ? 'La deuda queda a nombre de este cliente.' : 'Este pedido no tiene cliente: elige otra forma de pago.'}</p>}
+              <div className="space-y-3">
+                <Btn variante="verde" disabled={ocupado || formas.length === 0} onClick={atender}>{ocupado ? 'Registrando…' : 'Registrar venta y marcar atendido'}</Btn>
+                <Btn variante="suave" disabled={ocupado} onClick={() => { setCobrando(false); setError('') }}>← Volver</Btn>
+                <button type="button" disabled={ocupado} onClick={() => { setCobrando(false); cambiarEstado('atendido') }} className="min-h-[48px] w-full text-lg font-semibold text-principal underline">Marcar atendido sin registrar la venta</button>
+              </div>
+            </Seccion>
           )}
           {confirmar && (
             <Seccion titulo="¿Seguro que quieres cancelar este pedido?">
@@ -154,7 +220,23 @@ function Detalle({ ctx, pedido, cerrar }) {
               </div>
             </Seccion>
           )}
-          {p.estado !== 'pendiente' && <Btn variante="suave" disabled={ocupado} onClick={() => cambiarEstado('pendiente')}>Volver a pendiente</Btn>}
+          {p.estado !== 'pendiente' && !devolviendo && (
+            p.venta_id && p.estado === 'atendido'
+              ? (ctx.esDueno
+                ? <Btn variante="suave" disabled={ocupado} onClick={() => setDevolviendo(true)}>Volver a pendiente (anula la venta)</Btn>
+                : <p className="rounded-2xl border-2 border-black/10 bg-white p-4 text-lg">Este pedido ya tiene una venta registrada. Para devolverlo a pendiente, pídele al dueño que lo haga: así se corrige la caja.</p>)
+              : <Btn variante="suave" disabled={ocupado} onClick={() => cambiarEstado('pendiente')}>Volver a pendiente</Btn>
+          )}
+          {devolviendo && (
+            <Seccion titulo="Devolver a pendiente">
+              <p className="mb-3 text-lg">Se anula la venta, se devuelve el inventario y se borra la deuda de fiado de este pedido.</p>
+              <Campo etiqueta="¿Por qué lo devuelves?"><input className={clsInput} value={motivo} onChange={(e) => setMotivo(e.target.value)} /></Campo>
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                <Btn variante="suave" onClick={() => setDevolviendo(false)}>No, volver</Btn>
+                <Btn disabled={ocupado || motivo.trim().length < 3} onClick={devolver}>{ocupado ? 'Anulando…' : 'Sí, devolver'}</Btn>
+              </div>
+            </Seccion>
+          )}
         </div>
       )}
     </div>

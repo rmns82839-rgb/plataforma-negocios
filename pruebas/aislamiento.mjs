@@ -37,7 +37,7 @@ for (const n of ['duenoA', 'cajeroA', 'duenoB', 'soporte', 'extra', 'duenoV', 'g
 
 // ---------- Cargar los SQL del proyecto ----------
 let fallas = 0, pruebas = 0
-for (const f of ['01-plataforma.sql', '02-datos.sql', '03-seguridad.sql', '04-funciones-plataforma.sql', '05-storage-realtime.sql', '06-funciones-negocio.sql', '07-tablero-y-pedidos.sql', '08-permisos.sql', '10-planes-modulos.sql', '11-catalogo-clientes.sql', '12-redondeo-domicilio.sql', '14-panel.sql', '15-domicilio-km.sql', '16-direcciones-cliente.sql']) {
+for (const f of ['01-plataforma.sql', '02-datos.sql', '03-seguridad.sql', '04-funciones-plataforma.sql', '05-storage-realtime.sql', '06-funciones-negocio.sql', '07-tablero-y-pedidos.sql', '08-permisos.sql', '10-planes-modulos.sql', '11-catalogo-clientes.sql', '12-redondeo-domicilio.sql', '14-panel.sql', '15-domicilio-km.sql', '16-direcciones-cliente.sql', '17-caja-pedidos.sql']) {
   try { await db.exec(fs.readFileSync(path.join(sqlDir, f), 'utf8')); console.log('OK   ', f) }
   catch (e) { console.log('FALLA', f, '→', e.message); process.exit(1) }
 }
@@ -971,6 +971,100 @@ await ok('"Borrar mis datos" borra todas sus direcciones', 'google1', async () =
   pruebas++
   if (v16.rows.length === 5 && v16.rows.every(r => r.ok === true)) console.log('✓ archivo 16: 5 filas true, y se puede correr dos veces')
   else { fallas++; console.log('✗ archivo 16: verificación inesperada', JSON.stringify(v16.rows)) }
+}
+
+// Archivo 17: caja, pedido atendido → venta, caja del día (C6)
+console.log('\n--- Archivo 17: caja y pedidos atendidos ---')
+const pCaja = (await q(`insert into productos (negocio_id,codigo,nombre,precio_venta,precio_compra,stock,publicado) values ($1,'c17','Panela C',3000,2000,100,true) returning id`, [A])).rows[0].id
+const idPed = async (num) => (await q(`select id from pedidos_tienda where negocio_id=$1 and numero=$2`, [A, num])).rows[0].id
+let telN = 3100000000
+const nuevoPed = async (items, datos = {}) => { const r = await como('anon', () => pedido('tienda-a', items, datosPedido({ sin_calculo: 'true', telefono: String(++telN), ...datos }))); return r.rows[0].p }
+const atender = (pid, pagos, neg = A) => q(`select atender_pedido_tienda($1,$2,$3::jsonb) r`, [neg, pid, J(pagos)])
+const nVentas = async () => Number((await q(`select count(*) n from ventas where negocio_id=$1`, [A])).rows[0].n)
+// previsualizar
+{
+  const st0 = await stock(pCaja), nv0 = await nVentas()
+  await ok('previsualizar: total exacto de 2 productos', 'cajeroA', () => q(`select previsualizar_venta($1,$2::jsonb) r`, [A, J([{ producto_id: pCaja, cantidad: 2 }])]), r => r.rows[0].r.total == 6000)
+  await ok('previsualizar: con descuento general', 'duenoA', () => q(`select previsualizar_venta($1,$2::jsonb,null,500) r`, [A, J([{ producto_id: pCaja, cantidad: 2 }])]), r => r.rows[0].r.total == 5500)
+  await ok('previsualizar: no guarda nada ni toca el inventario', 'sistema', async () => ({ st: await stock(pCaja), nv: await nVentas() }), r => r.st === st0 && r.nv === nv0)
+  await ok('previsualizar: la numeración de ventas no se gasta', 'cajeroA', async () => { const id = (await venta(A, [{ producto_id: pCaja, cantidad: 1 }], efectivo(3000))).rows[0].id; return q(`select numero from ventas where id=$1`, [id]) }, async r => true)
+  await falla('previsualizar: producto inexistente', 'cajeroA', () => q(`select previsualizar_venta($1,$2::jsonb) r`, [A, J([{ producto_id: '00000000-0000-0000-0000-000000000001', cantidad: 1 }])]), 'Producto no encontrado')
+  await falla('previsualizar: otro negocio no puede', 'duenoB', () => q(`select previsualizar_venta($1,$2::jsonb) r`, [A, J([{ producto_id: pCaja, cantidad: 1 }])]), 'No autorizado')
+  await falla('previsualizar: anónimo no puede', 'anon', () => q(`select previsualizar_venta($1,$2::jsonb) r`, [A, J([{ producto_id: pCaja, cantidad: 1 }])]), 'permission denied')
+}
+// atender un pedido a domicilio, en efectivo
+let ped1, ped2, ped3
+{
+  ped1 = await nuevoPed([{ producto_id: pCaja, cantidad: 2 }])
+  const st0 = await stock(pCaja), pid = await idPed(ped1.numero)
+  await falla('atender sin forma de pago', 'cajeroA', () => atender(pid, []), 'Elige cómo pagó')
+  await falla('atender con una forma de pago que no existe', 'cajeroA', () => atender(pid, [{ metodo: 'bitcoin' }]), 'no está disponible')
+  await ok('el pedido sigue pendiente tras los errores y sin venta', 'sistema', () => q(`select estado, venta_id from pedidos_tienda where id=$1`, [pid]), r => r.rows[0].estado === 'pendiente' && r.rows[0].venta_id === null)
+  await falla('otro negocio no atiende mi pedido', 'duenoB', () => atender(pid, [{ metodo: 'efectivo' }]), 'No autorizado')
+  await falla('anónimo no atiende pedidos', 'anon', () => atender(pid, [{ metodo: 'efectivo' }]), 'permission denied')
+  await ok('el cajero atiende: se registra la venta con el domicilio y el total del pedido', 'cajeroA', () => atender(pid, [{ metodo: 'efectivo', recibido: 20000 }]),
+    async r => true)
+  await ok('pedido atendido ↔ venta enlazados', 'sistema', () => q(`select p.estado, p.venta_id, v.total, v.domicilio, v.dom_costo, v.nota, v.anulada, (select sum(monto) from venta_pagos where venta_id=v.id) pagado from pedidos_tienda p join ventas v on v.id = p.venta_id where p.id=$1`, [pid]),
+    r => r.rows[0].estado === 'atendido' && Number(r.rows[0].total) === Number(ped1.total) && r.rows[0].domicilio === true && Number(r.rows[0].dom_costo) === Number(ped1.domicilio) && /Pedido en línea/.test(r.rows[0].nota) && Number(r.rows[0].pagado) === Number(ped1.total))
+  await ok('se descontó el inventario', 'sistema', async () => ({ st: await stock(pCaja) }), r => r.st === st0 - 2)
+  await falla('no se atiende dos veces', 'cajeroA', () => atender(pid, [{ metodo: 'efectivo' }]), 'ya fue atendido')
+}
+// fiado: el cliente sale del propio pedido
+{
+  ped2 = await nuevoPed([{ producto_id: pCaja, cantidad: 3 }], { nombre: 'Luz Marina Torres', entrega: 'recoger' })
+  const pid = await idPed(ped2.numero)
+  await ok('atender a fiado: queda la deuda del cliente del pedido', 'duenoA', async () => { await atender(pid, [{ metodo: 'fiado' }]); return q(`select (select coalesce(sum(case tipo when 'cargo' then monto else -monto end),0) from fiado_movimientos where cliente_id = p.cliente_id) saldo, p.total from pedidos_tienda p where p.id=$1`, [pid]) },
+    r => Number(r.rows[0].saldo) === Number(r.rows[0].total) && Number(r.rows[0].total) === 9000)
+  // pago dividido: parte en efectivo, parte en Nequi
+  const ped = await nuevoPed([{ producto_id: pCaja, cantidad: 1 }], { entrega: 'recoger', nombre: 'Pedro Gómez' })
+  const pid2 = await idPed(ped.numero)
+  await ok('pago dividido (efectivo + Nequi)', 'cajeroA', async () => { await atender(pid2, [{ metodo: 'efectivo', monto: 1000 }, { metodo: 'nequi', monto: 2000 }]); return q(`select v.metodo, (select count(*) from venta_pagos where venta_id=v.id) np from pedidos_tienda p join ventas v on v.id=p.venta_id where p.id=$1`, [pid2]) }, r => r.rows[0].metodo === 'mixto' && r.rows[0].np == 2)
+  const xPed = await nuevoPed([{ producto_id: pCaja, cantidad: 1 }], { entrega: 'recoger' }); const xId = await idPed(xPed.numero)
+  await falla('pagos que no suman el total', 'cajeroA', () => atender(xId, [{ metodo: 'efectivo', monto: 100 }]), 'Los pagos suman')
+}
+// pedido de práctica: solo se marca
+{
+  const x = await nuevoPed([{ producto_id: pCaja, cantidad: 1 }], { entrega: 'recoger' })
+  const pid = await idPed(x.numero); const st0 = await stock(pCaja); const nv0 = await nVentas()
+  await q(`update pedidos_tienda set es_practica = true where id=$1`, [pid])
+  await ok('pedido de práctica: se marca atendido sin crear venta ni tocar inventario', 'cajeroA', () => atender(pid, [{ metodo: 'efectivo' }]), async r => true)
+  await ok('...y no hay venta ni cambio de stock', 'sistema', async () => ({ st: await stock(pCaja), nv: await nVentas(), e: (await q(`select estado from pedidos_tienda where id=$1`, [pid])).rows[0].estado }), r => r.st === st0 && r.nv === nv0 && r.e === 'atendido')
+}
+// deshacer
+{
+  const pid = await idPed(ped2.numero); const st0 = await stock(pCaja)
+  await falla('el cajero no deshace ventas', 'cajeroA', () => q(`select deshacer_atencion_pedido($1,$2,'error')`, [A, pid]), 'Solo el dueño')
+  await ok('el dueño deshace: pedido pendiente, venta anulada, inventario y fiado devueltos', 'duenoA', async () => { await q(`select deshacer_atencion_pedido($1,$2,'Se equivocaron de pago')`, [A, pid]); return q(`select p.estado, p.venta_id, (select count(*) from fiado_movimientos where cliente_id=p.cliente_id) mov from pedidos_tienda p where p.id=$1`, [pid]) },
+    r => r.rows[0].estado === 'pendiente' && r.rows[0].venta_id === null && r.rows[0].mov == 0)
+  await ok('...y el stock volvió', 'sistema', async () => ({ st: await stock(pCaja) }), r => r.st === st0 + 3)
+  await ok('...y se puede atender otra vez, ahora en efectivo', 'duenoA', () => atender(pid, [{ metodo: 'efectivo' }]), async r => true)
+  await falla('no se deshace un pedido que ya está pendiente', 'duenoA', async () => { await q(`select deshacer_atencion_pedido($1,$2,'Prueba')`, [A, pid]); return q(`select deshacer_atencion_pedido($1,$2,'Prueba')`, [A, pid]) }, 'no está atendido')
+}
+// caja del día
+{
+  await como('sistema', async () => { await q(`insert into gastos (negocio_id, tipo, descripcion, monto) values ($1,'otros','Bolsas',1500)`, [A]); await q(`select 1`) })
+  const r0 = await como('cajeroA', () => q(`select caja_dia($1) c`, [A]))
+  const c = r0.rows[0].c
+  const esp = await como('sistema', async () => (await q(`select
+      coalesce((select sum(vp.monto) from venta_pagos vp join ventas v on v.id=vp.venta_id join formas_pago f on f.negocio_id=vp.negocio_id and f.id=vp.metodo where vp.negocio_id=$1 and not v.anulada and f.tipo='efectivo' and (v.fecha at time zone 'America/Bogota')::date = hoy_colombia()),0)
+    + coalesce((select sum(monto) from fiado_movimientos where negocio_id=$1 and tipo='abono' and metodo='efectivo' and (fecha at time zone 'America/Bogota')::date = hoy_colombia()),0)
+    - coalesce((select sum(monto) from gastos where negocio_id=$1 and (fecha at time zone 'America/Bogota')::date = hoy_colombia()),0) e`, [A])).rows[0].e)
+  pruebas++
+  if (Number(c.efectivo_esperado) === Number(esp) && c.ventas > 0 && c.gastos_total >= 1500 && Array.isArray(c.por_pago) && c.por_pago.some(x => x.metodo === 'efectivo') && c.lista.length > 0 && !('ganancia' in c) && !('costo' in c)) console.log('✓ caja del día: efectivo esperado correcto y sin costos ni ganancias (cajero)')
+  else { fallas++; console.log('✗ caja del día', JSON.stringify({ esp, c: { ...c, lista: c.lista.length } })) }
+  await ok('el soporte puede ver la caja (solo lectura)', 'soporte', () => q(`select caja_dia($1) c`, [A]), r => r.rows[0].c.ventas > 0)
+  await falla('otro negocio no ve mi caja', 'duenoB', () => q(`select caja_dia($1)`, [A]), 'No autorizado')
+  await falla('anónimo no ve la caja', 'anon', () => q(`select caja_dia($1)`, [A]), 'permission denied')
+  await ok('caja de un día sin movimiento está vacía', 'duenoA', () => q(`select caja_dia($1, date '2020-01-01') c`, [A]), r => r.rows[0].c.ventas == 0 && r.rows[0].c.vendido == 0 && r.rows[0].c.efectivo_esperado == 0)
+}
+{
+  const sql17 = fs.readFileSync(path.join(sqlDir, '17-caja-pedidos.sql'), 'utf8')
+  const idx = sql17.lastIndexOf("select 'Las 4 funciones de caja existen'")
+  await db.exec(sql17.slice(0, idx))   // segunda corrida (idempotente)
+  const v17 = await db.query(sql17.slice(idx))
+  pruebas++
+  if (v17.rows.length === 5 && v17.rows.every(r => r.ok === true)) console.log('✓ archivo 17: 5 filas true, y se puede correr dos veces')
+  else { fallas++; console.log('✗ archivo 17: verificación inesperada', JSON.stringify(v17.rows)) }
 }
 
 console.log('\n--- Verificación automática de la base ---')

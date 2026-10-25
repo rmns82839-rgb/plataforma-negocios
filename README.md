@@ -129,3 +129,23 @@ Las públicas reciben el **slug**: `crear_pedido_tienda(p_slug, p_datos, p_items
 3. Authentication → Sign In / Providers → Email debe estar activado.
 
 **Queda para después**: código por SMS/WhatsApp (cuesta dinero por mensaje), usar el celular como llave principal.
+
+## C6 — Caja, fiados, reportes y pedido atendido → venta
+
+**Archivo SQL nuevo**: `supabase/17-caja-pedidos.sql` (verificación: 5 filas true). Aditivo e idempotente: no cambia ninguna tabla ni función existente.
+- `previsualizar_venta`: el total EXACTO que cobrará el servidor (promociones, precio por mayor…) sin guardar nada. La pantalla nunca calcula distinto del servidor.
+- `atender_pedido_tienda`: marca el pedido atendido y registra la venta con su forma de pago (descuenta inventario, crea el fiado si aplica, incluye el domicilio). Los pedidos de práctica solo se marcan.
+- `deshacer_atencion_pedido` (solo dueño): anula la venta y devuelve el pedido a pendiente.
+- `caja_dia`: resumen de caja de un día (por forma de pago, abonos, gastos, efectivo esperado). El cajero la ve sin costos ni ganancias.
+
+**Pantallas del panel** (se muestran según los módulos del plan: `caja`, `fiados`, `reportes`)
+- **Caja → Vender**: buscar o escanear, agregar productos, total del servidor, cobrar (una forma de pago, o dividida en dos), cambio, descuento, cliente (obligatorio para fiar).
+- **Caja → Resumen del día**: ventas, formas de pago, abonos, gastos (se pueden registrar), efectivo que debe haber, conteo de caja (sobra/falta), lista de ventas con detalle y «Anular» (solo dueño).
+- **Fiados**: quién debe y cuánto, vencidos, abonos, recordatorio por WhatsApp, recargo por mora, cupo y días de crédito (dueño), deuda de antes (dueño), movimientos.
+- **Reportes** (solo dueño): hoy / 7 días / 30 días / este mes; vendido, ganancia, gastos, comparación con el periodo anterior, ventas por día, horas pico, formas de pago, productos y categorías, mejores clientes, fiados, inventario.
+- **Pedidos**: «Marcar como atendido» pide la forma de pago y registra la venta. «Volver a pendiente» con venta registrada solo lo hace el dueño (anula la venta).
+- Cuenta de soporte: recorre la caja completa, pero la venta es simulada y no se guarda nada.
+
+**Archivos**: `src/lib/caja.js` (fechas de Bogotá, pagos, variación, WhatsApp), `src/panel/{Caja,CajaVender,CajaDia,ClienteSelector,Fiados,Reportes,Pedidos}.jsx`.
+
+**Límites conocidos**: no hay domicilio en la venta de mostrador (los domicilios llegan por la tienda en línea); el conteo de caja no se guarda, solo se compara en pantalla; el «gasto» se asume pagado en efectivo.

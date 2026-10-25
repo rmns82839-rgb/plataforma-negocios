@@ -39,9 +39,9 @@ export function Interruptor({ valor, onChange, texto, ayuda, deshabilitado }) {
 export function Opciones({ valor, opciones, onChange, columnas = 2 }) {
   return (
     <div className={`grid gap-2 ${columnas === 3 ? 'grid-cols-3' : columnas === 4 ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-2'}`} role="group">
-      {opciones.map(([v, t]) => (
+      {opciones.map(([v, t], i) => (
         <button key={v} type="button" aria-pressed={valor === v} onClick={() => onChange(v)}
-          className={`min-h-[56px] rounded-2xl border-2 px-2 py-2 text-lg font-semibold leading-tight ${valor === v ? 'border-principal bg-principal text-white' : 'border-black/10 bg-white'}`}>{t}</button>
+          className={`min-h-[56px] rounded-2xl border-2 px-2 py-2 text-lg font-semibold leading-tight ${columnas === 2 && opciones.length % 2 === 1 && i === opciones.length - 1 ? 'col-span-2' : ''} ${valor === v ? 'border-principal bg-principal text-white' : 'border-black/10 bg-white'}`}>{t}</button>
       ))}
     </div>
   )

@@ -13,6 +13,9 @@ import Categorias from './Categorias'
 import MiTienda from './MiTienda'
 import Equipo from './Equipo'
 import MiPlan from './MiPlan'
+import Caja from './Caja'
+import Fiados from './Fiados'
+import Reportes from './Reportes'
 
 const ROL = { dueno: 'Dueño', cajero: 'Cajero', soporte: 'Soporte · solo lectura' }
 
@@ -72,6 +75,9 @@ export default function PanelApp({ slug }) {
   const volver = () => setSeccion('inicio')
   const pagina = {
     pedidos: <Pedidos ctx={ctx} volver={volver} />,
+    caja: <Caja ctx={ctx} volver={volver} />,
+    fiados: <Fiados ctx={ctx} volver={volver} />,
+    reportes: <Reportes ctx={ctx} volver={volver} />,
     productos: <Productos ctx={ctx} volver={volver} />,
     categorias: <Categorias ctx={ctx} volver={volver} />,
     tienda: <MiTienda ctx={ctx} volver={volver} />,
@@ -86,6 +92,9 @@ export default function PanelApp({ slug }) {
 
   const botones = [
     ['pedidos', '🧾', 'Pedidos', resumen?.pedidos_pendientes > 0 ? `${resumen.pedidos_pendientes} por atender` : 'Ver pedidos', true],
+    ['caja', '💵', 'Caja', 'Vender y cuadrar el día', ctx.modulos.includes('caja')],
+    ['fiados', '📒', 'Fiados', 'Quién debe y abonos', ctx.modulos.includes('fiados')],
+    ['reportes', '📊', 'Reportes', 'Ventas y ganancias', ctx.modulos.includes('reportes') && dueño],
     ['productos', '📦', 'Productos', 'Crear y editar', true],
     ['categorias', '🏷️', 'Categorías', 'Ordenar la tienda', true],
     ['tienda', '🏪', 'Mi tienda', 'Datos, logo, domicilio', dueño],
@@ -119,7 +128,7 @@ export default function PanelApp({ slug }) {
 
           {resumen && (
             <div className="mb-5 grid grid-cols-2 gap-3">
-              {[['Pedidos por atender', resumen.pedidos_pendientes], ['Pedidos de hoy', resumen.pedidos_hoy], ['Vendido hoy', cop(resumen.ventas_hoy)], ['Productos en la tienda', `${resumen.productos_publicados}${resumen.productos_agotados > 0 ? ` (${resumen.productos_agotados} agotados)` : ''}`]].map(([k, v]) => (
+              {[['Pedidos por atender', resumen.pedidos_pendientes], ['Pedidos de hoy', resumen.pedidos_hoy], ['Vendido hoy', cop(resumen.ventas_hoy)], [`Productos en la tienda${resumen.productos_agotados > 0 ? ` (${resumen.productos_agotados} ${resumen.productos_agotados === 1 ? 'agotado' : 'agotados'})` : ''}`, resumen.productos_publicados]].map(([k, v]) => (
                 <div key={k} className="rounded-2xl border-2 border-black/5 bg-white p-4 text-center">
                   <p className="break-words text-3xl font-bold text-principal">{v}</p>
                   <p className="text-lg leading-snug text-tinta/70">{k}</p>

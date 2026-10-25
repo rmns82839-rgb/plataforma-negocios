@@ -157,4 +157,27 @@ t('validar: tienda de tarifa fija no pide cálculo', () => assert.deepEqual(P.va
   })
 }
 
+// ---- C6: caja, fiados y reportes ----
+{
+  const K = await import('../src/lib/caja.js')
+  const tt = async (n, f) => { try { await f(); ok++; console.log('✓', n) } catch (e) { console.log('✗', n, '→', e.message); process.exitCode = 1 } }
+  await tt('día en Bogotá: 23:30 del 24 en Bogotá es 04:30 UTC del 25', () => assert.equal(K.diaBogota(new Date('2026-10-25T04:30:00Z')), '2026-10-24'))
+  await tt('día en Bogotá: justo después de medianoche', () => assert.equal(K.diaBogota(new Date('2026-10-25T05:00:00Z')), '2026-10-25'))
+  await tt('rango hoy', () => { const r = K.rangoPeriodo('hoy', new Date('2026-10-25T17:00:00Z')); assert.equal(r.desde, '2026-10-25T05:00:00.000Z'); assert.equal(r.hasta, '2026-10-26T05:00:00.000Z') })
+  await tt('rango 7 días incluye hoy y 6 anteriores', () => assert.equal(K.rangoPeriodo('7d', new Date('2026-10-25T17:00:00Z')).desde, '2026-10-19T05:00:00.000Z'))
+  await tt('rango 30 días', () => assert.equal(K.rangoPeriodo('30d', new Date('2026-10-25T17:00:00Z')).desde, '2026-09-26T05:00:00.000Z'))
+  await tt('rango mes empieza el día 1', () => assert.equal(K.rangoPeriodo('mes', new Date('2026-10-25T17:00:00Z')).desde, '2026-10-01T05:00:00.000Z'))
+  await tt('rango mes con la noche del último día aún en el mes anterior', () => assert.equal(K.rangoPeriodo('mes', new Date('2026-11-01T03:00:00Z')).desde, '2026-10-01T05:00:00.000Z'))
+  await tt('variación', () => { assert.equal(K.variacion(120, 100), 20); assert.equal(K.variacion(50, 100), -50); assert.equal(K.variacion(10, 0), null); assert.equal(K.variacion('x', 5), null) })
+  await tt('subtotal a precio de lista', () => assert.equal(K.subtotalLista([{ producto: { precio_venta: 2500 }, cantidad: 2 }, { producto: { precio_venta: 999.5 }, cantidad: 1 }]), 6000))
+  await tt('un solo pago: monto = total y recibido', () => assert.deepEqual(K.armarPagos([{ metodo: 'efectivo' }], 5700, '10.000').pagos, [{ metodo: 'efectivo', monto: 5700, recibido: 10000 }]))
+  await tt('efectivo recibido menor que el total', () => assert.match(K.armarPagos([{ metodo: 'efectivo' }], 5700, '5000').error, /menor/))
+  await tt('pago dividido: el último se queda con el resto', () => assert.deepEqual(K.armarPagos([{ metodo: 'efectivo', monto: '2000' }, { metodo: 'nequi', monto: '' }], 5700).pagos, [{ metodo: 'efectivo', monto: 2000 }, { metodo: 'nequi', monto: 3700 }]))
+  await tt('pago dividido que se pasa del total', () => assert.ok(K.armarPagos([{ metodo: 'efectivo', monto: '9000' }, { metodo: 'nequi', monto: '' }], 5700).error))
+  await tt('no se repite la forma de pago', () => assert.match(K.armarPagos([{ metodo: 'efectivo', monto: '1000' }, { metodo: 'efectivo' }], 5700).error, /repitas/))
+  await tt('sin forma de pago ni total', () => { assert.match(K.armarPagos([{ metodo: '' }], 5700).error, /Elige/); assert.ok(K.armarPagos([{ metodo: 'efectivo' }], 0).error) })
+  await tt('cambio', () => { assert.equal(K.cambio('10.000', 5700), 4300); assert.equal(K.cambio('', 5700), null); assert.equal(K.cambio('5000', 5700), null) })
+  await tt('mensaje de cobro amable', () => { const m = K.mensajeCobro({ nombre: 'Luz Marina Torres', saldo: 45000, tienda: 'Tienda Demo' }); assert.match(m, /^Hola Luz,/); assert.match(m, /\$45\.000/); assert.match(m, /Tienda Demo/) })
+}
+
 console.log(`\n${ok} pruebas correctas`)
