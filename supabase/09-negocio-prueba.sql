@@ -6,7 +6,7 @@
 do $$
 declare r jsonb; v_id uuid;
 begin
-  r := crear_negocio('demo', 'Negocio Demo', 'tienda', 'CORREO_DUENO@gmail.com');
+  r := crear_negocio('demo', 'Negocio Demo', 'tienda', 'rmns82839@gmail.com');
   v_id := (r->>'id')::uuid;
 
   insert into productos (negocio_id, codigo, nombre, categoria, precio_compra, precio_venta, stock, publicado) values

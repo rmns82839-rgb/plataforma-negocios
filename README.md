@@ -17,6 +17,7 @@ Base nueva e independiente de Matriz: base de datos vacía con aislamiento por n
 | `supabase/09-negocio-prueba.sql` | (Opcional) negocio "demo" con 3 productos |
 | `pruebas/aislamiento.mjs` | 224 pruebas (PGlite, sin tocar Supabase): dos negocios falsos, un dueño de dos negocios, soporte, anon |
 | `src/` | Front mínimo (sin cambios en 2b) |
+| `docs/negocio-y-costos.md` | Costos, precios, punto de equilibrio, límites de Supabase, lista antes de cobrar y decisiones pendientes |
 
 ## Puesta en marcha (PowerShell)
 ```powershell
@@ -64,3 +65,8 @@ Las públicas reciben el **slug**: `crear_pedido_tienda(p_slug, p_datos, p_items
 - Carpeta `api/` (crear usuario, manifest dinámico por negocio, páginas con vista previa, sitemap, feed), modo práctica, respaldo y editor de marca.
 - Front: rutas `/n/{slug}/…` completas (`tienda`, `catalogo`, `pistola`, `ingreso`), `/plataforma` y service worker con caché por negocio.
 - Pendiente de revisar: el límite de clientes nuevos por día desde pedidos públicos (Matriz no lo tiene; ver nota del paso 2b).
+
+## Etapa C1 (planes, publicación, clientes con Google, servicios)
+- `supabase/10-planes-modulos.sql` → planes, módulos nuevos, invitaciones, `crear_negocio(slug,nombre,tipo,email,plan)` (nace sin publicar, URL `/t/<slug>`), `publicar_negocio`, cupos de km.
+- `supabase/11-catalogo-clientes.sql` → categorías, proveedores, pedidos con seguimiento/práctica/km, perfil de cliente, servicios (logo), `verificar_aislamiento()` de 11 filas (reemplaza al de 08).
+- Orden: 01…09, luego 10, luego 11. Pruebas: `cd pruebas; node aislamiento.mjs` (453).

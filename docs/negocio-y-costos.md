@@ -227,11 +227,10 @@ Red de tiendas de barrio con catálogo universal: el cliente escanea un QR, comp
 3. Aprobación de 2b (después de que `verificar_aislamiento()` dé todo en `ok = true`).
 4. Nombre y logo definitivos de la red.
 
----
-
+---js80KrD
 ## 13. Fuentes consultadas
 
 - Supabase — precios: https://supabase.com/pricing
 - Vercel — precios: https://vercel.com/pricing
 - TRM del 16 de octubre de 2026 (Portafolio): https://www.portafolio.co/economia/finanzas/precio-del-dolar-hoy-en-colombia-asi-cotiza-la-divisa-este-16-de-octubre-tras-perder-casi-504569
-- Alegra vs Siigo (blog de Alegra, parte interesada): https://blog.alegra.com/colombia/alegra-vs-siigo-colombia/
+- Alegra vs Siigo (blog de Alegra, parte interesada): https://blog.alegra.com/colombia/alegra-vs-siigo-colombia/JPOQE6X3B

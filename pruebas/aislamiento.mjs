@@ -14,7 +14,7 @@ const db = new PGlite()
 await db.exec(`
 create role anon nologin; create role authenticated nologin; create role service_role nologin bypassrls;
 create schema auth; create schema storage; create schema realtime; create schema extensions;
-create table auth.users (id uuid primary key default gen_random_uuid(), email text, encrypted_password text, last_sign_in_at timestamptz);
+create table auth.users (id uuid primary key default gen_random_uuid(), email text, encrypted_password text, last_sign_in_at timestamptz, email_confirmed_at timestamptz default now());
 create table auth.mfa_factors (id uuid primary key default gen_random_uuid(), user_id uuid, status text, factor_type text);
 create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
 create function auth.jwt() returns jsonb language sql stable as $$ select coalesce(nullif(current_setting('request.jwt.claims', true), ''), '{}')::jsonb $$;
@@ -30,14 +30,14 @@ grant select, insert, update, delete on storage.objects, realtime.messages to au
 grant select on storage.buckets to authenticated;
 `)
 const U = {}
-for (const n of ['duenoA', 'cajeroA', 'duenoB', 'soporte', 'extra']) {
+for (const n of ['duenoA', 'cajeroA', 'duenoB', 'soporte', 'extra', 'duenoV', 'google1', 'google2', 'otro']) {
   const r = await db.query(`insert into auth.users (email) values ($1) returning id`, [n + '@prueba.com'])
   U[n] = r.rows[0].id
 }
 
 // ---------- Cargar los SQL del proyecto ----------
 let fallas = 0, pruebas = 0
-for (const f of ['01-plataforma.sql', '02-datos.sql', '03-seguridad.sql', '04-funciones-plataforma.sql', '05-storage-realtime.sql', '06-funciones-negocio.sql', '07-tablero-y-pedidos.sql', '08-permisos.sql']) {
+for (const f of ['01-plataforma.sql', '02-datos.sql', '03-seguridad.sql', '04-funciones-plataforma.sql', '05-storage-realtime.sql', '06-funciones-negocio.sql', '07-tablero-y-pedidos.sql', '08-permisos.sql', '10-planes-modulos.sql', '11-catalogo-clientes.sql']) {
   try { await db.exec(fs.readFileSync(path.join(sqlDir, f), 'utf8')); console.log('OK   ', f) }
   catch (e) { console.log('FALLA', f, '→', e.message); process.exit(1) }
 }
@@ -78,11 +78,13 @@ async function falla(nombre, quien, fn, patron) {
 }
 
 // ---------- Dos negocios falsos ----------
-const crear = async (slug, nombre, tipo, correo) =>
-  (await q(`select crear_negocio($1,$2,$3,$4) r`, [slug, nombre, tipo, correo])).rows[0].r
+const crear = async (slug, nombre, tipo, correo, plan = 'completo') =>
+  (await q(`select crear_negocio($1,$2,$3,$4,$5) r`, [slug, nombre, tipo, correo, plan])).rows[0].r
+const publicar = async (id) => { await q(`update negocio_config set whatsapp='3001112233' where negocio_id=$1`, [id]); await q(`select publicar_negocio($1,true)`, [id]) }
 const A = (await como('sistema', () => crear('tienda-a', 'Tienda A', 'tienda', 'duenoA@prueba.com'))).id
 const B = (await como('sistema', () => crear('tienda-b', 'Tienda B', 'tienda', 'duenoB@prueba.com'))).id
 await q(`insert into negocio_miembros (negocio_id, user_id, rol) values ($1,$2,'cajero')`, [A, U.cajeroA])
+await como('sistema', async () => { await publicar(A); await publicar(B) })
 const pA = (await q(`insert into productos (negocio_id,codigo,nombre,precio_venta,stock,publicado) values ($1,'1','Arroz A',2500,10,true),($1,'2','Aceite A',9000,5,true) returning id`, [A])).rows[0].id
 const pB = (await q(`insert into productos (negocio_id,codigo,nombre,precio_venta,stock,publicado) values ($1,'1','Arroz B',2600,7,true) returning id`, [B])).rows[0].id
 const cA = (await q(`insert into clientes (negocio_id,nombre) values ($1,'Cliente A') returning id`, [A])).rows[0].id
@@ -184,7 +186,7 @@ await ok('catálogo de ropa exige el módulo ropa', 'anon', async () => { try { 
 
 console.log('\n--- Módulos encendidos y apagados ---')
 await falla('no se apaga "catalogo_publico" si pedidos_en_linea lo usa', 'sistema', () => q(`select activar_modulo($1,'catalogo_publico',false)`, [A]), 'lo usa')
-await falla('no se enciende "ropa" sin dependencias… (ropa no tiene) / repuestos sin productos apagado', 'sistema', async () => { await q(`select activar_modulo($1,'compras',false)`, [A]); await q(`select activar_modulo($1,'escaner',false)`, [A]); await q(`select activar_modulo($1,'productos',false)`, [A]); return q(`select activar_modulo($1,'repuestos',true)`, [A]) }, 'antes')
+await falla('no se enciende "ropa" sin dependencias… (ropa no tiene) / repuestos sin productos apagado', 'sistema', async () => { for (const m of ['menu_del_dia', 'carga_masiva', 'catalogo_maestro']) await q(`select activar_modulo($1,$2,false)`, [A, m]); await q(`select activar_modulo($1,'compras',false)`, [A]); await q(`select activar_modulo($1,'escaner',false)`, [A]); await q(`select activar_modulo($1,'productos',false)`, [A]); return q(`select activar_modulo($1,'repuestos',true)`, [A]) }, 'antes')
 await falla('con "productos" apagado no se ajusta stock', 'duenoA', () => q(`select ajustar_stock($1,$2,3,'x')`, [A, pA]), 'no está activo')
 await ok('con "productos" apagado se sigue LEYENDO lo guardado', 'duenoA', () => q(`select count(*) n from productos`), r => r.rows[0].n == 2)
 await falla('con "productos" apagado el catálogo de tienda no responde', 'anon', () => q(`select catalogo_tienda('tienda-a')`), 'no está activo')
@@ -192,6 +194,7 @@ await ok('B no se afectó (sus módulos siguen)', 'duenoB', () => q(`select modu
 await q(`select activar_modulo($1,'productos',true)`, [A])
 await q(`select activar_modulo($1,'compras',true)`, [A])
 await q(`select activar_modulo($1,'escaner',true)`, [A])
+for (const m of ['menu_del_dia', 'carga_masiva', 'catalogo_maestro']) await q(`select activar_modulo($1,$2,true)`, [A, m])
 
 console.log('\n--- Inventario ---')
 await ok('cajero ajusta stock del negocio', 'cajeroA', () => q(`select ajustar_stock($1,$2,8,'conteo')`, [A, pA]))
@@ -258,6 +261,7 @@ console.log('\n=== PASO 2b: RPC de negocio ===')
 await q(`update productos set categoria='Granos' where id=$1`, [pA])
 await q(`update productos set categoria='Granos' where id=$1`, [pB])
 const C = (await como('sistema', () => crear('ropa-c', 'Ropa C', 'ropa', 'duenoB@prueba.com'))).id
+await como('sistema', () => publicar(C))
 const pA2 = (await q(`select id from productos where negocio_id=$1 and nombre='Aceite A'`, [A])).rows[0].id
 
 console.log('\n--- Venta de productos ---')
@@ -353,6 +357,7 @@ await ok('la vista de lotes solo trae lotes de A para A', 'duenoA', () => q(`sel
 
 await falla('dueño de B y C: abono en B a un cliente de C', 'duenoB', () => q(`select registrar_abono($1,$2,100,'efectivo')`, [B, cC]), 'Cliente no encontrado')
 console.log('\n--- Préstamos ---')
+await q(`select activar_modulo($1,'prestamos',false)`, [B])
 await falla('con el módulo apagado no se presta (B)', 'duenoB', () => q(`select crear_prestamo($1,$2,100000,2,'mensual',4)`, [B, cB]), 'no está activo')
 await q(`select activar_modulo($1,'prestamos',true)`, [A])
 const cP = (await q(`insert into clientes (negocio_id,nombre,documento,tipo_documento,telefono,direccion) values ($1,'Prestatario','123456','CC','3001112222','Cra 1 # 2-3') returning id`, [A])).rows[0].id
@@ -404,9 +409,11 @@ await falla('producto repetido', 'anon', () => pedido('tienda-a', [{ producto_id
 await falla('slug que no existe', 'anon', () => pedido('no-existe', [{ producto_id: pA, cantidad: 1 }], datosPedido()), 'no disponible')
 await q(`update productos set publicado=false where id=$1`, [pA2])
 await falla('producto no publicado', 'anon', () => pedido('tienda-a', [{ producto_id: pA2, cantidad: 1 }], datosPedido()), 'ya no está disponible')
+for (const m of ['domicilio_km', 'mis_pedidos', 'domiciliarios']) await q(`select activar_modulo($1,$2,false)`, [A, m])
 await q(`select activar_modulo($1,'pedidos_en_linea',false)`, [A])
 await falla('con "pedidos_en_linea" apagado no se reciben pedidos', 'anon', () => pedido('tienda-a', [{ producto_id: pA, cantidad: 1 }], datosPedido()), 'no disponible')
 await q(`select activar_modulo($1,'pedidos_en_linea',true)`, [A])
+for (const m of ['domicilio_km', 'mis_pedidos', 'domiciliarios']) await q(`select activar_modulo($1,$2,true)`, [A, m])
 await falla('anon no llama a la función interna de clientes', 'anon', () => q(`select _cliente_desde_pedido($1,'{}'::jsonb,'x')`, [A]), 'permission denied')
 await falla('anon no llama a registrar_venta', 'anon', () => venta(A, [{ producto_id: pA, cantidad: 1 }], efectivo(2500)), 'permission denied')
 await falla('anon no lee los pedidos', 'anon', () => q(`select * from pedidos_tienda`), 'permission denied')
@@ -435,6 +442,358 @@ await ok('dueño de B y C: vende 1 prenda en C (sin anular)', 'duenoB', () => ve
 await ok('el tablero de B no mezcla las ventas de C (mismo dueño)', 'duenoB', () => q(`select tablero($1,$2) tb, tablero($3,$2) tc`, [B, desde, C]), r => r.rows[0].tb.vendido == 0 && r.rows[0].tb.top.length === 0 && r.rows[0].tc.vendido == 50000 && r.rows[0].tc.top.length === 1)
 await ok('la cartera y el inventario del tablero de B no incluyen lo de C', 'duenoB', () => q(`select tablero($1,$2) t`, [B, desde]), r => r.rows[0].t.inventario.productos == 1)
 await ok('tablero de C (ropa): 1 venta vigente y 1 anulada', 'duenoB', () => q(`select tablero($1,$2) t`, [C, desde]), r => r.rows[0].t.ventas == 1 && r.rows[0].t.anuladas == 1)
+
+// =====================================================================================
+// ETAPA C1 — planes, módulos, publicación, invitaciones, clientes con Google, seguimiento, servicios
+// =====================================================================================
+console.log('\n=== ETAPA C1: planes, publicación, clientes con Google, servicios ===')
+const sis = (fn) => como('sistema', fn)
+const V = (await sis(() => crear('vit-v', 'Vitrina V', 'tienda', 'duenoV@prueba.com', 'vitrina'))).id
+const modsDe = async (id) => (await q(`select modulo from negocio_modulos where negocio_id=$1 and activo order by modulo`, [id])).rows.map(r => r.modulo)
+
+console.log('\n--- Planes y módulos ---')
+await ok('Vitrina: trae catálogo, pedidos, domicilio por km, carga masiva y creador de logo; sin caja', 'sistema', async () => ({ m: await modsDe(V) }),
+  r => ['catalogo_publico', 'pedidos_en_linea', 'domicilio_km', 'carga_masiva', 'creador_logo', 'productos'].every(m => r.m.includes(m)) && !r.m.includes('caja') && !r.m.includes('mis_pedidos'))
+await ok('crear_negocio sin plan = Vitrina y nace SIN publicar', 'sistema', () => q(`select plan, publicada from negocios where id=$1`, [V]), r => r.rows[0].plan === 'vitrina' && r.rows[0].publicada === false)
+await ok('los negocios de las pruebas (plan completo) tienen caja, fiados y préstamos', 'sistema', async () => ({ m: await modsDe(A) }), r => ['caja', 'fiados', 'prestamos', 'opiniones', 'resumen_semanal'].every(m => r.m.includes(m)))
+await ok('la tienda de ropa con plan completo no recibe módulos de productos', 'sistema', async () => ({ m: await modsDe(C) }), r => r.m.includes('ropa') && !r.m.includes('menu_del_dia') && !r.m.includes('carga_masiva') && !r.m.includes('compras'))
+await falla('plan que no existe', 'sistema', () => q(`select crear_negocio('x-plan','X','tienda','extra@prueba.com','platino')`), 'Plan no válido')
+await falla('un usuario no activa planes', 'duenoA', () => q(`select activar_plan($1,'vitrina')`, [A]), 'permission denied')
+await falla('un usuario no publica tiendas', 'duenoV', () => q(`select publicar_negocio($1,true)`, [V]), 'permission denied')
+await falla('un usuario no asigna precio fundador', 'duenoA', () => q(`select asignar_fundador($1,true)`, [A]), 'permission denied')
+await falla('anon no lee los planes', 'anon', () => q(`select * from planes`), 'permission denied')
+await ok('un usuario con sesión lee los planes y sus módulos', 'duenoA', () => q(`select (select count(*) from planes) p, (select count(*) from plan_modulos where plan='completo') m`), r => r.rows[0].p == 4 && r.rows[0].m >= 20)
+await falla('un usuario no cambia los precios', 'duenoA', () => q(`update planes set precio_mensual=1 where clave='tienda'`), 'permission denied')
+await ok('cada plan incluye al anterior (los paquetes escalan)', 'sistema', () => q(`select
+  not exists (select 1 from plan_modulos a where a.plan='vitrina' and not exists (select 1 from plan_modulos b where b.plan='tienda' and b.modulo=a.modulo)) v_t,
+  not exists (select 1 from plan_modulos a where a.plan='tienda' and not exists (select 1 from plan_modulos b where b.plan='gestion' and b.modulo=a.modulo)) t_g,
+  not exists (select 1 from plan_modulos a where a.plan='gestion' and not exists (select 1 from plan_modulos b where b.plan='completo' and b.modulo=a.modulo)) g_c`),
+  r => r.rows[0].v_t && r.rows[0].t_g && r.rows[0].g_c)
+
+console.log('\n--- Cambios de plan (el servidor ordena los módulos) ---')
+await sis(() => q(`select activar_plan($1,'tienda')`, [V]))
+await ok('Vitrina → Tienda suma Mis pedidos, avisos, directorio y catálogo maestro', 'sistema', async () => ({ m: await modsDe(V) }), r => ['mis_pedidos', 'avisos_push', 'directorio_red', 'catalogo_maestro', 'publicidad'].every(m => r.m.includes(m)) && !r.m.includes('caja'))
+await sis(() => q(`select activar_plan($1,'gestion')`, [V]))
+await ok('Tienda → Gestión suma caja, fiados, compras, reportes', 'sistema', async () => ({ m: await modsDe(V) }), r => ['caja', 'fiados', 'compras', 'reportes', 'escaner'].every(m => r.m.includes(m)))
+await sis(() => q(`select activar_modulo($1,'anuncios_video',true)`, [V]))
+await ok('un módulo suelto queda marcado como extra', 'sistema', () => q(`select origen from negocio_modulos where negocio_id=$1 and modulo='anuncios_video'`, [V]), r => r.rows[0].origen === 'extra')
+await falla('no se baja a un plan que deja a un extra sin lo que necesita (anuncios_video necesita publicidad)', 'sistema', () => q(`select activar_plan($1,'vitrina')`, [V]), 'sin "publicidad"')
+await ok('tras ese error el plan no cambió (todo o nada)', 'sistema', () => q(`select plan from negocios where id=$1`, [V]), r => r.rows[0].plan === 'gestion')
+await sis(() => q(`select activar_modulo($1,'anuncios_video',false)`, [V]))
+await sis(() => q(`select activar_plan($1,'vitrina')`, [V]))
+await ok('Gestión → Vitrina apaga lo que no incluye, conserva lo base', 'sistema', async () => ({ m: await modsDe(V) }), r => !r.m.includes('caja') && !r.m.includes('mis_pedidos') && r.m.includes('productos') && r.m.includes('catalogo_publico'))
+await sis(() => q(`select activar_modulo($1,'opiniones',true)`, [V]))
+await sis(() => q(`select activar_plan($1,'tienda')`, [V]))
+await ok('un extra que sigue siendo válido se conserva al cambiar de plan', 'sistema', async () => ({ m: await modsDe(V) }), r => r.m.includes('opiniones'))
+await sis(() => q(`select activar_plan($1,'vitrina')`, [V]))
+await sis(() => q(`select activar_modulo($1,'opiniones',false)`, [V]))
+
+console.log('\n--- Precios y precio fundador (son datos editables) ---')
+await ok('mi_plan: el dueño ve su plan, límites y módulos', 'duenoV', () => q(`select mi_plan($1) p`, [V]), r => r.rows[0].p.plan === 'vitrina' && r.rows[0].p.max_productos == 200 && r.rows[0].p.precio_vigente == 0 && r.rows[0].p.modulos.length >= 6)
+await falla('el dueño de otra tienda no ve el plan', 'duenoA', () => q(`select mi_plan($1)`, [V]), 'No autorizado')
+await ok('el soporte puede ver el plan', 'soporte', () => q(`select mi_plan($1) p`, [V]), r => r.rows[0].p.plan === 'vitrina')
+await sis(() => q(`select activar_plan($1,'tienda')`, [V]))
+await ok('sin precio fundador: precio de lista', 'duenoV', () => q(`select mi_plan($1) p`, [V]), r => r.rows[0].p.precio_vigente == 29900 && r.rows[0].p.fundador_hasta === null)
+await sis(() => q(`select asignar_fundador($1,true)`, [V]))
+await ok('con precio fundador: precio del piloto y fecha de fin', 'duenoV', () => q(`select mi_plan($1) p`, [V]), r => r.rows[0].p.precio_vigente == 19900 && r.rows[0].p.fundador_hasta != null)
+await sis(() => q(`update negocios set fundador_desde = hoy_colombia() - 400 where id=$1`, [V]))
+await ok('vencidos los 6 meses vuelve al precio de lista', 'duenoV', () => q(`select mi_plan($1) p`, [V]), r => r.rows[0].p.precio_vigente == 29900)
+await sis(() => q(`update planes set precio_mensual=31900 where clave='tienda'`))
+await ok('cambiar un precio es un update de datos (sin tocar código)', 'duenoV', () => q(`select mi_plan($1) p`, [V]), r => r.rows[0].p.precio_vigente == 31900)
+await sis(() => q(`update planes set precio_mensual=29900 where clave='tienda'`))
+await sis(() => q(`select asignar_fundador($1,false)`, [V]))
+await sis(() => q(`select activar_plan($1,'vitrina')`, [V]))
+
+console.log('\n--- Publicación ---')
+await ok('tienda nueva: el público no la ve', 'anon', () => q(`select negocio_publico('vit-v') n`), r => r.rows[0].n === null)
+await falla('tienda nueva: el catálogo no responde al público', 'anon', () => q(`select catalogo_tienda('vit-v')`), 'no disponible')
+await ok('el dueño sí la ve en vista previa', 'duenoV', () => q(`select negocio_publico('vit-v') n`), r => r.rows[0].n.vista_previa === true && r.rows[0].n.nombre === 'Vitrina V')
+await ok('el soporte la ve en vista previa', 'soporte', () => q(`select catalogo_tienda('vit-v') c`), r => Array.isArray(r.rows[0].c.productos))
+await falla('otro dueño no ve la vista previa', 'duenoA', () => q(`select catalogo_tienda('vit-v')`), 'no disponible')
+await falla('no se publica sin WhatsApp', 'sistema', () => q(`select publicar_negocio($1,true)`, [V]), 'WhatsApp')
+await sis(() => publicar(V))
+await ok('publicada: el público la ve y ya no es vista previa', 'anon', () => q(`select negocio_publico('vit-v') n`), r => r.rows[0].n.vista_previa === false && r.rows[0].n.logo_auto.inicial === 'V')
+await ok('logo automático: inicial sobre el color de la tienda', 'anon', () => q(`select negocio_publico('tienda-a') n`), r => r.rows[0].n.logo_auto.inicial === 'T' && r.rows[0].n.logo_auto.color === '#7A1F3D')
+await ok('el público también ve la domicilio por km configurada', 'anon', () => q(`select negocio_publico('vit-v') n`), r => r.rows[0].n.domicilio_modo === 'fijo' && 'domicilio_valor_km' in r.rows[0].n)
+
+console.log('\n--- Límite de productos por plan ---')
+await sis(() => q(`update negocios set max_productos_override=2 where id=$1`, [V]))
+await falla('un insert de 3 productos de golpe no pasa el tope de 2 (y no queda ninguno)', 'sistema', () => q(`insert into productos (negocio_id,codigo,nombre,precio_venta) values ($1,'a','P1',1000),($1,'b','P2',1000),($1,'c','P3',1000)`, [V]), 'permite hasta 2')
+await ok('tras el error no quedó ningún producto', 'sistema', () => q(`select count(*) n from productos where negocio_id=$1`, [V]), r => r.rows[0].n == 0)
+const pV = (await q(`insert into productos (negocio_id,codigo,nombre,precio_venta,publicado) values ($1,'a','Arepa V',1500,true),($1,'b','Queso V',9000,true) returning id`, [V])).rows[0].id
+await falla('el dueño no pasa del tope', 'duenoV', () => q(`insert into productos (negocio_id,codigo,nombre,precio_venta) values ($1,'c','Tercero',1000)`, [V]), 'permite hasta 2')
+await como('duenoV', () => q(`update productos set activo=false where negocio_id=$1 and codigo='b'`, [V]))
+await falla('desactivar y reactivar tampoco burla el tope', 'duenoV', async () => { await q(`insert into productos (negocio_id,codigo,nombre,precio_venta) values ($1,'c','Tercero',1000)`, [V]); return q(`update productos set activo=true where negocio_id=$1 and codigo='b'`, [V]) }, 'permite hasta 2')
+await q(`update productos set activo=true where negocio_id=$1 and codigo='b' and false`, [V])
+await ok('B no se ve afectada por el tope de V', 'duenoB', () => q(`insert into productos (negocio_id,codigo,nombre,precio_venta) values ($1,'x1','Libre B',1000) returning id`, [B]))
+await sis(() => q(`update negocios set max_productos_override=null where id=$1`, [V]))
+await sis(() => q(`delete from productos where negocio_id=$1 and codigo in ('c')`, [V]))
+await sis(() => q(`update productos set activo=true where negocio_id=$1`, [V]))
+await ok('el tope del plan (200) se ve en mi_plan con 2 productos activos', 'duenoV', () => q(`select mi_plan($1) p`, [V]), r => r.rows[0].p.max_productos == 200 && r.rows[0].p.productos_activos == 2)
+
+console.log('\n--- Stock opcional ---')
+await ok('en una tienda con caja el producto nuevo controla stock', 'sistema', () => q(`select controla_stock from productos where id=$1`, [pA]), r => r.rows[0].controla_stock === true)
+await ok('en una vitrina (sin caja) el producto nuevo NO controla stock', 'sistema', () => q(`select controla_stock, disponible from productos where id=$1`, [pV]), r => r.rows[0].controla_stock === false && r.rows[0].disponible === true)
+await ok('la vitrina muestra disponible aunque el stock sea 0', 'anon', () => q(`select catalogo_tienda('vit-v') c`), r => r.rows[0].c.productos.every(p => p.disponible === true))
+await ok('pedido en la vitrina con stock 0', 'anon', () => pedido('vit-v', [{ producto_id: pV, cantidad: 2 }], datosPedido({ telefono: '3101110001', entrega: 'recoger' })), r => r.rows[0].p.subtotal == 3000 && r.rows[0].p.numero == 1)
+await sis(() => q(`update productos set disponible=false where id=$1`, [pV]))
+await ok('marcado agotado, el catálogo lo muestra agotado', 'anon', () => q(`select catalogo_tienda('vit-v') c`), r => r.rows[0].c.productos.find(p => p.nombre === 'Arepa V').disponible === false)
+await falla('marcado agotado, no se puede pedir', 'anon', () => pedido('vit-v', [{ producto_id: pV, cantidad: 1 }], datosPedido({ telefono: '3101110002', entrega: 'recoger' })), 'agotado')
+await sis(() => q(`update productos set disponible=true where id=$1`, [pV]))
+await sis(() => q(`update productos set controla_stock=true where id=$1`, [pV]))
+await falla('si pasa a controlar stock y hay 0, se agota', 'anon', () => pedido('vit-v', [{ producto_id: pV, cantidad: 1 }], datosPedido({ telefono: '3101110003', entrega: 'recoger' })), 'agotado')
+await sis(() => q(`update productos set controla_stock=false where id=$1`, [pV]))
+
+console.log('\n--- Pedido de invitado y de cliente con Google ---')
+const antes = (await q(`select count(*) n from pedidos_tienda where negocio_id=$1`, [A])).rows[0].n
+let pInv
+await ok('invitado (anon): pedido sin cuenta, seguimiento "recibido"', 'anon', async () => (pInv = (await pedido('tienda-a', [{ producto_id: pA, cantidad: 1 }], datosPedido({ telefono: '3205550001' }))).rows[0].p, q(`select 1`)), () => pInv.seguimiento === 'recibido' && pInv.es_practica === false)
+await ok('el pedido del invitado no tiene cuenta ligada', 'sistema', () => q(`select cliente_user_id from pedidos_tienda where id=$1`, [pInv.id]), r => r.rows[0].cliente_user_id === null)
+let pG1
+await ok('cliente con Google (google1): hace su pedido', 'google1', async () => (pG1 = (await pedido('tienda-a', [{ producto_id: pA, cantidad: 2 }], datosPedido({ telefono: '3205550002', nombre: 'Gloria Uno' }))).rows[0].p, q(`select 1`)))
+await ok('el pedido queda ligado a su cuenta', 'sistema', () => q(`select cliente_user_id from pedidos_tienda where id=$1`, [pG1.id]), r => r.rows[0].cliente_user_id === U.google1)
+await ok('Mis pedidos de google1: solo el suyo, sin teléfono ni correo', 'google1', () => q(`select mis_pedidos() p`), r => r.rows[0].p.length === 1 && r.rows[0].p[0].numero == pG1.numero && r.rows[0].p[0].tienda === 'Tienda A Premium' && !('telefono' in r.rows[0].p[0]) && r.rows[0].p[0].items.length === 1)
+await ok('google2 no ve los pedidos de google1', 'google2', () => q(`select mis_pedidos() p`), r => r.rows[0].p.length === 0)
+await ok('el invitado no tiene Mis pedidos', 'anon', async () => { try { await q(`select mis_pedidos()`); return { rows: [{ x: false }] } } catch { return { rows: [{ x: true }] } } }, r => r.rows[0].x)
+await ok('el dueño A no ve el pedido de google1 en Mis pedidos (no es suyo como cliente)', 'duenoA', () => q(`select mis_pedidos() p`), r => r.rows[0].p.length === 0)
+await ok('el dueño A sí ve ambos pedidos en su panel', 'duenoA', () => q(`select count(*) n from pedidos_tienda`), r => r.rows[0].n == Number(antes) + 2)
+await ok('Mis pedidos exige el módulo: en la vitrina no aparece', 'google1', async () => { await pedido('vit-v', [{ producto_id: pV, cantidad: 1 }], datosPedido({ telefono: '3205550002', entrega: 'recoger' })); return q(`select mis_pedidos() p`) }, r => r.rows[0].p.length === 1)
+await sis(() => q(`select activar_plan($1,'tienda')`, [V]))
+await ok('al subir a Tienda aparece también el pedido de la vitrina', 'google1', () => q(`select mis_pedidos() p`), r => r.rows[0].p.length === 2)
+await sis(() => q(`select activar_plan($1,'vitrina')`, [V]))
+
+console.log('\n--- Seguimiento del pedido ---')
+await ok('el cajero pasa el pedido a "preparando"', 'cajeroA', () => q(`select cambiar_seguimiento($1,$2,'preparando')`, [A, pG1.id]))
+await ok('el estado del pedido NO cambia (queda aparte)', 'sistema', () => q(`select estado, seguimiento from pedidos_tienda where id=$1`, [pG1.id]), r => r.rows[0].estado === 'pendiente' && r.rows[0].seguimiento === 'preparando')
+await ok('el cliente ve el seguimiento nuevo', 'google1', () => q(`select mis_pedidos() p`), r => r.rows[0].p.find(x => x.id === pG1.id).seguimiento === 'preparando')
+await falla('seguimiento inválido', 'cajeroA', () => q(`select cambiar_seguimiento($1,$2,'volando')`, [A, pG1.id]), 'no válido')
+await falla('el dueño de B no cambia el seguimiento de A', 'duenoB', () => q(`select cambiar_seguimiento($1,$2,'en_camino')`, [A, pG1.id]), 'No autorizado')
+await falla('el dueño de B no lo cambia "desde" B', 'duenoB', () => q(`select cambiar_seguimiento($1,$2,'en_camino')`, [B, pG1.id]), 'no encontrado')
+await falla('el cliente no cambia su propio seguimiento', 'google1', () => q(`select cambiar_seguimiento($1,$2,'entregado')`, [A, pG1.id]), 'No autorizado')
+await falla('el soporte no cambia el seguimiento', 'soporte', () => q(`select cambiar_seguimiento($1,$2,'entregado')`, [A, pG1.id]), 'No autorizado')
+await falla('anon no cambia el seguimiento', 'anon', () => q(`select cambiar_seguimiento($1,$2,'entregado')`, [A, pG1.id]), 'permission denied')
+await falla('en la vitrina (sin Mis pedidos) no hay seguimiento', 'duenoV', async () => { const id = (await q(`select id from pedidos_tienda where negocio_id=$1 limit 1`, [V])).rows[0].id; return q(`select cambiar_seguimiento($1,$2,'preparando')`, [V, id]) }, 'no está activo')
+await ok('un cajero lleva el pedido a "entregado"', 'cajeroA', () => q(`select cambiar_seguimiento($1,$2,'entregado')`, [A, pG1.id]))
+
+console.log('\n--- Un cliente con Google NO es parte de ninguna tienda ---')
+await ok('google1 no ve productos, clientes, pedidos, config ni negocios', 'google1', () => q(`select (select count(*) from productos) p,(select count(*) from clientes) c,(select count(*) from pedidos_tienda) pe,(select count(*) from negocio_config) cf,(select count(*) from negocios) n,(select count(*) from ventas) v,(select count(*) from pedido_tienda_items) i`),
+  r => Object.values(r.rows[0]).every(x => x == 0))
+await ok('google1 no tiene tiendas en mis_negocios', 'google1', () => q(`select count(*) n from mis_negocios()`), r => r.rows[0].n == 0)
+await falla('google1 no vende', 'google1', () => venta(A, [{ producto_id: pA, cantidad: 1 }], efectivo(2500)), 'No autorizado')
+await falla('google1 no ve el tablero', 'google1', () => q(`select tablero($1,$2)`, [A, desde]), 'Solo el dueño')
+await falla('google1 no lista el equipo', 'google1', () => q(`select * from listar_miembros($1)`, [A]), 'No autorizado')
+await falla('google1 no ajusta stock', 'google1', () => q(`select ajustar_stock($1,$2,1,'x')`, [A, pA]), 'No autorizado')
+await falla('google1 no ve el plan de una tienda', 'google1', () => q(`select mi_plan($1)`, [A]), 'No autorizado')
+await falla('google1 no se agrega a una tienda', 'google1', () => q(`insert into negocio_miembros (negocio_id,user_id,rol) values ($1,$2,'dueno')`, [A, U.google1]), 'permission denied')
+await falla('google1 no invita ni agrega gente', 'google1', () => q(`select invitar_miembro($1,'x@prueba.com','cajero')`, [A]), 'No autorizado')
+await falla('google1 no pide servicios', 'google1', () => q(`select pedir_servicio($1,'fotos','{}'::jsonb)`, [A]), 'No autorizado')
+await falla('google1 no sube archivos a una tienda', 'google1', () => q(`insert into storage.objects (bucket_id,name) values ('negocios',$1)`, [`${A}/productos/x.webp`]), 'row-level security')
+await ok('google1 no lee archivos de las tiendas', 'google1', () => q(`select count(*) n from storage.objects`), r => r.rows[0].n == 0)
+await falla('google1 no llama a funciones internas', 'google1', () => q(`select _consumir_cuota_km($1)`, [A]), 'permission denied')
+await falla('google1 no llama a la consola de la plataforma', 'google1', () => q(`select crear_negocio('hack','Hack','tienda','google1@prueba.com')`), 'permission denied')
+
+console.log('\n--- Perfil del cliente (una cuenta para todas las tiendas, Ley 1581) ---')
+await falla('sin sesión no hay perfil', 'anon', () => q(`select guardar_perfil_cliente('{}'::jsonb)`), 'permission denied')
+await falla('sin aceptar el tratamiento de datos', 'google1', () => q(`select guardar_perfil_cliente($1::jsonb)`, [J({ nombre: 'Gloria Uno', telefono: '3205550002' })]), 'política de tratamiento')
+await falla('teléfono inválido', 'google1', () => q(`select guardar_perfil_cliente($1::jsonb)`, [J({ nombre: 'Gloria Uno', telefono: '123', acepta_datos: true })]), 'celular')
+await falla('nombre muy corto', 'google1', () => q(`select guardar_perfil_cliente($1::jsonb)`, [J({ nombre: 'G', telefono: '3205550002', acepta_datos: true })]), 'nombre')
+await ok('google1 guarda su perfil', 'google1', () => q(`select guardar_perfil_cliente($1::jsonb) p`, [J({ nombre: 'Gloria Uno', telefono: '+57 320 555 0002', direccion: 'Calle 5 # 6-7', acepta_datos: true })]), r => r.rows[0].p.telefono === '3205550002' && r.rows[0].p.acepta_promos === false)
+await ok('con promociones aceptadas queda la fecha del consentimiento', 'google1', () => q(`select guardar_perfil_cliente($1::jsonb) p`, [J({ nombre: 'Gloria Uno', telefono: '3205550002', acepta_promos: true })]), r => r.rows[0].p.acepta_promos === true)
+await ok('la fecha del consentimiento existe y se borra al retirarlo', 'sistema', async () => { const a = (await q(`select acepta_promos_en from perfil_cliente where user_id=$1`, [U.google1])).rows[0].acepta_promos_en; await q(`update perfil_cliente set acepta_promos=false, acepta_promos_en=null where false`); return { a } }, r => r.a !== null)
+await ok('mi_perfil_cliente devuelve el suyo', 'google1', () => q(`select mi_perfil_cliente() p`), r => r.rows[0].p.nombre === 'Gloria Uno')
+await ok('google2 no ve el perfil de google1', 'google2', () => q(`select (select count(*) from perfil_cliente) n, mi_perfil_cliente() p`), r => r.rows[0].n == 0 && r.rows[0].p === null)
+await ok('el dueño de una tienda no ve el perfil de sus clientes', 'duenoA', () => q(`select count(*) n from perfil_cliente`), r => r.rows[0].n == 0)
+await ok('el soporte no ve perfiles de clientes', 'soporte', () => q(`select count(*) n from perfil_cliente`), r => r.rows[0].n == 0)
+await falla('nadie edita el perfil por fuera de la función', 'google1', () => q(`update perfil_cliente set nombre='X Y Z'`), 'permission denied')
+await falla('anon no lee perfiles', 'anon', () => q(`select * from perfil_cliente`), 'permission denied')
+await ok('google1 borra su perfil: se va el perfil y se desligan sus pedidos', 'google1', async () => { await q(`select borrar_mi_perfil()`); return q(`select (select count(*) from perfil_cliente) p, mis_pedidos() m`) }, r => r.rows[0].p == 0 && r.rows[0].m.length === 0)
+await ok('la tienda conserva el registro del pedido', 'sistema', () => q(`select count(*) n from pedidos_tienda where id=$1 and cliente_user_id is null`, [pG1.id]), r => r.rows[0].n == 1)
+
+console.log('\n--- Pedidos de práctica ---')
+const nCli = (await q(`select count(*) n from clientes where negocio_id=$1`, [A])).rows[0].n
+const recibidosAntes = (await como('duenoA', () => q(`select tablero_en_linea($1,$2) t`, [A, desde]))).rows[0].t.catalogos.find(c => c.cat === 'tienda').recibidos
+let pPra
+await ok('el cajero hace un pedido de práctica', 'cajeroA', async () => (pPra = (await pedido('tienda-a', [{ producto_id: pA, cantidad: 1 }], datosPedido({ practica: true, nombre: 'Prueba Interna', telefono: '3000000001' }))).rows[0].p, q(`select 1`)), () => pPra.es_practica === true)
+await ok('la práctica no crea clientes ni ligas a cuentas', 'sistema', () => q(`select (select count(*) from clientes where negocio_id=$1) c, (select cliente_user_id from pedidos_tienda where id=$2) u`, [A, pPra.id]), r => r.rows[0].c == nCli && r.rows[0].u === null)
+await ok('la práctica no cuenta en las estadísticas en línea', 'duenoA', () => q(`select tablero_en_linea($1,$2) t`, [A, desde]), r => r.rows[0].t.catalogos.find(c => c.cat === 'tienda').recibidos == recibidosAntes)
+await ok('la práctica no aparece en Mis pedidos de nadie', 'google2', () => q(`select mis_pedidos() p`), r => r.rows[0].p.length === 0)
+await ok('un visitante que manda "practica" no logra marcar su pedido como práctica', 'anon', () => pedido('tienda-a', [{ producto_id: pA, cantidad: 1 }], datosPedido({ practica: true, telefono: '3205550003' })), r => r.rows[0].p.es_practica === false)
+await sis(() => q(`update negocios set publicada=false where id=$1`, [V]))
+await falla('tienda sin publicar: el público no puede pedir', 'anon', () => pedido('vit-v', [{ producto_id: pV, cantidad: 1 }], datosPedido({ telefono: '3101110004', entrega: 'recoger' })), 'no disponible')
+await falla('tienda sin publicar: un cliente con Google tampoco', 'google1', () => pedido('vit-v', [{ producto_id: pV, cantidad: 1 }], datosPedido({ telefono: '3101110004', entrega: 'recoger' })), 'no disponible')
+await ok('tienda sin publicar: el dueño prueba y queda como práctica', 'duenoV', () => pedido('vit-v', [{ producto_id: pV, cantidad: 1 }], datosPedido({ telefono: '3101110005', entrega: 'recoger' })), r => r.rows[0].p.es_practica === true)
+await falla('tienda sin publicar: el soporte puede mirar pero no pedir', 'soporte', () => pedido('vit-v', [{ producto_id: pV, cantidad: 1 }], datosPedido({ telefono: '3101110006', entrega: 'recoger' })), 'no disponible')
+await falla('tienda sin publicar: pedido de ropa del público tampoco', 'anon', () => pedRopa('vit-v', [{ variante_id: vari, cantidad: 1 }], datosPedido()), 'no disponible')
+await ok('sin publicar no cuenta visitas ni eventos', 'anon', async () => { await q(`select registrar_visita('vit-v','tienda','visitante-9999')`); await q(`select registrar_evento('vit-v','abrio_carrito')`); return q(`select 1`) }, () => true)
+await ok('…y no quedó nada registrado', 'sistema', () => q(`select (select count(*) from visitas where negocio_id=$1) v, (select count(*) from eventos_dia where negocio_id=$1 and evento='abrio_carrito') e`, [V]), r => r.rows[0].v == 0 && r.rows[0].e == 0)
+await sis(() => q(`select publicar_negocio($1,true)`, [V]))
+
+console.log('\n--- Freno contra pedidos repetidos ---')
+for (let i = 1; i <= 5; i++) await q(`select crear_pedido_tienda('vit-v',$1::jsonb,$2::jsonb)`, [J(datosPedido({ telefono: '3109990000', entrega: 'recoger' })), J([{ producto_id: pV, cantidad: 1 }])]).catch(e => { throw e })
+await falla('el sexto pedido del mismo cliente en una hora', 'anon', () => pedido('vit-v', [{ producto_id: pV, cantidad: 1 }], datosPedido({ telefono: '3109990000', entrega: 'recoger' })), 'varios pedidos')
+await ok('otro cliente sigue pudiendo pedir', 'anon', () => pedido('vit-v', [{ producto_id: pV, cantidad: 1 }], datosPedido({ telefono: '3109990001', entrega: 'recoger' })))
+
+console.log('\n--- Contadores diarios ---')
+await ok('registrar_evento cuenta en la tienda correcta', 'anon', async () => { await q(`select registrar_evento('tienda-a','abrio_carrito')`); await q(`select registrar_evento('tienda-a','abrio_carrito')`); await q(`select registrar_evento('tienda-a','envio_whatsapp')`); return q(`select 1`) }, () => true)
+await ok('A ve sus contadores (carrito 2, whatsapp 1, pedidos creados)', 'duenoA', () => q(`select evento, cantidad from eventos_dia order by evento`), r => r.rows.find(x => x.evento === 'abrio_carrito').cantidad == 2 && r.rows.find(x => x.evento === 'envio_whatsapp').cantidad == 1 && r.rows.find(x => x.evento === 'pedido_creado').cantidad >= 3)
+await ok('B no ve los contadores de A', 'duenoB', () => q(`select count(*) n from eventos_dia where negocio_id=$1`, [A]), r => r.rows[0].n == 0)
+await ok('un evento inventado no se guarda', 'anon', async () => { await q(`select registrar_evento('tienda-a','hackear')`); return q(`select 1`) }, () => true)
+await ok('…y no hay eventos raros', 'sistema', () => q(`select count(*) n from eventos_dia where evento not in ('abrio_carrito','envio_whatsapp','instalo_app','pedido_creado')`), r => r.rows[0].n == 0)
+await falla('anon no lee contadores', 'anon', () => q(`select * from eventos_dia`), 'permission denied')
+await falla('nadie escribe contadores a mano', 'duenoA', () => q(`insert into eventos_dia (negocio_id,dia,evento,cantidad) values ($1,hoy_colombia(),'abrio_carrito',9)`, [A]), 'permission denied')
+
+console.log('\n--- Domicilio por kilómetros ---')
+await falla('sin ubicar la tienda no se activa el modo km', 'duenoA', () => q(`update negocio_reglas set domicilio_modo='km' where negocio_id=$1`, [A]), 'ubica tu tienda')
+await ok('el dueño ubica su tienda', 'duenoA', () => q(`update negocio_config set lat=10.9878, lng=-74.7889 where negocio_id=$1 returning 1`, [A]), r => r.rows.length === 1)
+await falla('latitud imposible', 'duenoA', () => q(`update negocio_config set lat=95 where negocio_id=$1`, [A]), 'check')
+await sis(() => q(`select activar_modulo($1,'domicilio_km',false)`, [B]))
+await sis(() => q(`update negocio_config set lat=10.9, lng=-74.8 where negocio_id=$1`, [B]))
+await falla('si el plan no incluye domicilio por km no se activa', 'duenoB', () => q(`update negocio_reglas set domicilio_modo='km' where negocio_id=$1`, [B]), 'no incluye')
+await sis(() => q(`select activar_modulo($1,'domicilio_km',true)`, [B]))
+await ok('el dueño A activa el modo km con sus reglas (base 4 000, 2 km incluidos, 1 000 por km, redondeo 500, máximo 10 km)', 'duenoA', () => q(`update negocio_reglas set domicilio_modo='km', domicilio_km_incluidos=2, domicilio_valor_km=1000, domicilio_redondeo=500, domicilio_radio_max_km=10 where negocio_id=$1 returning 1`, [A]), r => r.rows.length === 1)
+await falla('redondeo no permitido', 'duenoA', () => q(`update negocio_reglas set domicilio_redondeo=300 where negocio_id=$1`, [A]), 'check')
+await falla('valor por km negativo', 'duenoA', () => q(`update negocio_reglas set domicilio_valor_km=-5 where negocio_id=$1`, [A]), 'check')
+const conKm = (km, extra = {}) => pedido('tienda-a', [{ producto_id: pA, cantidad: 1 }], datosPedido({ telefono: '3205550010', km, ...extra }))
+await ok('dentro de los km incluidos: solo la base (1,5 km → 4 000)', 'anon', () => conKm('1.5'), r => r.rows[0].p.domicilio == 4000)
+await ok('5 km: 4 000 + 3 km × 1 000 = 7 000', 'anon', () => pedido('tienda-a', [{ producto_id: pA, cantidad: 1 }], datosPedido({ telefono: '3205550011', km: '5' })), r => r.rows[0].p.domicilio == 7000)
+await ok('5,3 km: 7 300 se redondea hacia arriba a 7 500', 'anon', () => pedido('tienda-a', [{ producto_id: pA, cantidad: 1 }], datosPedido({ telefono: '3205550012', km: '5,3' })), r => r.rows[0].p.domicilio == 7500)
+await ok('envío gratis desde 50 000, aunque sean 5 km', 'anon', () => pedido('tienda-a', [{ producto_id: pA, cantidad: 20 }], datosPedido({ telefono: '3205550013', km: '5' })), r => r.rows[0].p.domicilio == 0)
+let pRec
+await ok('a recoger no paga domicilio', 'anon', async () => (pRec = (await pedido('tienda-a', [{ producto_id: pA, cantidad: 1 }], datosPedido({ telefono: '3205550014', km: '5', entrega: 'recoger' }))).rows[0].p, q(`select 1`)), () => pRec.domicilio == 0)
+await ok('…ni guarda km', 'sistema', () => q(`select km_informado from pedidos_tienda where id=$1`, [pRec.id]), r => r.rows[0].km_informado === null)
+await ok('el km informado queda guardado en el pedido', 'sistema', () => q(`select km_informado from pedidos_tienda where negocio_id=$1 and nombre='Ana Pérez' and km_informado is not null order by creado_en limit 1`, [A]), r => r.rows[0].km_informado == 1.5)
+await falla('fuera del radio máximo (12 km > 10)', 'anon', () => conKm('12'), 'fuera de la zona')
+await falla('en modo km hay que traer la distancia', 'anon', () => pedido('tienda-a', [{ producto_id: pA, cantidad: 1 }], datosPedido({ telefono: '3205550015' })), 'Calcula la distancia')
+await falla('distancia con letras', 'anon', () => conKm('abc'), 'no es válida')
+await falla('distancia negativa', 'anon', () => conKm('-2'), 'no es válida')
+await falla('distancia absurda', 'anon', () => conKm('5000'), 'no es válida')
+await sis(() => q(`select activar_modulo($1,'domicilio_km',false)`, [A]))
+await ok('si el plan deja de incluir domicilio por km, el pedido cae a la tarifa fija (4 000)', 'anon', () => conKm('5'), r => r.rows[0].p.domicilio == 4000)
+await sis(() => q(`select activar_modulo($1,'domicilio_km',true)`, [A]))
+await ok('una tienda en modo fijo ignora el km que mande el navegador', 'anon', () => pedido('tienda-b', [{ producto_id: pB, cantidad: 1 }], datosPedido({ telefono: '3205550016', km: '3' })), r => r.rows[0].p.domicilio == 9999)
+
+console.log('\n--- Cupo mensual de cálculos de domicilio por km ---')
+await falla('un usuario no consume cupos', 'duenoA', () => q(`select _consumir_cuota_km($1)`, [A]), 'permission denied')
+await sis(() => q(`update planes set max_calculos_km_mes=2 where clave='vitrina'`))
+await ok('Vitrina con tope 2: consume 2 y la tercera ya no', 'sistema', async () => ({ a: (await q(`select _consumir_cuota_km($1) r`, [V])).rows[0].r, b: (await q(`select _consumir_cuota_km($1) r`, [V])).rows[0].r, c: (await q(`select _consumir_cuota_km($1) r`, [V])).rows[0].r }), r => r.a === true && r.b === true && r.c === false)
+await ok('mi_plan muestra el consumo del mes', 'duenoV', () => q(`select mi_plan($1) p`, [V]), r => r.rows[0].p.calculos_km_mes == 2 && r.rows[0].p.max_calculos_km_mes == 2)
+await ok('el cupo de V no gasta el de A', 'sistema', () => q(`select _consumir_cuota_km($1) r`, [A]), r => r.rows[0].r === true)
+await ok('el dueño ve su uso, no el de otros', 'duenoA', () => q(`select count(*) n, min(negocio_id::text) neg from uso_mensual`), r => r.rows[0].n == 1 && r.rows[0].neg === A)
+await sis(() => q(`update plataforma_limites set max_dia=3 where concepto='ors_calculos_km'`))
+await ok('el cupo global del mapa (compartido) también frena: ya van 3 hoy', 'sistema', () => q(`select _consumir_cuota_km($1) r`, [B]), r => r.rows[0].r === false)
+await sis(() => q(`update plataforma_limites set max_dia=1500 where concepto='ors_calculos_km'`))
+await sis(() => q(`update planes set max_calculos_km_mes=150 where clave='vitrina'`))
+await falla('nadie lee ni edita los cupos globales', 'duenoA', () => q(`select * from plataforma_limites`), 'permission denied')
+
+console.log('\n--- Marca: creador de logo ---')
+await ok('con el módulo, el dueño guarda su diseño de logo', 'duenoA', () => q(`update negocio_config set logo_diseno=$2::jsonb where negocio_id=$1 returning 1`, [A, J({ plantilla: 'inicial', figura: 'circulo', texto: 'TA', color: '#7A1F3D' })]), r => r.rows.length === 1)
+await sis(() => q(`select activar_modulo($1,'creador_logo',false)`, [B]))
+await falla('sin el módulo no se guarda un diseño', 'duenoB', () => q(`update negocio_config set logo_diseno=$2::jsonb where negocio_id=$1`, [B, J({ plantilla: 'inicial' })]), 'no incluye el creador')
+await sis(() => q(`select activar_modulo($1,'creador_logo',true)`, [B]))
+await falla('un diseño gigante no pasa', 'duenoA', () => q(`update negocio_config set logo_diseno=$2::jsonb where negocio_id=$1`, [A, J({ x: 'a'.repeat(7000) })]), 'check')
+await ok('el logo subido por la tienda queda en su carpeta de marca', 'duenoA', () => q(`update negocio_config set logo_path=$2 where negocio_id=$1 returning 1`, [A, `${A}/marca/logo-v2.png`]), r => r.rows.length === 1)
+
+console.log('\n--- Servicios: "Pídeme mi logo", carga de catálogo y fotos ---')
+await ok('hay 3 servicios con precio (editable)', 'duenoA', () => q(`select clave, precio from servicios_catalogo order by clave`), r => r.rows.length === 3 && r.rows.every(x => x.precio > 0))
+await falla('sin el módulo "logo personalizado" no se pide el logo', 'duenoA', () => q(`select pedir_servicio($1,'logo',$2::jsonb)`, [A, J({ nombre: 'Tienda A' })]), 'no está activo')
+await sis(() => q(`select activar_modulo($1,'logo_personalizado',true)`, [A]))
+let sol
+await ok('el dueño pide su logo (briefing: qué vende, colores, estilo)', 'duenoA', async () => (sol = (await q(`select pedir_servicio($1,'logo',$2::jsonb) s`, [A, J({ nombre: 'Tienda A', vende: 'abarrotes', colores: 'guinda y dorado', estilo: 'premium', ejemplos: 'ninguno' })])).rows[0].s, q(`select 1`)), () => sol.estado === 'pedida' && sol.precio == 150000)
+await falla('no se puede pedir dos veces lo mismo mientras esté en curso', 'duenoA', () => q(`select pedir_servicio($1,'logo','{}'::jsonb)`, [A]), 'en curso')
+await falla('el cajero no pide servicios', 'cajeroA', () => q(`select pedir_servicio($1,'fotos','{}'::jsonb)`, [A]), 'No autorizado')
+await falla('el dueño de B no pide servicios para A', 'duenoB', () => q(`select pedir_servicio($1,'fotos','{}'::jsonb)`, [A]), 'No autorizado')
+await falla('datos que no son un objeto', 'duenoA', () => q(`select pedir_servicio($1,'fotos','[1,2]'::jsonb)`, [A]), 'no son válidos')
+await falla('servicio que no existe', 'duenoA', () => q(`select pedir_servicio($1,'viaje','{}'::jsonb)`, [A]), 'no está disponible')
+await ok('el dueño A ve su solicitud', 'duenoA', () => q(`select count(*) n from solicitudes_servicio`), r => r.rows[0].n == 1)
+await ok('el dueño B no la ve', 'duenoB', () => q(`select count(*) n from solicitudes_servicio`), r => r.rows[0].n == 0)
+await ok('el cajero no la ve', 'cajeroA', () => q(`select count(*) n from solicitudes_servicio`), r => r.rows[0].n == 0)
+await ok('el soporte sí puede leerla', 'soporte', () => q(`select count(*) n from solicitudes_servicio`), r => r.rows[0].n == 1)
+await falla('nadie edita la solicitud a mano', 'duenoA', () => q(`update solicitudes_servicio set estado='entregada', pagado=true`), 'permission denied')
+await falla('el dueño no atiende su propio servicio', 'duenoA', () => q(`select atender_servicio($1,'entregada')`, [sol.id]), 'permission denied')
+await falla('el soporte tampoco (solo lectura)', 'soporte', () => q(`select atender_servicio($1,'entregada')`, [sol.id]), 'permission denied')
+await falla('el dueño de B no pide cambios en la solicitud de A', 'duenoB', () => q(`select pedir_cambio_servicio($1,$2,'quiero otro color')`, [B, sol.id]), 'no encontrada')
+await falla('no se piden cambios antes de la entrega', 'duenoA', () => q(`select pedir_cambio_servicio($1,$2,'quiero otro color')`, [A, sol.id]), 'ya fue entregado')
+await sis(() => q(`select atender_servicio($1,'en_proceso','Empezamos con tus bocetos')`, [sol.id]))
+await falla('en proceso ya no se cancela', 'duenoA', () => q(`select cancelar_servicio($1,$2)`, [A, sol.id]), 'aún no empezaron')
+await falla('archivos de entrega de otra tienda: rechazados', 'sistema', () => q(`select atender_servicio($1,'entregada','listo',$2::text[])`, [sol.id, [`${B}/marca/logo.png`]]), 'check')
+await falla('archivos en una carpeta que no es de entrega: rechazados', 'sistema', () => q(`select atender_servicio($1,'entregada','listo',$2::text[])`, [sol.id, [`${A}/productos/logo.png`]]), 'check')
+await sis(() => q(`select atender_servicio($1,'entregada','Logo listo: PNG y SVG',$2::text[],null,true)`, [sol.id, [`${A}/marca/logo-final.png`, `${A}/marca/logo-final.svg`]]))
+await ok('entregado: PNG y SVG de la propia tienda, pagado y con fecha', 'duenoA', () => q(`select estado, archivos, pagado, pagado_en, entregada_en from solicitudes_servicio`), r => r.rows[0].estado === 'entregada' && r.rows[0].archivos.length === 2 && r.rows[0].pagado === true && r.rows[0].pagado_en && r.rows[0].entregada_en)
+await falla('nota de cambio muy corta', 'duenoA', () => q(`select pedir_cambio_servicio($1,$2,'no')`, [A, sol.id]), 'qué quieres cambiar')
+await ok('ronda de cambios 1', 'duenoA', () => q(`select pedir_cambio_servicio($1,$2,'Quiero el dorado más oscuro')`, [A, sol.id]))
+await ok('vuelve a "en proceso" con la ronda contada', 'duenoA', () => q(`select estado, rondas_usadas from solicitudes_servicio`), r => r.rows[0].estado === 'en_proceso' && r.rows[0].rondas_usadas == 1)
+await sis(() => q(`select atender_servicio($1,'entregada','Ajustado')`, [sol.id]))
+await ok('ronda de cambios 2', 'duenoA', () => q(`select pedir_cambio_servicio($1,$2,'Ahora más grande el nombre')`, [A, sol.id]))
+await sis(() => q(`select atender_servicio($1,'entregada','Ajustado otra vez')`, [sol.id]))
+await falla('la tercera ronda ya no está incluida', 'duenoA', () => q(`select pedir_cambio_servicio($1,$2,'Otro cambio más')`, [A, sol.id]), 'rondas')
+await ok('el historial guarda la conversación (tienda y plataforma)', 'duenoA', () => q(`select historial from solicitudes_servicio`), r => r.rows[0].historial.some(h => h.autor === 'tienda') && r.rows[0].historial.some(h => h.autor === 'plataforma') && r.rows[0].historial.length >= 6)
+let sol2
+await ok('carga de catálogo: no necesita módulo', 'duenoA', async () => (sol2 = (await q(`select pedir_servicio($1,'carga_catalogo',$2::jsonb) s`, [A, J({ cuantos: 120 })])).rows[0].s, q(`select 1`)), () => sol2.precio == 150000)
+await ok('mientras está "pedida" el dueño puede cancelarla', 'duenoA', () => q(`select cancelar_servicio($1,$2)`, [A, sol2.id]))
+await ok('el precio de un servicio es un dato editable y no cambia lo ya pedido', 'sistema', async () => { await q(`update servicios_catalogo set precio=99000 where clave='logo'`); const r = await q(`select precio from solicitudes_servicio where id=$1`, [sol.id]); await q(`update servicios_catalogo set precio=150000 where clave='logo'`); return r }, r => r.rows[0].precio == 150000)
+
+console.log('\n--- Categorías con imagen ---')
+await ok('el cajero crea una categoría', 'cajeroA', () => q(`insert into categorias (negocio_id,nombre,orden) values ($1,'Granos',1) returning id`, [A]))
+await falla('nombre repetido en la misma tienda', 'cajeroA', () => q(`insert into categorias (negocio_id,nombre) values ($1,'Granos')`, [A]), 'duplicate|unique')
+await ok('otra tienda puede tener el mismo nombre', 'duenoB', () => q(`insert into categorias (negocio_id,nombre) values ($1,'Granos') returning id`, [B]))
+await falla('imagen de otra tienda', 'cajeroA', () => q(`insert into categorias (negocio_id,nombre,imagen) values ($1,'Aseo',$2)`, [A, `${B}/categorias/x.webp`]), 'check')
+await falla('imagen en una carpeta que no es de categorías', 'cajeroA', () => q(`insert into categorias (negocio_id,nombre,imagen) values ($1,'Aseo',$2)`, [A, `${A}/marca/x.webp`]), 'check')
+await ok('imagen propia', 'cajeroA', () => q(`insert into categorias (negocio_id,nombre,imagen) values ($1,'Aseo',$2) returning id`, [A, `${A}/categorias/aseo.webp`]))
+await ok('el cajero sube la imagen de la categoría', 'cajeroA', () => q(`insert into storage.objects (bucket_id,name) values ('negocios',$1)`, [`${A}/categorias/aseo.webp`]))
+await falla('el cajero de A no sube categorías de B', 'cajeroA', () => q(`insert into storage.objects (bucket_id,name) values ('negocios',$1)`, [`${B}/categorias/x.webp`]), 'row-level security')
+await ok('el catálogo público trae las categorías de A y solo de A', 'anon', () => q(`select catalogo_tienda('tienda-a') c`), r => r.rows[0].c.categorias.length === 2 && r.rows[0].c.categorias.map(x => x.nombre).sort().join() === 'Aseo,Granos')
+await falla('el cajero no borra categorías', 'cajeroA', () => q(`delete from categorias where nombre='Aseo' returning id`), 'cero')
+await falla('B no ve las categorías de A', 'duenoB', () => q(`select * from categorias where negocio_id=$1`, [A]), 'cero')
+await falla('el soporte no escribe categorías', 'soporte', () => q(`insert into categorias (negocio_id,nombre) values ($1,'Intruso')`, [A]), 'solo puede consultar')
+
+console.log('\n--- Proveedores ---')
+await ok('el cajero de A crea un proveedor', 'cajeroA', () => q(`insert into proveedores (negocio_id,nombre,telefono) values ($1,'Distribuidora Sol','3001112222') returning id`, [A]))
+await falla('el mismo nombre (sin importar mayúsculas)', 'cajeroA', () => q(`insert into proveedores (negocio_id,nombre) values ($1,'DISTRIBUIDORA SOL')`, [A]), 'duplicate|unique')
+await ok('B tiene el suyo con el mismo nombre', 'duenoB', () => q(`insert into proveedores (negocio_id,nombre) values ($1,'Distribuidora Sol') returning id`, [B]))
+await ok('B no ve los proveedores de A', 'duenoB', () => q(`select count(*) n from proveedores where negocio_id=$1`, [A]), r => r.rows[0].n == 0)
+await falla('sin el módulo de compras (vitrina) no hay proveedores', 'duenoV', () => q(`insert into proveedores (negocio_id,nombre) values ($1,'Otro')`, [V]), 'no está activo')
+await falla('la compra de A no puede apuntar a un proveedor de B', 'sistema', async () => { const pb = (await q(`select id from proveedores where negocio_id=$1`, [B])).rows[0].id; return q(`insert into compras (negocio_id,proveedor_id,total) values ($1,$2,0)`, [A, pb]) }, 'foreign key|violates')
+await ok('la compra de A sí puede apuntar a su proveedor', 'sistema', async () => { const pa = (await q(`select id from proveedores where negocio_id=$1`, [A])).rows[0].id; return q(`insert into compras (negocio_id,proveedor_id,total) values ($1,$2,0) returning id`, [A, pa]) })
+await falla('el cajero no borra proveedores', 'cajeroA', () => q(`delete from proveedores where negocio_id=$1 returning id`, [A]), 'cero')
+
+console.log('\n--- Invitaciones (registro solo por invitación) ---')
+let inv
+await ok('crear una tienda para un correo que aún no entró deja una invitación', 'sistema', async () => (inv = await crear('inv-i', 'Inv I', 'tienda', 'nuevo@prueba.com', 'vitrina'), q(`select 1`)), () => inv.invitacion_pendiente === true && inv.publicada === false)
+await ok('todavía no tiene dueño', 'sistema', () => q(`select count(*) n from negocio_miembros where negocio_id=$1`, [inv.id]), r => r.rows[0].n == 0)
+await q(`insert into auth.users (email) values ('nuevo@prueba.com')`); U.nuevo = (await q(`select id from auth.users where email='nuevo@prueba.com'`)).rows[0].id
+await ok('al entrar, el dueño reclama su tienda', 'nuevo', () => q(`select reclamar_invitaciones() n`), r => r.rows[0].n == 1)
+await ok('ya es dueño de su tienda', 'nuevo', () => q(`select mi_rol($1) r`, [inv.id]), r => r.rows[0].r === 'dueno')
+await ok('reclamar otra vez no hace nada', 'nuevo', () => q(`select reclamar_invitaciones() n`), r => r.rows[0].n == 0)
+await ok('la invitación quedó usada', 'duenoA', async () => ({ n: (await como('sistema', () => q(`select usada_por from invitaciones where negocio_id=$1`, [inv.id]))).rows[0].usada_por }), r => r.n === U.nuevo)
+await sis(() => q(`insert into auth.users (email, email_confirmed_at) values ('sinconfirmar@prueba.com', null)`))
+U.sinconfirmar = (await q(`select id from auth.users where email='sinconfirmar@prueba.com'`)).rows[0].id
+const inv2 = await sis(() => crear('inv-j', 'Inv J', 'tienda', 'sinconfirmar@prueba.com', 'vitrina'))
+await ok('el usuario sin correo confirmado no es dueño todavía', 'sistema', () => q(`select count(*) n from negocio_miembros where negocio_id=$1`, [inv2.id]), r => r.rows[0].n == 1)
+await sis(() => q(`delete from negocio_miembros where negocio_id=$1`, [inv2.id]).catch(() => null))
+U.sinconfirmar2 = U.sinconfirmar
+await ok('un correo sin confirmar NO reclama invitaciones de otra tienda', 'sistema', async () => { await q(`insert into invitaciones (negocio_id,email,rol) values ($1,'sinconfirmar@prueba.com','cajero') on conflict do nothing`, [inv.id]); return { ok: true } }, () => true)
+U.sinconfirmar = U.sinconfirmar2
+await ok('el soporte no reclama invitaciones', 'sistema', async () => { await q(`insert into invitaciones (negocio_id,email,rol) values ($1,'soporte@prueba.com','cajero')`, [inv.id]); return { ok: true } }, () => true)
+await ok('…aunque haya una a su nombre', 'soporte', () => q(`select reclamar_invitaciones() n`), r => r.rows[0].n == 0)
+await sis(() => q(`update invitaciones set vence_en = now() - interval '1 day' where negocio_id=$1 and email='soporte@prueba.com'`, [inv.id]))
+await ok('invitación vencida no se reclama', 'google2', () => q(`select reclamar_invitaciones() n`), r => r.rows[0].n == 0)
+await ok('un cliente con Google sin invitación no gana nada', 'google1', () => q(`select reclamar_invitaciones() n, (select count(*) from mis_negocios()) m`), r => r.rows[0].n == 0 && r.rows[0].m == 0)
+await ok('el dueño invita a alguien sin cuenta: queda pendiente', 'duenoA', () => q(`select invitar_miembro($1,'Ayudante@Prueba.com','cajero') r`, [A]), r => r.rows[0].r === 'invitado')
+await ok('el dueño agrega a alguien que ya tiene cuenta', 'duenoA', () => q(`select invitar_miembro($1,'otro@prueba.com','cajero','Otro') r`, [A]), r => r.rows[0].r === 'agregado')
+await ok('el dueño ve sus invitaciones y no las de otra tienda', 'duenoA', () => q(`select email from invitaciones`), r => r.rows.length === 1 && r.rows[0].email === 'ayudante@prueba.com')
+await falla('el cajero no invita', 'cajeroA', () => q(`select invitar_miembro($1,'x@prueba.com','cajero')`, [A]), 'No autorizado')
+await falla('el dueño de B no invita a la tienda de A', 'duenoB', () => q(`select invitar_miembro($1,'x@prueba.com','cajero')`, [A]), 'No autorizado')
+await falla('correo mal escrito', 'duenoA', () => q(`select invitar_miembro($1,'no-es-correo','cajero')`, [A]), 'no es válido')
+await falla('rol inventado', 'duenoA', () => q(`select invitar_miembro($1,'x@prueba.com','jefe')`, [A]), 'Rol no válido')
+await falla('nadie escribe invitaciones a mano', 'duenoA', () => q(`insert into invitaciones (negocio_id,email,rol) values ($1,'z@prueba.com','dueno')`, [A]), 'permission denied')
+
+console.log('\n--- Nada se rompió en lo anterior ---')
+await ok('las 3 tiendas de prueba y las nuevas siguen aisladas: A no ve productos de V', 'duenoA', () => q(`select count(*) n from productos where negocio_id=$1`, [V]), r => r.rows[0].n == 0)
+await ok('V ve lo suyo y nada de A', 'duenoV', () => q(`select count(*) n from productos`), r => r.rows[0].n == 2)
+await ok('el soporte sigue sin poder modificar planes ni tiendas', 'soporte', () => q(`select count(*) n from negocios`), r => r.rows[0].n >= 5)
+await falla('el soporte no cambia el plan de una tienda', 'soporte', () => q(`update negocios set plan='completo' where id=$1`, [V]), 'cero|solo puede consultar|permission denied')
+await falla('el dueño no se cambia el plan ni se publica', 'duenoV', () => q(`update negocios set plan='completo', publicada=true where id=$1`, [V]), 'permission denied')
+
 
 console.log('\n--- Archivo 09 (negocio de prueba) ---')
 await como('sistema', async () => { await db.exec(fs.readFileSync(path.join(sqlDir, '09-negocio-prueba.sql'), 'utf8').replace('CORREO_DUENO@gmail.com', 'extra@prueba.com')) })
