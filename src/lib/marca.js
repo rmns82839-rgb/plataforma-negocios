@@ -9,17 +9,17 @@ export function aplicarMarca(m) {
   if (HEX.test(m?.color_principal || '')) raiz.setProperty('--c-principal', triple(m.color_principal))
   if (HEX.test(m?.color_secundario || '')) raiz.setProperty('--c-secundario', triple(m.color_secundario))
   if (HEX.test(m?.color_acento || '')) raiz.setProperty('--c-acento', triple(m.color_acento))
-  document.title = m?.nombre ? (m.eslogan ? `${m.nombre} · ${m.eslogan}` : m.nombre) : 'Plataforma'
+  document.title = m?.nombre ? (m.eslogan ? `${m.nombre} · ${m.eslogan}` : m.nombre) : 'Matriz'
   const icono = urlImagen(m?.icono)
   let link = document.querySelector('link[rel="icon"]')
   if (icono) {
     if (!link) { link = document.createElement('link'); link.rel = 'icon'; document.head.appendChild(link) }
     link.href = icono
-  } else if (link) link.remove()
+  } else if (link) link.href = '/favicon.svg'
 }
 
 export function quitarMarca() {
   const raiz = document.documentElement.style
   ;['--c-principal', '--c-secundario', '--c-acento'].forEach((v) => raiz.removeProperty(v))
-  document.title = 'Plataforma'
+  document.title = 'Matriz'
 }

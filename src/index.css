@@ -3,10 +3,10 @@
 @tailwind utilities;
 
 :root {
-  --c-principal: 30 58 95;
-  --c-secundario: 176 141 87;
+  --c-principal: 11 11 12;
+  --c-secundario: 168 128 58;
   --c-acento: 11 107 74;
   color-scheme: only light;
 }
 html, body, #root { min-height: 100%; }
-body { background: #FAF8F4; color: #1B1B1F; -webkit-font-smoothing: antialiased; }
+body { background: #F7F4EC; color: #1B1B1F; -webkit-font-smoothing: antialiased; }

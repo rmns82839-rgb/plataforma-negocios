@@ -149,3 +149,7 @@ Las públicas reciben el **slug**: `crear_pedido_tienda(p_slug, p_datos, p_items
 **Archivos**: `src/lib/caja.js` (fechas de Bogotá, pagos, variación, WhatsApp), `src/panel/{Caja,CajaVender,CajaDia,ClienteSelector,Fiados,Reportes,Pedidos}.jsx`.
 
 **Límites conocidos**: no hay domicilio en la venta de mostrador (los domicilios llegan por la tienda en línea); el conteo de caja no se guarda, solo se compara en pantalla; el «gasto» se asume pagado en efectivo.
+
+## Marca Matriz (v11)
+La plataforma lleva la marca **Matriz — «El origen de lo bueno»**: `src/tienda/MarcaMatriz.jsx` (isotipo SVG + logotipo), `public/favicon.svg`, fuentes Cormorant Garamond (logotipo) y Jost (texto). Paleta: Negro #0B0B0C, Champagne #D8B978, Oro hondo #A8803A, Esmeralda #0B6B4A (solo acento), Hueso #F7F4EC.
+El login, «Mis tiendas» y el panel usan siempre esta paleta. La tienda pública conserva los colores y el logo de cada negocio; el pie dice «Tienda creada con MATRIZ».

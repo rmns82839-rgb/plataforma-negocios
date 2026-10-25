@@ -1,7 +1,8 @@
 // Piezas de la tienda pública: letra grande, botones grandes y fondos claros (clientes de 50 a 70 años).
 import { urlImagen } from '../lib/supabase'
+import { Isotipo } from './MarcaMatriz'
 
-export const MARCA_PLATAFORMA = 'Cibus'
+export const MARCA_PLATAFORMA = 'Matriz'
 
 export function Btn({ children, variante = 'principal', className = '', ...p }) {
   const base = 'inline-flex min-h-[56px] w-full items-center justify-center rounded-2xl px-6 text-lg font-semibold transition active:scale-[0.99] disabled:opacity-50'
@@ -71,5 +72,9 @@ export function BarraFija({ children }) {
 }
 
 export function PiePlataforma() {
-  return <footer className="mt-12 pb-6 text-center text-sm text-tinta/50">Tienda creada con {MARCA_PLATAFORMA}</footer>
+  return (
+    <footer className="mt-12 flex items-center justify-center gap-2 pb-6 text-center text-sm text-tinta/50">
+      <Isotipo tamano={20} /> <span>Tienda creada con <b className="font-serif text-base font-medium tracking-[0.2em]">{MARCA_PLATAFORMA.toUpperCase()}</b></span>
+    </footer>
+  )
 }

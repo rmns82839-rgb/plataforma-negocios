@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { ir } from '../lib/ruta'
 import { Btn, Aviso, PiePlataforma } from '../tienda/ui'
+import MarcaMatriz from '../tienda/MarcaMatriz'
 
 const ROL = { dueno: 'Dueño', cajero: 'Cajero', soporte: 'Soporte (solo lectura)' }
 
@@ -17,6 +18,7 @@ export default function Inicio() {
 
   return (
     <main className="mx-auto w-full max-w-3xl px-4 py-8 text-lg">
+      <div className="mb-8"><MarcaMatriz tamano={56} /></div>
       <div className="mb-6 flex items-center justify-between gap-3">
         <h1 className="text-3xl font-bold">Mis tiendas</h1>
         <div className="w-32"><Btn variante="suave" onClick={() => supabase.auth.signOut()}>Salir</Btn></div>

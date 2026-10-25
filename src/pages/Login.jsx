@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { Btn, Aviso, Campo, clsInput, PiePlataforma } from '../tienda/ui'
 import { entrarConGoogle } from '../lib/google'
+import MarcaMatriz from '../tienda/MarcaMatriz'
 
 export default function Login({ titulo = 'Ingresar' }) {
   const [correo, setCorreo] = useState('')
@@ -20,6 +21,7 @@ export default function Login({ titulo = 'Ingresar' }) {
 
   return (
     <main className="mx-auto w-full max-w-md px-4 py-10 text-lg">
+      <div className="mb-8"><MarcaMatriz /></div>
       <h1 className="mb-1 text-3xl font-bold">{titulo}</h1>
       <p className="mb-6 text-lg text-tinta/70">Escribe el correo y la contraseña de tu cuenta.</p>
       <form onSubmit={entrar} className="space-y-5 rounded-2xl border-2 border-black/5 bg-white p-5">

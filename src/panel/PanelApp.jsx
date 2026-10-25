@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { aplicarMarca, quitarMarca } from '../lib/marca'
+import { quitarMarca } from '../lib/marca'
 import { ir } from '../lib/ruta'
 import { useSesion } from '../lib/sesion'
 import { cop } from '../lib/pedido'
@@ -36,7 +36,7 @@ export default function PanelApp({ slug }) {
       if (!m) { if (vivo) setCtx(null); return }
       const { data: marca } = await supabase.rpc('negocio_publico', { p_slug: slug })
       if (!vivo) return
-      if (marca) aplicarMarca(marca)
+      // El panel usa siempre la paleta de Matriz; los colores de la tienda se ven solo en la tienda pública.
       setCtx({ neg: m, rol: m.rol, esDueno: m.rol === 'dueno', soloLectura: m.rol === 'soporte', modulos: marca?.modulos || [], marca })
       supabase.rpc('registrar_acceso', { p_negocio_id: m.negocio_id, p_detalle: 'Panel' })
       if (m.rol === 'dueno') {
