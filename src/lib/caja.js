@@ -81,7 +81,7 @@ export function nuevaVenta(abiertas = [], ahora = Date.now()) {
   const usados = new Set(abiertas.map((v) => v.n))
   let n = 1
   while (usados.has(n)) n++
-  return { id: `v${ahora.toString(36)}${Math.random().toString(36).slice(2, 6)}`, n, ts: ahora, paso: 'armar', carrito: {}, cliente: null, descTipo: 'monto', descValor: '', descLinea: {}, pagos: [], plazo: 0 }
+  return { id: `v${ahora.toString(36)}${Math.random().toString(36).slice(2, 6)}`, n, ts: ahora, paso: 'armar', carrito: {}, cliente: null, descTipo: 'monto', descValor: '', descLinea: {}, pagos: [], plazo: 0, dom: { on: false, direccion: '', telefono: '', costo: '' } }
 }
 
 // Lo que se guarda en el equipo: solo ventas con forma válida y de menos de 2 días (por si cambió algo)
@@ -91,13 +91,14 @@ export function sanearVentas(obj, ahora = Date.now()) {
   const lista = obj.lista.slice(0, MAX_VENTAS).filter((v) => v && typeof v.id === 'string' && ahora - num(v.ts) < DOS_DIAS).map((v) => ({
     id: v.id, n: Math.min(Math.max(Math.round(num(v.n)) || 1, 1), MAX_VENTAS), ts: num(v.ts),
     paso: v.paso === 'cobrar' ? 'cobrar' : 'armar',
-    carrito: Object.fromEntries(Object.entries(v.carrito || {}).filter(([, c]) => num(c) > 0).map(([k, c]) => [k, Math.min(num(c), 9999)])),
+    carrito: Object.fromEntries(Object.entries(v.carrito || {}).filter(([, c]) => num(c) > 0).map(([k, c]) => [k, Math.min(Math.round(num(c) * 1000) / 1000, 9999)])),
     cliente: v.cliente && typeof v.cliente.id === 'string' ? { id: v.cliente.id, nombre: String(v.cliente.nombre || ''), telefono: v.cliente.telefono ?? null, saldo: num(v.cliente.saldo), cupo_credito: num(v.cliente.cupo_credito) } : null,
     descTipo: v.descTipo === 'pct' ? 'pct' : 'monto',
     descValor: soloDigitos(v.descValor).slice(0, 9),
     descLinea: Object.fromEntries(Object.entries(v.descLinea || {}).filter(([, d]) => num(d) > 0).map(([k, d]) => [k, String(Math.round(num(d)))])),
     pagos: (Array.isArray(v.pagos) ? v.pagos : []).filter((p) => p && typeof p.metodo === 'string' && num(p.monto) > 0).map((p) => ({ metodo: p.metodo, monto: Math.round(num(p.monto)), ...(num(p.recibido) > 0 ? { recibido: Math.round(num(p.recibido)) } : {}) })),
     plazo: [0, 7, 15, 30].includes(num(v.plazo)) ? num(v.plazo) : 0,
+    dom: { on: !!v.dom?.on, direccion: String(v.dom?.direccion || '').slice(0, 160), telefono: soloDigitos(v.dom?.telefono).slice(0, 12), costo: soloDigitos(v.dom?.costo).slice(0, 7) },
   }))
   if (lista.length === 0) return null
   const activa = lista.some((v) => v.id === obj.activa) ? obj.activa : lista[0].id
@@ -167,4 +168,13 @@ export function leerComision(texto) {
   if (!/^\d{1,2}(\.\d{1,2})?$/.test(t)) return null
   const n = Number(t)
   return n >= 0 && n <= 20 ? n : null
+}
+
+// Domicilio de una venta de mostrador: cuánto cobra de envío (0 si no hay) y los datos que viajan al servidor
+export const envioDe = (dom) => (dom?.on ? aNumero(dom.costo) : 0)
+export function domicilioParaServidor(dom) {
+  if (!dom?.on) return { dom: null }
+  const direccion = String(dom.direccion || '').trim()
+  if (direccion.length < 5) return { error: 'Escribe la dirección del domicilio' }
+  return { dom: { direccion, telefono: soloDigitos(dom.telefono) || null, costo: aNumero(dom.costo) } }
 }

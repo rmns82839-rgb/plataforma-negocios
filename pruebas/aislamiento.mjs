@@ -37,7 +37,7 @@ for (const n of ['duenoA', 'cajeroA', 'duenoB', 'soporte', 'extra', 'duenoV', 'g
 
 // ---------- Cargar los SQL del proyecto ----------
 let fallas = 0, pruebas = 0
-for (const f of ['01-plataforma.sql', '02-datos.sql', '03-seguridad.sql', '04-funciones-plataforma.sql', '05-storage-realtime.sql', '06-funciones-negocio.sql', '07-tablero-y-pedidos.sql', '08-permisos.sql', '10-planes-modulos.sql', '11-catalogo-clientes.sql', '12-redondeo-domicilio.sql', '14-panel.sql', '15-domicilio-km.sql', '16-direcciones-cliente.sql', '17-caja-pedidos.sql', '18-formas-pago-comision.sql']) {
+for (const f of ['01-plataforma.sql', '02-datos.sql', '03-seguridad.sql', '04-funciones-plataforma.sql', '05-storage-realtime.sql', '06-funciones-negocio.sql', '07-tablero-y-pedidos.sql', '08-permisos.sql', '10-planes-modulos.sql', '11-catalogo-clientes.sql', '12-redondeo-domicilio.sql', '14-panel.sql', '15-domicilio-km.sql', '16-direcciones-cliente.sql', '17-caja-pedidos.sql', '18-formas-pago-comision.sql', '19-caja-movimientos.sql']) {
   try { await db.exec(fs.readFileSync(path.join(sqlDir, f), 'utf8')); console.log('OK   ', f) }
   catch (e) { console.log('FALLA', f, '→', e.message); process.exit(1) }
 }
@@ -1098,6 +1098,43 @@ console.log('\n--- Archivo 18: comisión por forma de pago ---')
   const v18 = await db.query(sql18.slice(i18))
   pruebas++
   if (v18.rows.length === 4 && v18.rows.every(r => r.ok === true)) console.log('✓ archivo 18: 4 filas true, y se puede correr dos veces'); else { fallas++; console.log('✗ archivo 18', JSON.stringify(v18.rows)) }
+}
+
+// Archivo 19: retiros e ingresos de caja, gastos con forma de pago (C6a-2)
+console.log('\n--- Archivo 19: movimientos de caja ---')
+{
+  // La segunda corrida del archivo 17 (arriba) volvió a dejar la caja_dia vieja: se corre 19 otra vez, como haría Supabase
+  await db.exec(fs.readFileSync(path.join(sqlDir, '19-caja-movimientos.sql'), 'utf8'))
+  const esp = async () => Number((await como('cajeroA', () => q(`select caja_dia($1) c`, [A]))).rows[0].c.efectivo_esperado)
+  const e0 = await esp()
+  await ok('el cajero registra un ingreso con motivo', 'cajeroA', () => q(`insert into caja_movimientos (negocio_id,tipo,monto,motivo) values ($1,'ingreso',50000,'Base para dar cambio')`, [A]), () => true)
+  await ok('el cajero registra un retiro con motivo', 'cajeroA', () => q(`insert into caja_movimientos (negocio_id,tipo,monto,motivo) values ($1,'retiro',20000,'Pago al proveedor de pan')`, [A]), () => true)
+  pruebas++; const e1 = await esp()
+  if (e1 === e0 + 30000) console.log('✓ el efectivo esperado sube con el ingreso y baja con el retiro (+30.000)'); else { fallas++; console.log('✗ efectivo esperado', e0, e1) }
+  await q(`insert into gastos (negocio_id,tipo,descripcion,monto,metodo) values ($1,'otros','Domicilio pagado con Nequi',7000,'nequi')`, [A])
+  pruebas++; const e2 = await esp()
+  if (e2 === e1) console.log('✓ un gasto pagado con Nequi no baja el efectivo'); else { fallas++; console.log('✗ gasto con Nequi bajó el efectivo', e1, e2) }
+  await q(`insert into gastos (negocio_id,tipo,descripcion,monto) values ($1,'otros','Bolsas',1000)`, [A])
+  pruebas++; const e3 = await esp()
+  if (e3 === e2 - 1000) console.log('✓ un gasto en efectivo (por defecto) sí baja el efectivo'); else { fallas++; console.log('✗ gasto en efectivo', e2, e3) }
+  const lista = (await como('cajeroA', () => q(`select caja_dia($1) c`, [A]))).rows[0].c
+  pruebas++
+  if (lista.movimientos.length === 2 && lista.ingresos_total == 50000 && lista.retiros_total == 20000 && lista.gastos.some(g => g.metodo === 'nequi')) console.log('✓ la caja del día lista los movimientos y la forma de pago de cada gasto'); else { fallas++; console.log('✗ lista de movimientos', JSON.stringify(lista.movimientos)) }
+  await falla('el motivo no puede ser vacío ni muy corto', 'cajeroA', () => q(`insert into caja_movimientos (negocio_id,tipo,monto,motivo) values ($1,'retiro',1000,'  a ')`, [A]), 'caja_movimientos_motivo_check')
+  await falla('el monto debe ser mayor a cero', 'cajeroA', () => q(`insert into caja_movimientos (negocio_id,tipo,monto,motivo) values ($1,'retiro',0,'Prueba cero')`, [A]), 'caja_movimientos_monto_check')
+  await falla('nadie edita un movimiento (ni el dueño)', 'duenoA', () => q(`update caja_movimientos set monto=1 where negocio_id=$1`, [A]), 'permission denied')
+  await falla('nadie borra un movimiento (ni el dueño)', 'duenoA', () => q(`delete from caja_movimientos where negocio_id=$1`, [A]), 'permission denied')
+  await falla('otro negocio no registra movimientos en el mío', 'duenoB', () => q(`insert into caja_movimientos (negocio_id,tipo,monto,motivo) values ($1,'retiro',1000,'Intento ajeno')`, [A]), 'row-level security')
+  await falla('el soporte no registra movimientos', 'soporte', () => q(`insert into caja_movimientos (negocio_id,tipo,monto,motivo) values ($1,'retiro',1000,'Intento soporte')`, [A]), 'solo puede consultar')
+  await ok('el soporte sí ve los movimientos', 'soporte', () => q(`select count(*) n from caja_movimientos where negocio_id=$1`, [A]), r => r.rows[0].n >= 2)
+  await ok('otro negocio no ve mis movimientos', 'duenoB', () => q(`select count(*) n from caja_movimientos where negocio_id=$1`, [A]), r => r.rows[0].n == 0)
+  await falla('un gasto no puede usar una forma de pago que no existe', 'cajeroA', () => q(`insert into gastos (negocio_id,tipo,descripcion,monto,metodo) values ($1,'otros','Raro',100,'inventada')`, [A]), 'gastos_metodo_fk')
+  const sql19 = fs.readFileSync(path.join(sqlDir, '19-caja-movimientos.sql'), 'utf8')
+  const i19 = sql19.lastIndexOf("select 'La tabla caja_movimientos existe")
+  await db.exec(sql19.slice(0, i19))
+  const v19 = await db.query(sql19.slice(i19))
+  pruebas++
+  if (v19.rows.length === 5 && v19.rows.every(r => r.ok === true)) console.log('✓ archivo 19: 5 filas true, y se puede correr dos veces'); else { fallas++; console.log('✗ archivo 19', JSON.stringify(v19.rows)) }
 }
 
 console.log('\n--- Verificación automática de la base ---')

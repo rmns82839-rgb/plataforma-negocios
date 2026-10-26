@@ -4,10 +4,11 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { mensajeError } from '../lib/errores'
 import { cop } from '../lib/pedido'
-import { subtotalLista, aNumero, nuevaVenta, sanearVentas, descuentoGeneral, MAX_VENTAS, fechaLimite, sumaPagos } from '../lib/caja'
+import { subtotalLista, aNumero, nuevaVenta, sanearVentas, descuentoGeneral, MAX_VENTAS, fechaLimite, sumaPagos, envioDe, domicilioParaServidor } from '../lib/caja'
 import { Btn } from '../tienda/ui'
 import VentaArmar from './VentaArmar'
 import VentaCobrar from './VentaCobrar'
+import Recibo from './Recibo'
 
 const COLS = 'id,codigo,nombre,unidad,categoria,precio_venta,stock,es_kit'
 const clave = (nid, uid) => `caja-ventas:${nid}:${uid}`
@@ -60,6 +61,10 @@ export default function CajaVender({ ctx, irAlDia }) {
   const items = lineas.reduce((s, l) => s + Number(l.cantidad), 0)
   const lista = subtotalLista(lineas)
 
+  // El domicilio se cobra aparte de los productos: el servidor lo suma al registrar la venta
+  const envio = envioDe(venta.dom)
+  const calcF = useMemo(() => (calc ? { ...calc, envio, total: calc.total + envio } : null), [calc, envio])
+
   const mover = (id, c) => setEstado((e) => ({ ...e, lista: e.lista.map((v) => {
     if (v.id !== e.activa) return v
     const carrito = { ...v.carrito }; const descLinea = { ...v.descLinea }
@@ -98,7 +103,7 @@ export default function CajaVender({ ctx, irAlDia }) {
   }, [claveCalc, nid])
 
   // Si el total baja y ya hay más pagos que total, se borran los pagos para volver a pedirlos
-  useEffect(() => { if (calc && sumaPagos(venta.pagos) > calc.total) cambiar({ pagos: [] }) /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [calc])
+  useEffect(() => { if (calcF && sumaPagos(venta.pagos) > calcF.total) cambiar({ pagos: [] }) /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [calcF])
 
   // ---------- Ventas abiertas ----------
   function agregarVenta() {
@@ -118,21 +123,22 @@ export default function CajaVender({ ctx, irAlDia }) {
 
   async function registrar() {
     setError('')
-    if (!calc || sumaPagos(venta.pagos) !== calc.total) return setError('Los pagos no suman el total de la venta')
+    if (!calcF || sumaPagos(venta.pagos) !== calcF.total) return setError('Los pagos no suman el total de la venta')
     const usaFiado = venta.pagos.some((p) => formas.find((f) => f.id === p.metodo)?.tipo === 'fiado')
     if (usaFiado && !venta.cliente) return setError('Para fiar debes elegir un cliente')
-    const unico = venta.pagos.length === 1 ? venta.pagos[0] : null
-    const resumen = { total: calc.total, cambio: venta.pagos.reduce((s, p) => s + (p.recibido > p.monto ? p.recibido - p.monto : 0), 0) }
+    const d = domicilioParaServidor(venta.dom)
+    if (d.error) return setError(d.error)
+    const resumen = { total: calcF.total, cambio: venta.pagos.reduce((s, p) => s + (p.recibido > p.monto ? p.recibido - p.monto : 0), 0) }
     setOcupado(true)
     if (sim) { setOcupado(false); setHecha({ ...resumen, numero: 'PRUEBA', simulada: true }); quitarVenta(venta.id); return }
     const { data: id, error: e } = await supabase.rpc('registrar_venta', {
       p_negocio_id: nid, p_items: itemsServidor, p_pagos: venta.pagos, p_cliente_id: venta.cliente?.id ?? null, p_nota: null,
-      p_fecha_limite: usaFiado ? fechaLimite(venta.plazo) : null, p_descuento: calc.desc, p_domicilio: null,
+      p_fecha_limite: usaFiado ? fechaLimite(venta.plazo) : null, p_descuento: calc.desc, p_domicilio: d.dom,
     })
     if (e) { setOcupado(false); return setError(mensajeError(e)) }
     const { data: v } = await supabase.from('ventas').select('numero,total').eq('negocio_id', nid).eq('id', id).single()
     setOcupado(false)
-    setHecha({ ...resumen, numero: v?.numero ?? '', total: Number(v?.total ?? calc.total), unico: !!unico })
+    setHecha({ ...resumen, numero: v?.numero ?? '', total: Number(v?.total ?? calcF.total), id })
     quitarVenta(venta.id)
     cargarProductos()    // el stock cambió
   }
@@ -148,6 +154,7 @@ export default function CajaVender({ ctx, irAlDia }) {
           {hecha.cambio > 0 && <p className="mt-3 text-2xl font-bold text-principal">Devuelve {cop(hecha.cambio)}</p>}
           {hecha.simulada && <p className="mt-2 text-lg">Estás en solo lectura: no se guardó nada.</p>}
         </div>
+        {hecha.id && <div className="mb-5"><Recibo nid={nid} ventaId={hecha.id} marca={ctx.marca} formas={formasTodas} /></div>}
         <div className="space-y-3">
           <Btn variante="verde" onClick={() => { setHecha(null); setCalc(null) }}>{otras.length > 0 ? `Seguir con mis ${otras.length === 1 ? 'otra venta abierta' : `${otras.length} ventas abiertas`}` : 'Hacer otra venta'}</Btn>
           <Btn variante="suave" onClick={irAlDia}>Ver el resumen del día</Btn>
@@ -161,7 +168,7 @@ export default function CajaVender({ ctx, irAlDia }) {
       <section aria-label="Ventas abiertas" className="mb-4">
         <div className="grid grid-cols-3 gap-2">
           {estado.lista.map((v) => {
-            const n = Object.values(v.carrito).reduce((s, c) => s + Number(c), 0)
+            const n = Object.keys(v.carrito).length
             const act = v.id === estado.activa
             return (
               <button key={v.id} type="button" aria-pressed={act} onClick={() => irA(v.id)}
@@ -179,7 +186,7 @@ export default function CajaVender({ ctx, irAlDia }) {
       </section>
 
       {venta.paso === 'cobrar' ? (
-        <VentaCobrar nid={nid} sim={sim} venta={venta} cambiar={cambiar} formas={formas} calc={calc} calculando={calculando} errTotal={errTotal} error={error} ocupado={ocupado}
+        <VentaCobrar nid={nid} sim={sim} venta={venta} cambiar={cambiar} formas={formas} calc={calcF} calculando={calculando} errTotal={errTotal} error={error} ocupado={ocupado} domicilios={ctx.modulos.includes('domicilios')}
           onVolver={() => { cambiar({ paso: 'armar', pagos: [] }); setError('') }} onRegistrar={registrar} />
       ) : (
         <VentaArmar productos={productos} error={error} venta={venta} lineas={lineas} mover={mover} ponerDescLinea={ponerDescLinea} calc={calc} calculando={calculando} errTotal={errTotal}

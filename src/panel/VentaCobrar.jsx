@@ -1,14 +1,34 @@
 // Cobrar: cliente, descuento general y pagos (uno o varios). Lo que falta se cobra con cualquier forma, incluido el fiado.
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { supabase } from '../lib/supabase'
 import { cop } from '../lib/pedido'
 import { faltante, sumaPagos, cambioTotal, spansMetodos, agregarPago } from '../lib/caja'
-import { Btn, Volver, Aviso, BarraFija, clsInput } from '../tienda/ui'
-import { Titulo, Seccion, Opciones } from './piezas'
+import { Btn, Volver, Aviso, Campo, BarraFija, clsInput } from '../tienda/ui'
+import { Titulo, Seccion, Opciones, Interruptor } from './piezas'
 import ClienteSelector from './ClienteSelector'
 import ModalPago from './ModalPago'
 
-export default function VentaCobrar({ nid, sim, venta, cambiar, formas, calc, calculando, errTotal, error, ocupado, onVolver, onRegistrar }) {
+export default function VentaCobrar({ nid, sim, venta, cambiar, formas, calc, calculando, errTotal, error, ocupado, domicilios, onVolver, onRegistrar }) {
   const [forma, setForma] = useState(null)
+  const [deuda, setDeuda] = useState(null)
+  const dom = venta.dom
+  const cliId = venta.cliente?.id
+
+  // ¿El cliente ya debe? Se le avisa al cajero antes de venderle fiado
+  useEffect(() => {
+    setDeuda(null)
+    if (!cliId) return
+    let vivo = true
+    ;(async () => {
+      const [a, b] = await Promise.all([
+        supabase.from('clientes_saldo').select('saldo').eq('negocio_id', nid).eq('id', cliId).maybeSingle(),
+        supabase.from('clientes_mora').select('vencido,dias_atraso').eq('negocio_id', nid).eq('cliente_id', cliId).maybeSingle(),
+      ])
+      if (vivo) setDeuda({ saldo: Number(a.data?.saldo || 0), vencido: Number(b.data?.vencido || 0), dias: Number(b.data?.dias_atraso || 0) })
+    })()
+    return () => { vivo = false }
+  }, [nid, cliId])
+  const cambiarDom = (parche) => cambiar({ dom: { ...dom, ...parche }, pagos: [] })
   const total = calc?.total ?? null
   const pagos = venta.pagos
   const falta = total != null ? faltante(pagos, total) : null
@@ -29,6 +49,12 @@ export default function VentaCobrar({ nid, sim, venta, cambiar, formas, calc, ca
         <ClienteSelector nid={nid} cliente={venta.cliente} onElegir={(c) => cambiar({ cliente: c })} soloLectura={sim} />
       </Seccion>
 
+      {deuda && deuda.saldo > 0 && (
+        <div className="mb-5"><Aviso tipo={deuda.vencido > 0 ? 'error' : 'previa'}>
+          <b>{venta.cliente.nombre} ya debe {cop(deuda.saldo)}.</b>{deuda.vencido > 0 ? ` De eso, ${cop(deuda.vencido)} está vencido (${deuda.dias} ${deuda.dias === 1 ? 'día' : 'días'} de atraso). Piensa si conviene fiarle más.` : ' Revisa si conviene fiarle más.'}
+        </Aviso></div>
+      )}
+
       <Seccion titulo="Descuento general (opcional)">
         <div className="grid grid-cols-3 gap-2" role="group" aria-label="Descuentos rápidos">
           {[['Ninguno', null], ['5 %', '5'], ['10 %', '10']].map(([t, v]) => {
@@ -41,6 +67,20 @@ export default function VentaCobrar({ nid, sim, venta, cambiar, formas, calc, ca
         <input className={`${clsInput} mt-3`} inputMode="numeric" placeholder={pct ? '% de descuento' : '$ de descuento'} aria-label="Valor del descuento" value={venta.descValor} onChange={(e) => cambiar({ descValor: e.target.value, pagos: [] })} />
         {calc?.desc > 0 && <p className="mt-2 text-xl font-bold text-green-800">Descuento: −{cop(calc.desc)}</p>}
       </Seccion>
+
+      {domicilios && (
+        <Seccion titulo="Domicilio (opcional)">
+          <Interruptor valor={dom.on} onChange={(on) => cambiarDom({ on, telefono: dom.telefono || (on ? String(venta.cliente?.telefono || '').replace(/\D/g, '') : '') })} texto="Llevar a domicilio" ayuda={dom.on ? 'El envío se suma al total.' : 'Apagado: el cliente se lo lleva.'} />
+          {dom.on && (
+            <div className="mt-3 space-y-3">
+              <Campo etiqueta="Dirección de entrega"><input className={clsInput} maxLength={160} value={dom.direccion} onChange={(e) => cambiarDom({ direccion: e.target.value })} placeholder="Calle, número y barrio" /></Campo>
+              <Campo etiqueta="Celular de quien recibe"><input className={clsInput} inputMode="tel" maxLength={12} value={dom.telefono} onChange={(e) => cambiarDom({ telefono: e.target.value })} /></Campo>
+              <Campo etiqueta="Costo del domicilio"><input className={clsInput} inputMode="numeric" placeholder="$ 0" value={dom.costo} onChange={(e) => cambiarDom({ costo: e.target.value })} /></Campo>
+              {calc?.envio > 0 && <p className="text-xl font-bold text-principal">Domicilio: +{cop(calc.envio)}</p>}
+            </div>
+          )}
+        </Seccion>
+      )}
 
       {pagos.length > 0 && (
         <Seccion titulo="Pagos recibidos">
@@ -67,7 +107,7 @@ export default function VentaCobrar({ nid, sim, venta, cambiar, formas, calc, ca
           <div className="grid grid-cols-6 gap-2" role="group" aria-label="Forma de pago">
             {formas.map((f, i) => (
               <button key={f.id} type="button" onClick={() => setForma(f)}
-                className={`${spans[i]} flex min-h-[72px] items-center justify-center rounded-2xl border-2 border-black/10 bg-white px-1 text-center text-lg font-bold leading-tight active:scale-[0.99]`}>{f.nombre}</button>
+                className={`${spans[i]} flex min-h-[72px] items-center justify-center rounded-2xl border-2 border-black/10 bg-white px-1 text-center text-base font-bold leading-tight [overflow-wrap:anywhere] active:scale-[0.99]`}>{f.nombre}</button>
             ))}
           </div>
         </Seccion>
@@ -75,7 +115,7 @@ export default function VentaCobrar({ nid, sim, venta, cambiar, formas, calc, ca
       {falta === 0 && usaFiado && !venta.cliente && <Aviso tipo="error">Para fiar, elige un cliente arriba.</Aviso>}
 
       <BarraFija>
-        {calc && calc.desc > 0 && <div className="flex items-baseline justify-between text-lg text-tinta/70"><span>Subtotal {cop(calc.base)}</span><span>Descuento −{cop(calc.desc)}</span></div>}
+        {calc && (calc.desc > 0 || calc.envio > 0) && <div className="flex items-baseline justify-between text-lg text-tinta/70"><span>Productos {cop(calc.base - calc.desc)}</span><span>{calc.desc > 0 ? `Desc. −${cop(calc.desc)}` : ''}{calc.desc > 0 && calc.envio > 0 ? ' · ' : ''}{calc.envio > 0 ? `Envío +${cop(calc.envio)}` : ''}</span></div>}
         <div className="mb-1 flex items-baseline justify-between"><span className="text-xl">Total a cobrar</span><span className="text-3xl font-bold text-principal">{total != null ? cop(total) : '…'}</span></div>
         <div className="mb-2 grid grid-cols-2 gap-2 text-center">
           <div className="rounded-xl bg-black/5 py-1"><p className="text-sm text-tinta/70">Pagado</p><p className="text-xl font-bold">{cop(sumaPagos(pagos))}</p></div>

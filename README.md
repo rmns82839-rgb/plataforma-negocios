@@ -160,3 +160,11 @@ El login, «Mis tiendas» y el panel usan siempre esta paleta. La tienda públic
 - Pago por modal por forma, billetes rápidos, «Exacto», cambio; el resto se paga con cualquier forma (incluido fiado con plazo 7/15/30 días).
 - Descuento general en $ o % (botones 5 % y 10 %) y descuento por producto.
 - Pantalla «Formas de pago» (dueño): encender, ordenar, comisión, agregar.
+
+## C6a-2 — Recibo, retiros e ingresos, gasto con forma de pago, domicilio, peso, aviso de deudor (v13)
+- **SQL nuevo:** `supabase/19-caja-movimientos.sql` (tabla `caja_movimientos`, columna `gastos.metodo`, `caja_dia` ampliada). Debe dar 5 filas true.
+- Recibo (WhatsApp, imprimir 80 mm, copiar) al terminar la venta y desde «Ventas del día». `src/lib/recibo.js`, `src/panel/Recibo.jsx`.
+- Retiros e ingresos con motivo (no se editan ni se borran); el efectivo esperado los cuenta. Los gastos guardan con qué se pagaron; solo los de efectivo bajan el efectivo.
+- Domicilio en la venta de mostrador (módulo `domicilios`): dirección, celular y costo; el envío se suma al total.
+- Productos por peso (kg, g, lb, l, ml, m…): cantidad decimal con atajos. `src/lib/pesaje.js`.
+- Aviso al cajero si el cliente ya debe (y cuánto está vencido).

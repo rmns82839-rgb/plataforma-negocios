@@ -2,6 +2,8 @@
 import assert from 'node:assert/strict'
 import * as P from '../src/lib/pedido.js'
 import * as C from '../src/lib/csv.js'
+import * as W from '../src/lib/pesaje.js'
+import * as R from '../src/lib/recibo.js'
 let ok = 0
 const t = (n, f) => { try { f(); ok++; console.log('✓', n) } catch (e) { console.log('✗', n, '→', e.message); process.exitCode = 1 } }
 
@@ -209,6 +211,20 @@ t('validar: tienda de tarifa fija no pide cálculo', () => assert.deepEqual(P.va
     assert.deepEqual(r.lista[0].carrito, { a: 2 }); assert.equal(r.lista[0].descTipo, 'monto'); assert.equal(r.lista[0].descValor, '10'); assert.deepEqual(r.lista[0].descLinea, { a: '300' }); assert.equal(r.lista[0].pagos.length, 1); assert.equal(r.lista[0].plazo, 0)
     assert.equal(K.sanearVentas({ lista: [v({ ts: ahora - 3 * 86400000 })] }, ahora), null); assert.equal(K.sanearVentas(null), null); assert.equal(K.sanearVentas({ lista: 'x' }), null)
   })
+  // ---- C6a-2 ----
+  await tt('productos por peso: unidades, pasos y atajos', () => { assert.ok(W.esPeso('kg') && W.esPeso(' Libra ') && W.esPeso('L.') && !W.esPeso('und') && !W.esPeso(null)); assert.equal(W.pasoPeso('kg'), 0.25); assert.equal(W.pasoPeso('g'), 100); assert.deepEqual(W.atajosPeso('lb'), [0.25, 0.5, 1, 2]); assert.deepEqual(W.atajosPeso('gr'), [100, 250, 500, 1000]) })
+  await tt('leer peso escrito por una persona', () => { assert.equal(W.leerPeso('1,5'), 1.5); assert.equal(W.leerPeso('0.25'), 0.25); assert.equal(W.leerPeso('2'), 2); assert.equal(W.leerPeso('0'), null); assert.equal(W.leerPeso('abc'), null); assert.equal(W.leerPeso('1,2345'), null); assert.equal(W.leerPeso(''), null); assert.equal(W.sumarPeso(0.1, 0.2), 0.3); assert.equal(W.textoCantidad(1.5), '1,5') })
+  await tt('domicilio en la venta de mostrador', () => {
+    assert.equal(K.envioDe({ on: false, costo: '5000' }), 0); assert.equal(K.envioDe({ on: true, costo: '5.000' }), 5000)
+    assert.deepEqual(K.domicilioParaServidor({ on: false }), { dom: null }); assert.match(K.domicilioParaServidor({ on: true, direccion: 'Cll' }).error, /dirección/)
+    assert.deepEqual(K.domicilioParaServidor({ on: true, direccion: ' Calle 10 # 5-20 ', telefono: '300 123 4567', costo: '4000' }), { dom: { direccion: 'Calle 10 # 5-20', telefono: '3001234567', costo: 4000 } })
+    assert.equal(K.nuevaVenta([]).dom.on, false); assert.equal(K.sanearVentas({ lista: [{ id: 'a', n: 1, ts: Date.now(), dom: { on: 1, direccion: 'x'.repeat(300), telefono: 'a3b', costo: '1x2' } }] }).lista[0].dom.direccion.length, 160)
+    assert.equal(K.sanearVentas({ lista: [{ id: 'a', n: 1, ts: Date.now(), carrito: { p: 1.23456 } }] }).lista[0].carrito.p, 1.235)
+  })
+  const rec = R.armarRecibo({ tienda: { nombre: 'Tienda <Demo>', nit: '900123' }, venta: { numero: 12, fecha: '2026-10-25T18:00:00Z', descuento: 500, dom_costo: 4000, total: 18500 }, items: [{ nombre: 'Arroz', cantidad: 2, precio_unitario: 2500, descuento_linea: 0 }, { nombre: 'Queso', cantidad: 1.5, precio_unitario: 10000, descuento_linea: 1000 }], pagos: [{ metodo: 'efectivo', monto: 10000, recibido: 20000 }, { metodo: 'nequi', monto: 8500 }], formas: [{ id: 'efectivo', nombre: 'Efectivo' }, { id: 'nequi', nombre: 'Nequi' }], cliente: { nombre: 'Luz' } })
+  await tt('recibo: cuentas y texto', () => { assert.equal(rec.subtotal, 19000); assert.equal(rec.cambio, 10000); const t = R.textoRecibo(rec); assert.match(t, /1,5 × Queso — \$14\.000/); assert.match(t, /Descuento: −\$500/); assert.match(t, /Domicilio: \$4\.000/); assert.match(t, /TOTAL: \$18\.500/); assert.match(t, /Nequi: \$8\.500/); assert.match(t, /Devuelto: \$10\.000/) })
+  await tt('recibo: página imprimible escapa el texto', () => { const h = R.htmlRecibo(rec); assert.match(h, /Tienda &lt;Demo&gt;/); assert.ok(!h.includes('<Demo>')); assert.match(h, /80mm/) })
+  await tt('enlace de WhatsApp del recibo', () => { assert.match(R.enlaceWhatsApp('hola', '300 123 4567'), /^https:\/\/wa\.me\/573001234567\?text=hola$/); assert.match(R.enlaceWhatsApp('a b', ''), /^https:\/\/wa\.me\/\?text=a%20b$/) })
 }
 
 console.log(`\n${ok} pruebas correctas`)
