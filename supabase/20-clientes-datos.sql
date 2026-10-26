@@ -33,16 +33,17 @@ do $$
 declare
   v_firma text;
   v_def   text;
-  v_viejo constant text := E'select * into cli from clientes where negocio_id = p_negocio_id and id = p_cliente_id for update;\n    if not found then raise exception ''Cliente no encontrado''; end if;';
-  v_nuevo constant text := v_viejo || E'\n    if datos_credito_faltantes(cli) <> '''' then\n      raise exception ''Para fiar a %, completa en Clientes su: %'', cli.nombre, datos_credito_faltantes(cli);\n    end if;';
+  -- Tolera saltos de línea de Windows (CRLF) y espacios distintos en la función guardada
+  v_patron constant text := '(select\s+\*\s+into\s+cli\s+from\s+clientes\s+where\s+negocio_id\s*=\s*p_negocio_id\s+and\s+id\s*=\s*p_cliente_id\s+for\s+update\s*;\s*if\s+not\s+found\s+then\s+raise\s+exception\s+''Cliente no encontrado''\s*;\s*end\s+if\s*;)';
+  v_extra  constant text := E'\n    if datos_credito_faltantes(cli) <> \'\' then\n      raise exception \'Para fiar a %, completa en Clientes su: %\', cli.nombre, datos_credito_faltantes(cli);\n    end if;';
 begin
   foreach v_firma in array array[
     'registrar_venta(uuid,jsonb,jsonb,uuid,text,date,numeric,jsonb)',
     'registrar_venta_ropa(uuid,jsonb,jsonb,uuid,text,numeric,uuid,date,jsonb)'] loop
     v_def := pg_get_functiondef(v_firma::regprocedure);
     if position('datos_credito_faltantes' in v_def) = 0 then
-      if position(v_viejo in v_def) = 0 then raise exception 'No se pudo actualizar %', v_firma; end if;
-      execute replace(v_def, v_viejo, v_nuevo);
+      if v_def !~ v_patron then raise exception 'No se pudo actualizar %', v_firma; end if;
+      execute regexp_replace(v_def, v_patron, '\1' || v_extra);
     end if;
   end loop;
 end $$;
