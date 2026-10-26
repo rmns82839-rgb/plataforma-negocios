@@ -1,6 +1,7 @@
 // Fiados: quién debe, cuánto, abonos, recordatorio por WhatsApp y recargo por mora.
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { traerTodo } from '../lib/traerTodo'
 import { mensajeError } from '../lib/errores'
 import { cop, numeroWhatsapp } from '../lib/pedido'
 import { aNumero, soloDigitos } from '../lib/caja'
@@ -23,7 +24,7 @@ export default function Fiados({ ctx, volver, inicial = null }) {
 
   const cargar = useCallback(async () => {
     const [a, b] = await Promise.all([
-      supabase.from('clientes_saldo').select('id,nombre,telefono,saldo,cupo_credito,dias_credito,deuda_desde,vence_el').eq('negocio_id', nid).order('nombre').limit(1000),
+      traerTodo(() => supabase.from('clientes_saldo').select('id,nombre,telefono,saldo,cupo_credito,dias_credito,deuda_desde,vence_el').eq('negocio_id', nid).order('nombre').order('id')),
       supabase.from('clientes_mora').select('cliente_id,vencido,dias_atraso,recargo').eq('negocio_id', nid),
     ])
     if (a.error) return setError(mensajeError(a.error))

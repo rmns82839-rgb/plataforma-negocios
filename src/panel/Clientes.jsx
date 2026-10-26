@@ -1,6 +1,7 @@
 // Clientes: buscar, ver sus datos y compras, y completar lo que hace falta para fiarles.
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { traerTodo } from '../lib/traerTodo'
 import { mensajeError } from '../lib/errores'
 import { cop } from '../lib/pedido'
 import { soloDigitos } from '../lib/caja'
@@ -21,7 +22,7 @@ export default function Clientes({ ctx, volver, irAFiados }) {
   const verFiados = ctx.modulos.includes('fiados')
 
   const cargar = useCallback(async () => {
-    const { data, error: e } = await supabase.from('clientes_saldo').select(COLS).eq('negocio_id', nid).order('nombre').limit(1500)
+    const { data, error: e } = await traerTodo(() => supabase.from('clientes_saldo').select(COLS).eq('negocio_id', nid).order('nombre').order('id'))
     if (e) return setError(mensajeError(e))
     setError(''); setLista(data || [])
   }, [nid])

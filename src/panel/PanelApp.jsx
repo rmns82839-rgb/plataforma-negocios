@@ -17,6 +17,7 @@ import Caja from './Caja'
 import Fiados from './Fiados'
 import Clientes from './Clientes'
 import Reportes from './Reportes'
+import Armazon from './Armazon'
 
 const ROL = { dueno: 'Dueño', cajero: 'Cajero', soporte: 'Soporte · solo lectura' }
 
@@ -106,58 +107,54 @@ export default function PanelApp({ slug }) {
     ['plan', '⭐', 'Mi plan', 'Precio y límites', dueño],
   ].filter((b) => b[4])
 
-  return (
-    <main className="mx-auto w-full max-w-3xl px-4 py-6 text-lg sm:py-10">
-      {seccion !== 'inicio' ? pagina : (
-        <>
-          <header className="mb-5 flex flex-col items-center gap-2 text-center">
-            <Logo n={{ nombre: ctx.marca?.nombre, logo: ctx.marca?.logo, logo_auto: ctx.marca?.logo_auto }} tamano={72} />
-            <h1 className="break-words text-3xl font-bold leading-tight text-principal">{ctx.neg.nombre_comercial}</h1>
-            <Insignia tono="azul">{ROL[ctx.rol]}</Insignia>
-          </header>
+  const ir_ = (k) => { setFiadoInicial(null); setSeccion(k) }
+  const inicio = (
+    <>
+      <header className="mb-5 hidden flex-col items-center gap-2 text-center lg:flex">
+        <h1 className="break-words text-3xl font-bold leading-tight text-principal">{ctx.neg.nombre_comercial}</h1>
+      </header>
 
-          {ctx.soloLectura && <SoloLectura />}
-          {avisos.length > 0 && (
-            <div className="mb-4 rounded-2xl border-2 border-secundario/50 bg-white p-4">
-              <p className="mb-3 text-lg">El soporte de la plataforma entró a consultar tu negocio ({avisos.length} {avisos.length === 1 ? 'vez' : 'veces'}). Solo puede ver, no modificar.</p>
-              <Btn variante="suave" onClick={entendido}>Entendido</Btn>
-            </div>
-          )}
-
-          {pub && !pub.publicada && (
-            <div className="mb-4"><Aviso tipo="previa">
-              <b>Tu tienda todavía no está publicada.</b> {pub.solicitada_en ? 'Ya pedimos publicarla; te avisamos cuando esté abierta.' : pub.lista ? (dueño ? 'Ya está lista: pide la publicación en «Mi tienda».' : 'Ya está lista: el dueño debe pedir la publicación.') : `Falta: ${pub.faltantes?.[0] || 'revisar tus datos'}.`}
-            </Aviso></div>
-          )}
-
-          {resumen && (
-            <div className="mb-5 grid grid-cols-2 gap-3">
-              {[['Pedidos por atender', resumen.pedidos_pendientes], ['Pedidos de hoy', resumen.pedidos_hoy], ['Vendido hoy', cop(resumen.ventas_hoy)], [`Productos en la tienda${resumen.productos_agotados > 0 ? ` (${resumen.productos_agotados} ${resumen.productos_agotados === 1 ? 'agotado' : 'agotados'})` : ''}`, resumen.productos_publicados]].map(([k, v]) => (
-                <div key={k} className="rounded-2xl border-2 border-black/5 bg-white p-4 text-center">
-                  <p className="break-words text-3xl font-bold text-principal">{v}</p>
-                  <p className="text-lg leading-snug text-tinta/70">{k}</p>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <div className="grid grid-cols-2 gap-3">
-            {botones.map(([k, icono, titulo, sub]) => (
-              <button key={k} onClick={() => { setFiadoInicial(null); setSeccion(k) }} className="flex min-h-[132px] flex-col items-center justify-center gap-1 rounded-2xl border-2 border-black/5 bg-white p-3 text-center shadow-sm active:scale-[0.99]">
-                <span aria-hidden="true" className="text-4xl">{icono}</span>
-                <span className="break-words text-xl font-bold leading-tight">{titulo}</span>
-                <span className="text-base leading-tight text-tinta/60">{sub}</span>
-              </button>
-            ))}
-          </div>
-
-          <div className="mt-5 grid grid-cols-2 gap-3">
-            <a href={`/t/${slug}`} target="_blank" rel="noopener noreferrer" className="flex min-h-[56px] items-center justify-center rounded-2xl border-2 border-principal/30 text-lg font-semibold text-principal">Ver mi tienda</a>
-            <Btn variante="suave" onClick={() => supabase.auth.signOut()}>Salir</Btn>
-          </div>
-          <PiePlataforma />
-        </>
+      {ctx.soloLectura && <SoloLectura />}
+      {avisos.length > 0 && (
+        <div className="mb-4 rounded-2xl border-2 border-secundario/50 bg-white p-4">
+          <p className="mb-3 text-lg">El soporte de la plataforma entró a consultar tu negocio ({avisos.length} {avisos.length === 1 ? 'vez' : 'veces'}). Solo puede ver, no modificar.</p>
+          <Btn variante="suave" onClick={entendido}>Entendido</Btn>
+        </div>
       )}
-    </main>
+
+      {pub && !pub.publicada && (
+        <div className="mb-4"><Aviso tipo="previa">
+          <b>Tu tienda todavía no está publicada.</b> {pub.solicitada_en ? 'Ya pedimos publicarla; te avisamos cuando esté abierta.' : pub.lista ? (dueño ? 'Ya está lista: pide la publicación en «Mi tienda».' : 'Ya está lista: el dueño debe pedir la publicación.') : `Falta: ${pub.faltantes?.[0] || 'revisar tus datos'}.`}
+        </Aviso></div>
+      )}
+
+      {resumen && (
+        <div className="mb-5 grid grid-cols-2 gap-3">
+          {[['Pedidos por atender', resumen.pedidos_pendientes], ['Pedidos de hoy', resumen.pedidos_hoy], ['Vendido hoy', cop(resumen.ventas_hoy)], [`Productos en la tienda${resumen.productos_agotados > 0 ? ` (${resumen.productos_agotados} ${resumen.productos_agotados === 1 ? 'agotado' : 'agotados'})` : ''}`, resumen.productos_publicados]].map(([k, v]) => (
+            <div key={k} className="rounded-2xl border-2 border-black/5 bg-white p-4 text-center">
+              <p className="break-words text-3xl font-bold text-principal">{v}</p>
+              <p className="text-lg leading-snug text-tinta/70">{k}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-3">
+        {botones.map(([k, icono, titulo, sub]) => (
+          <button key={k} onClick={() => ir_(k)} className="flex min-h-[132px] flex-col items-center justify-center gap-1 rounded-2xl border-2 border-black/5 bg-white p-3 text-center shadow-sm active:scale-[0.99]">
+            <span aria-hidden="true" className="text-4xl">{icono}</span>
+            <span className="break-words text-xl font-bold leading-tight">{titulo}</span>
+            <span className="text-base leading-tight text-tinta/60">{sub}</span>
+          </button>
+        ))}
+      </div>
+      <PiePlataforma />
+    </>
+  )
+
+  return (
+    <Armazon ctx={ctx} rolTexto={ROL[ctx.rol]} slug={slug} seccion={seccion} ir={ir_} botones={botones} pendientes={resumen?.pedidos_pendientes || 0}>
+      {seccion === 'inicio' ? inicio : pagina}
+    </Armazon>
   )
 }

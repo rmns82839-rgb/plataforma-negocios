@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase, urlImagen } from '../lib/supabase'
+import { traerTodo } from '../lib/traerTodo'
 import { cop } from '../lib/pedido'
 import { UNIDADES } from '../lib/csv'
 import { reducirImagen, nombreArchivo } from '../lib/imagen'
@@ -23,7 +24,7 @@ export default function Productos({ ctx, volver }) {
   const nid = ctx.neg.negocio_id
 
   const cargar = useCallback(async () => {
-    const { data, error: e } = await supabase.from('productos').select(COLS).eq('negocio_id', nid).eq('activo', true).order('nombre').limit(1000)
+    const { data, error: e } = await traerTodo(() => supabase.from('productos').select(COLS).eq('negocio_id', nid).eq('activo', true).order('nombre').order('id'))
     if (e) setError(mensajeError(e)); else { setError(''); setLista(data) }
   }, [nid])
   useEffect(() => { cargar() }, [cargar])

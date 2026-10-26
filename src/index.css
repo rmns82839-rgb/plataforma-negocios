@@ -10,3 +10,8 @@
 }
 html, body, #root { min-height: 100%; }
 body { background: #F7F4EC; color: #1B1B1F; -webkit-font-smoothing: antialiased; }
+
+/* Armazón del panel: la barra de abajo (celular) y el menú lateral (pantalla grande) reservan su espacio.
+   BarraFija (los totales fijos) se coloca por encima de la barra usando estas variables. */
+.armazon { --barra-inf: calc(4.5rem + env(safe-area-inset-bottom)); --lateral: 0px; --pad-fija: 0.75rem; }
+@media (min-width: 1024px) { .armazon { --barra-inf: 0px; --lateral: 16rem; --pad-fija: max(0.75rem, env(safe-area-inset-bottom)); } }

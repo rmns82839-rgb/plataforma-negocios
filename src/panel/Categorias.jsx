@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { traerTodo } from '../lib/traerTodo'
 import { mensajeError } from '../lib/errores'
 import { Btn, Volver, Aviso, Campo, clsInput } from '../tienda/ui'
 import { Titulo, Insignia, SoloLectura } from './piezas'
@@ -56,7 +57,7 @@ export default function Categorias({ ctx, volver }) {
   })
 
   const traerDeProductos = () => envolver(async () => {
-    const { data } = await supabase.from('productos').select('categoria').eq('negocio_id', nid).eq('activo', true).not('categoria', 'is', null).limit(1000)
+    const { data } = await traerTodo(() => supabase.from('productos').select('categoria').eq('negocio_id', nid).eq('activo', true).not('categoria', 'is', null).order('id'))
     const existentes = new Set((lista || []).map((c) => c.nombre))
     const nuevas = [...new Set((data || []).map((x) => x.categoria).filter((n) => n && !existentes.has(n)))]
     if (!nuevas.length) return setInfo('Ya tienes todas las categorías de tus productos.')

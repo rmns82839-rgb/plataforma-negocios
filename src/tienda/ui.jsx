@@ -65,7 +65,8 @@ export function Cantidad({ valor, onMenos, onMas, max = 99 }) {
 // Barra fija al pie con el total (no se pierde al desplazar)
 export function BarraFija({ children }) {
   return (
-    <div className="fixed inset-x-0 bottom-0 z-30 border-t-2 border-black/10 bg-white px-4 pt-3 shadow-[0_-4px_16px_rgba(0,0,0,0.06)]" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
+    <div className="fixed right-0 z-30 border-t-2 border-black/10 bg-white px-4 pt-3 shadow-[0_-4px_16px_rgba(0,0,0,0.06)]"
+      style={{ left: 'var(--lateral, 0px)', bottom: 'var(--barra-inf, 0px)', paddingBottom: 'var(--pad-fija, max(0.75rem, env(safe-area-inset-bottom)))' }}>
       <div className="mx-auto w-full max-w-3xl">{children}</div>
     </div>
   )

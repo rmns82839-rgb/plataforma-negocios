@@ -2,6 +2,7 @@
 // El total real de cada venta SIEMPRE lo calcula el servidor (promociones, mayorista…): aquí solo se arman los datos.
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { traerTodo } from '../lib/traerTodo'
 import { mensajeError } from '../lib/errores'
 import { cop } from '../lib/pedido'
 import { subtotalLista, aNumero, nuevaVenta, sanearVentas, descuentoGeneral, MAX_VENTAS, fechaLimite, sumaPagos, envioDe, domicilioParaServidor } from '../lib/caja'
@@ -44,7 +45,7 @@ export default function CajaVender({ ctx, irAlDia }) {
   // Guardar en el equipo cada cambio (si el navegador no deja, la caja sigue funcionando)
   useEffect(() => { try { localStorage.setItem(clave(nid, uid), JSON.stringify(estado)) } catch { /* sin almacenamiento */ } }, [estado, nid, uid])
 
-  const cargarProductos = () => supabase.from('productos').select(COLS).eq('negocio_id', nid).eq('activo', true).order('nombre').limit(1000)
+  const cargarProductos = () => traerTodo(() => supabase.from('productos').select(COLS).eq('negocio_id', nid).eq('activo', true).order('nombre').order('id'))
     .then(({ data, error: e }) => { if (e) setError(mensajeError(e)); else setProductos(data || []) })
   useEffect(() => {
     cargarProductos()
