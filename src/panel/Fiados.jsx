@@ -3,20 +3,22 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { mensajeError } from '../lib/errores'
 import { cop, numeroWhatsapp } from '../lib/pedido'
-import { aNumero, mensajeCobro, soloDigitos } from '../lib/caja'
+import { aNumero, soloDigitos } from '../lib/caja'
+import { datosFaltantes, destinatariosCobro, mensajeCobroA } from '../lib/clientes'
 import { Btn, Volver, Aviso, Campo, clsInput } from '../tienda/ui'
 import { Titulo, Seccion, Insignia, Opciones, SoloLectura, fechaHora } from './piezas'
+import ClienteForm from './ClienteForm'
 
 const METODOS = [['efectivo', 'Efectivo'], ['nequi', 'Nequi'], ['transferencia', 'Transferencia'], ['daviplata', 'Daviplata'], ['datafono', 'Datáfono']]
 
-export default function Fiados({ ctx, volver }) {
+export default function Fiados({ ctx, volver, inicial = null }) {
   const nid = ctx.neg.negocio_id
   const [clientes, setClientes] = useState(null)
   const [mora, setMora] = useState({})
   const [q, setQ] = useState('')
   const [solo, setSolo] = useState('deuda')
   const [error, setError] = useState('')
-  const [abierto, setAbierto] = useState(null)
+  const [abierto, setAbierto] = useState(inicial)
   const [nuevo, setNuevo] = useState(false)
 
   const cargar = useCallback(async () => {
@@ -43,8 +45,8 @@ export default function Fiados({ ctx, volver }) {
   const deudores = (clientes || []).filter((c) => Number(c.saldo) > 0).length
   const vencido = Object.values(mora).reduce((s, m) => s + Number(m.vencido || 0), 0)
 
-  if (abierto) return <Detalle ctx={ctx} cliente={clientes.find((c) => c.id === abierto) || { id: abierto }} mora={mora[abierto]} cerrar={() => { setAbierto(null); cargar() }} />
-  if (nuevo) return <NuevoCliente ctx={ctx} cerrar={(id) => { setNuevo(false); cargar(); if (id) setAbierto(id) }} />
+  if (abierto) return <Detalle ctx={ctx} cliente={clientes?.find((c) => c.id === abierto) || { id: abierto }} mora={mora[abierto]} cerrar={() => { setAbierto(null); cargar() }} />
+  if (nuevo) return <ClienteForm ctx={ctx} onVolver={() => setNuevo(false)} textoVolver="Volver a los fiados" onGuardado={(c) => { setNuevo(false); cargar(); setAbierto(c.id) }} />
 
   return (
     <div>
@@ -84,44 +86,6 @@ export default function Fiados({ ctx, volver }) {
   )
 }
 
-function NuevoCliente({ ctx, cerrar }) {
-  const nid = ctx.neg.negocio_id
-  const [f, setF] = useState({ nombre: '', telefono: '', cupo: '', dias: '' })
-  const [error, setError] = useState('')
-  const [ocupado, setOcupado] = useState(false)
-  async function guardar() {
-    setError('')
-    if (f.nombre.trim().length < 3) return setError('Escribe el nombre completo')
-    let tel = soloDigitos(f.telefono); if (tel.length === 12 && tel.startsWith('57')) tel = tel.slice(2)
-    if (tel && tel.length !== 10) return setError('El celular debe tener 10 dígitos (o déjalo vacío)')
-    setOcupado(true)
-    const fila = { negocio_id: nid, nombre: f.nombre.trim(), telefono: tel || null }
-    if (ctx.esDueno) { fila.cupo_credito = aNumero(f.cupo); fila.dias_credito = Math.min(aNumero(f.dias), 365) }
-    const { data, error: e } = await supabase.from('clientes').insert(fila).select('id').single()
-    setOcupado(false)
-    if (e) return setError(mensajeError(e))
-    cerrar(data.id)
-  }
-  return (
-    <div>
-      <Volver onClick={() => cerrar(null)} texto="Volver a los fiados" />
-      <Titulo>Nuevo cliente</Titulo>
-      {error && <div className="mb-4"><Aviso tipo="error">{error}</Aviso></div>}
-      <div className="space-y-5">
-        <Campo etiqueta="Nombre completo"><input className={clsInput} value={f.nombre} onChange={(e) => setF({ ...f, nombre: e.target.value })} /></Campo>
-        <Campo etiqueta="Celular (opcional)" ayuda="Para recordarle su cuenta por WhatsApp."><input className={clsInput} inputMode="tel" value={f.telefono} onChange={(e) => setF({ ...f, telefono: e.target.value })} /></Campo>
-        {ctx.esDueno && (
-          <>
-            <Campo etiqueta="Hasta cuánto le fías (opcional)" ayuda="Déjalo vacío si no quieres poner tope."><input className={clsInput} inputMode="numeric" placeholder="$ 0" value={f.cupo} onChange={(e) => setF({ ...f, cupo: e.target.value })} /></Campo>
-            <Campo etiqueta="Días para pagar (opcional)" ayuda="Pasado ese plazo, la deuda aparece como vencida."><input className={clsInput} inputMode="numeric" placeholder="0" value={f.dias} onChange={(e) => setF({ ...f, dias: e.target.value })} /></Campo>
-          </>
-        )}
-        <Btn disabled={ocupado} onClick={guardar}>{ocupado ? 'Guardando…' : 'Guardar cliente'}</Btn>
-      </div>
-    </div>
-  )
-}
-
 function Detalle({ ctx, cliente, mora, cerrar }) {
   const nid = ctx.neg.negocio_id
   const puede = !ctx.soloLectura
@@ -133,10 +97,12 @@ function Detalle({ ctx, cliente, mora, cerrar }) {
   const [ocupado, setOcupado] = useState(false)
   const [ant, setAnt] = useState({ abierto: false, monto: '', nota: '' })
   const [cond, setCond] = useState({ cupo: String(cliente.cupo_credito || ''), dias: String(cliente.dias_credito || '') })
+  const [editar, setEditar] = useState(false)
+  const [corr, setCorr] = useState(null)     // {id, motivo}
 
   const recargar = useCallback(async () => {
     const [a, b] = await Promise.all([
-      supabase.from('clientes_saldo').select('id,nombre,telefono,saldo,cupo_credito,dias_credito').eq('negocio_id', nid).eq('id', cliente.id).single(),
+      supabase.from('clientes_saldo').select('*').eq('negocio_id', nid).eq('id', cliente.id).single(),
       supabase.from('fiado_movimientos').select('id,tipo,monto,metodo,nota,fecha,venta_id,fecha_limite').eq('negocio_id', nid).eq('cliente_id', cliente.id).order('fecha', { ascending: false }).limit(40),
     ])
     if (a.data) setC(a.data)
@@ -144,6 +110,7 @@ function Detalle({ ctx, cliente, mora, cerrar }) {
   }, [nid, cliente.id])
   useEffect(() => { recargar() }, [recargar])
 
+  useEffect(() => { setCond({ cupo: String(c.cupo_credito || ''), dias: String(c.dias_credito || '') }) }, [c.cupo_credito, c.dias_credito])
   const saldo = Number(c.saldo || 0)
   async function accion(fn, ok) {
     setOcupado(true); setMsg(null)
@@ -158,13 +125,21 @@ function Detalle({ ctx, cliente, mora, cerrar }) {
     if (m > saldo) return setMsg({ tipo: 'error', texto: `Debe ${cop(saldo)}: el abono no puede ser mayor` })
     accion(() => supabase.rpc('registrar_abono', { p_negocio_id: nid, p_cliente_id: c.id, p_monto: m, p_metodo: metodo, p_nota: null }), `Abono de ${cop(m)} registrado.`).then(() => setMonto(''))
   }
-  const wa = numeroWhatsapp(c.telefono)
+  const dests = destinatariosCobro(c)
+  const falta = datosFaltantes(c)
+  const corregir = () => {
+    if ((corr.motivo || '').trim().length < 3) return setMsg({ tipo: 'error', texto: 'Escribe el motivo de la corrección' })
+    accion(() => supabase.rpc('corregir_movimiento_fiado', { p_negocio_id: nid, p_movimiento_id: corr.id, p_motivo: corr.motivo.trim() }), 'Movimiento corregido.').then(() => setCorr(null))
+  }
+
+  if (editar) return <ClienteForm ctx={ctx} cliente={c} resaltarFaltantes onVolver={() => setEditar(false)} textoVolver="Volver a la cuenta" onGuardado={() => { setEditar(false); setMsg({ tipo: 'ok', texto: 'Datos guardados.' }); recargar() }} />
 
   return (
     <div className="pb-6">
       <Volver onClick={cerrar} texto="Volver a los fiados" />
-      <Titulo sub={c.telefono || 'Sin celular'}>{c.nombre}</Titulo>
+      <Titulo sub={[c.documento && `${c.tipo_documento || ''} ${c.documento}`.trim(), c.telefono || 'Sin celular'].filter(Boolean).join(' · ')}>{c.nombre}</Titulo>
       {!puede && <SoloLectura />}
+      {falta.length > 0 && <div className="mb-4"><Aviso tipo="previa">Para poder fiarle falta: <b>{falta.join(', ')}</b>.{puede && <span> <button type="button" onClick={() => setEditar(true)} className="font-bold underline">Completar los datos</button></span>}</Aviso></div>}
       {msg && <div className="mb-4"><Aviso tipo={msg.tipo}>{msg.texto}</Aviso></div>}
       <div className="mb-5 rounded-2xl border-2 border-principal bg-principal/5 p-5 text-center">
         <p className="text-lg text-tinta/70">Debe</p>
@@ -183,8 +158,15 @@ function Detalle({ ctx, cliente, mora, cerrar }) {
         </Seccion>
       )}
 
-      {saldo > 0 && wa && (
-        <div className="mb-5"><a href={`https://wa.me/${wa}?text=${encodeURIComponent(mensajeCobro({ nombre: c.nombre, saldo, tienda: ctx.neg.nombre_comercial }))}`} target="_blank" rel="noopener noreferrer" className="flex min-h-[56px] items-center justify-center rounded-2xl bg-[#128C4A] text-lg font-semibold text-white">Recordarle por WhatsApp</a></div>
+      {saldo > 0 && dests.length > 0 && (
+        <Seccion titulo="Recordarle la deuda por WhatsApp">
+          <div className={`grid gap-2 ${dests.length > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+            {dests.map((d) => (
+              <a key={d.telefono} href={`https://wa.me/${numeroWhatsapp(d.telefono)}?text=${encodeURIComponent(mensajeCobroA(d, c, saldo, ctx.neg.nombre_comercial))}`} target="_blank" rel="noopener noreferrer"
+                className="flex min-h-[64px] items-center justify-center rounded-2xl bg-[#128C4A] px-2 text-center text-lg font-semibold leading-tight text-white">{d.principal ? `A ${d.nombre.split(' ')[0]}` : `A ${d.nombre.split(' ')[0]} (2.º contacto)`}</a>
+            ))}
+          </div>
+        </Seccion>
       )}
 
       {ctx.esDueno && mora?.recargo > 0 && (
@@ -193,6 +175,8 @@ function Detalle({ ctx, cliente, mora, cerrar }) {
           <Btn variante="suave" disabled={ocupado} onClick={() => accion(() => supabase.rpc('cobrar_recargo_mora', { p_negocio_id: nid, p_cliente_id: c.id }), 'Recargo sumado a la deuda.')}>Cobrar el recargo</Btn>
         </Seccion>
       )}
+
+      {puede && <div className="mb-5"><Btn variante="suave" onClick={() => setEditar(true)}>Ver o corregir sus datos</Btn></div>}
 
       {ctx.esDueno && (
         <Seccion titulo="Condiciones de crédito">
@@ -224,9 +208,17 @@ function Detalle({ ctx, cliente, mora, cerrar }) {
         {movs?.length === 0 && <p className="text-lg text-tinta/60">Sin movimientos todavía.</p>}
         <ul className="space-y-3">
           {movs?.map((m) => (
-            <li key={m.id} className="flex items-baseline justify-between gap-3 border-b border-black/5 pb-2 text-lg">
+            <li key={m.id} className="flex flex-wrap items-baseline justify-between gap-3 border-b border-black/5 pb-2 text-lg">
               <span><span className="block font-semibold">{m.tipo === 'abono' ? `Abonó (${m.metodo})` : m.nota || (m.venta_id ? 'Compra a fiado' : 'Cargo')}</span><span className="block text-base text-tinta/60">{fechaHora(m.fecha)}</span></span>
-              <span className={`shrink-0 text-xl font-bold ${m.tipo === 'abono' ? 'text-green-800' : 'text-principal'}`}>{m.tipo === 'abono' ? '−' : '+'}{cop(m.monto)}</span>
+              <span className="shrink-0 text-right"><span className={`block text-xl font-bold ${m.tipo === 'abono' ? 'text-green-800' : 'text-principal'}`}>{m.tipo === 'abono' ? '−' : '+'}{cop(m.monto)}</span>
+                {ctx.esDueno && !m.venta_id && !corr && <button type="button" onClick={() => setCorr({ id: m.id, motivo: '' })} className="min-h-[44px] text-base font-semibold text-red-700 underline">Corregir</button>}</span>
+              {corr?.id === m.id && (
+                <div className="col-span-2 mt-2 w-full basis-full space-y-3 rounded-2xl border-2 border-red-200 p-3">
+                  <p className="text-lg font-semibold">Se quita este movimiento de la cuenta. ¿Por qué?</p>
+                  <input className={clsInput} maxLength={100} value={corr.motivo} onChange={(e) => setCorr({ ...corr, motivo: e.target.value })} placeholder="Ej: se anotó al cliente equivocado" aria-label="Motivo de la corrección" />
+                  <div className="grid grid-cols-2 gap-2"><Btn variante="suave" onClick={() => setCorr(null)}>No, volver</Btn><Btn disabled={ocupado} onClick={corregir}>Sí, quitarlo</Btn></div>
+                </div>
+              )}
             </li>
           ))}
         </ul>

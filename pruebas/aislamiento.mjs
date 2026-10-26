@@ -37,7 +37,7 @@ for (const n of ['duenoA', 'cajeroA', 'duenoB', 'soporte', 'extra', 'duenoV', 'g
 
 // ---------- Cargar los SQL del proyecto ----------
 let fallas = 0, pruebas = 0
-for (const f of ['01-plataforma.sql', '02-datos.sql', '03-seguridad.sql', '04-funciones-plataforma.sql', '05-storage-realtime.sql', '06-funciones-negocio.sql', '07-tablero-y-pedidos.sql', '08-permisos.sql', '10-planes-modulos.sql', '11-catalogo-clientes.sql', '12-redondeo-domicilio.sql', '14-panel.sql', '15-domicilio-km.sql', '16-direcciones-cliente.sql', '17-caja-pedidos.sql', '18-formas-pago-comision.sql', '19-caja-movimientos.sql']) {
+for (const f of ['01-plataforma.sql', '02-datos.sql', '03-seguridad.sql', '04-funciones-plataforma.sql', '05-storage-realtime.sql', '06-funciones-negocio.sql', '07-tablero-y-pedidos.sql', '08-permisos.sql', '10-planes-modulos.sql', '11-catalogo-clientes.sql', '12-redondeo-domicilio.sql', '14-panel.sql', '15-domicilio-km.sql', '16-direcciones-cliente.sql', '17-caja-pedidos.sql', '18-formas-pago-comision.sql', '19-caja-movimientos.sql', '20-clientes-datos.sql']) {
   try { await db.exec(fs.readFileSync(path.join(sqlDir, f), 'utf8')); console.log('OK   ', f) }
   catch (e) { console.log('FALLA', f, '→', e.message); process.exit(1) }
 }
@@ -87,8 +87,8 @@ await q(`insert into negocio_miembros (negocio_id, user_id, rol) values ($1,$2,'
 await como('sistema', async () => { await publicar(A); await publicar(B) })
 const pA = (await q(`insert into productos (negocio_id,codigo,nombre,precio_venta,stock,publicado) values ($1,'1','Arroz A',2500,10,true),($1,'2','Aceite A',9000,5,true) returning id`, [A])).rows[0].id
 const pB = (await q(`insert into productos (negocio_id,codigo,nombre,precio_venta,stock,publicado) values ($1,'1','Arroz B',2600,7,true) returning id`, [B])).rows[0].id
-const cA = (await q(`insert into clientes (negocio_id,nombre) values ($1,'Cliente A') returning id`, [A])).rows[0].id
-const cB = (await q(`insert into clientes (negocio_id,nombre) values ($1,'Cliente B') returning id`, [B])).rows[0].id
+const cA = (await q(`insert into clientes (negocio_id,nombre,tipo_documento,documento,telefono,direccion) values ($1,'Cliente A','CC','1000001','3001000001','Calle 1 # 1-1') returning id`, [A])).rows[0].id
+const cB = (await q(`insert into clientes (negocio_id,nombre,tipo_documento,documento,telefono,direccion) values ($1,'Cliente B','CC','1000002','3001000002','Calle 2 # 2-2') returning id`, [B])).rows[0].id
 console.log('\n--- Alta de negocios ---')
 await falla('un usuario con sesión NO puede crear negocios', 'duenoA', () => q(`select crear_negocio('x-neg','X','tienda','extra@prueba.com')`), 'permission denied')
 await falla('slug reservado rechazado', 'sistema', () => q(`select crear_negocio('admin','X','tienda','extra@prueba.com')`), 'slug')
@@ -276,7 +276,7 @@ await falla('pagos que no suman → error y nada queda a medias', 'cajeroA', () 
 await ok('tras el error el stock y los consecutivos siguen igual', 'sistema', async () => ({ s: await stock(pA), n: (await q(`select count(*) n from ventas where negocio_id=$1`, [A])).rows[0].n }), r => r.s === 6 && r.n == 3)
 // dueño de DOS negocios (B y C): el RLS le deja ver todo, la función debe filtrar por el negocio pedido
 const pC = (await q(`insert into productos (negocio_id,codigo,nombre,precio_venta,stock) values ($1,'1','Producto C',1000,50) returning id`, [C])).rows[0].id
-const cC = (await q(`insert into clientes (negocio_id,nombre) values ($1,'Cliente C') returning id`, [C])).rows[0].id
+const cC = (await q(`insert into clientes (negocio_id,nombre,tipo_documento,documento,telefono,direccion) values ($1,'Cliente C','CC','1000003','3001000003','Calle 3 # 3-3') returning id`, [C])).rows[0].id
 await falla('dueño de B y C: vende en B un producto de C', 'duenoB', () => venta(B, [{ producto_id: pC, cantidad: 1 }], efectivo(1000)), 'Producto no encontrado')
 await falla('dueño de B y C: vende en B a un cliente de C', 'duenoB', () => venta(B, [{ producto_id: pB, cantidad: 1 }], efectivo(2600), { cli: cC }), 'Cliente no encontrado')
 await falla('dueño de B y C: forma de pago de otro negocio no existe', 'duenoB', () => venta(B, [{ producto_id: pB, cantidad: 1 }], [{ metodo: 'zzz', monto: 2600 }]), 'no está disponible')
@@ -310,7 +310,7 @@ await ok('abono válido', 'cajeroA', () => q(`select registrar_abono($1,$2,1000,
 await falla('abono a un cliente de B', 'duenoA', () => q(`select registrar_abono($1,$2,100,'efectivo')`, [A, cB]), 'Cliente no encontrado')
 await falla('B no registra abonos en A', 'duenoB', () => q(`select registrar_abono($1,$2,100,'efectivo')`, [A, cA]), 'No autorizado')
 // mora
-const cM = (await q(`insert into clientes (negocio_id,nombre) values ($1,'Moroso') returning id`, [A])).rows[0].id
+const cM = (await q(`insert into clientes (negocio_id,nombre,tipo_documento,documento,telefono,direccion) values ($1,'Moroso','CC','1000004','3001000004','Calle 4 # 4-4') returning id`, [A])).rows[0].id
 await q(`update negocio_reglas set mora_mensual=5 where negocio_id=$1`, [A])
 await q(`insert into fiado_movimientos (negocio_id,cliente_id,tipo,monto,fecha_limite) values ($1,$2,'cargo',100000,hoy_colombia()-60)`, [A, cM])
 await falla('cajero no puede fiar a un cliente con deuda vencida', 'cajeroA', () => venta(A, [{ producto_id: pA, cantidad: 1 }], [{ metodo: 'fiado', monto: 2500 }], { cli: cM }), 'deuda vencida')
@@ -364,7 +364,8 @@ const cP = (await q(`insert into clientes (negocio_id,nombre,documento,tipo_docu
 await falla('cajero no crea préstamos', 'cajeroA', () => q(`select crear_prestamo($1,$2,100000,2,'mensual',4)`, [A, cP]), 'Solo el dueño')
 await falla('dueño de B no presta en A', 'duenoB', () => q(`select crear_prestamo($1,$2,100000,2,'mensual',4)`, [A, cP]), 'Solo el dueño')
 await falla('préstamo a un cliente de B', 'duenoA', () => q(`select crear_prestamo($1,$2,100000,2,'mensual',4)`, [A, cB]), 'Cliente no encontrado')
-await falla('cliente sin documento', 'duenoA', () => q(`select crear_prestamo($1,$2,100000,2,'mensual',4)`, [A, cA]), 'documento')
+const cSin = (await q(`insert into clientes (negocio_id,nombre) values ($1,'Sin datos') returning id`, [A])).rows[0].id
+await falla('cliente sin documento', 'duenoA', () => q(`select crear_prestamo($1,$2,100000,2,'mensual',4)`, [A, cSin]), 'documento')
 let pr
 await ok('dueño A crea el préstamo (interés 8 000, 4 cuotas)', 'duenoA', async () => (pr = (await q(`select crear_prestamo($1,$2,100000,2,'mensual',4) id`, [A, cP])).rows[0].id, q(`select interes_total, total_a_pagar from prestamos where id=$1`, [pr])), r => r.rows[0].interes_total == 8000 && r.rows[0].total_a_pagar == 108000)
 await ok('las 4 cuotas están en A', 'sistema', () => q(`select count(*) n, min(negocio_id::text) a, max(negocio_id::text) b from prestamo_cuotas where prestamo_id=$1`, [pr]), r => r.rows[0].n == 4 && r.rows[0].a === A && r.rows[0].b === A)
@@ -955,6 +956,7 @@ await falla('google2 no puede corregir la dirección de google1', 'google2', () 
 await ok('google1 corrige su dirección (mismo id, sin crear otra)', 'google1', async () => { await q(`select guardar_direccion($1::jsonb)`, [J({ id: dirId, etiqueta: 'Casa', direccion: 'Calle 133b # 95b-20', lat: 4.7513, lng: -74.0932 })]); return q(`select mis_direcciones() d`) }, r => r.rows[0].d.length === 1 && r.rows[0].d[0].direccion.endsWith('20') && r.rows[0].d[0].sena === null)
 await ok('hasta 5 direcciones y la última usada va primero', 'google1', async () => {
   for (let i = 2; i <= 5; i++) await q(`select guardar_direccion($1::jsonb)`, [J({ ...dirBase, etiqueta: 'Otra ' + i, direccion: 'Carrera ' + i + ' # 10-20 Suba' })])
+  await q(`select pg_sleep(0.05)`)
   await q(`select usar_direccion($1)`, [dirId])
   return q(`select mis_direcciones() d`)
 }, r => r.rows[0].d.length === 5 && r.rows[0].d[0].id === dirId)
@@ -1013,6 +1015,8 @@ let ped1, ped2, ped3
 {
   ped2 = await nuevoPed([{ producto_id: pCaja, cantidad: 3 }], { nombre: 'Luz Marina Torres', entrega: 'recoger' })
   const pid = await idPed(ped2.numero)
+  await falla('atender a fiado: el cliente del pedido aún no tiene documento ni dirección', 'duenoA', () => atender(pid, [{ metodo: 'fiado' }]), 'completa en Clientes su: documento, dirección')
+  await q(`update clientes set tipo_documento='CC', documento='1000099', direccion='Calle 99 # 9-9' where id=(select cliente_id from pedidos_tienda where id=$1)`, [pid])
   await ok('atender a fiado: queda la deuda del cliente del pedido', 'duenoA', async () => { await atender(pid, [{ metodo: 'fiado' }]); return q(`select (select coalesce(sum(case tipo when 'cargo' then monto else -monto end),0) from fiado_movimientos where cliente_id = p.cliente_id) saldo, p.total from pedidos_tienda p where p.id=$1`, [pid]) },
     r => Number(r.rows[0].saldo) === Number(r.rows[0].total) && Number(r.rows[0].total) === 9000)
   // pago dividido: parte en efectivo, parte en Nequi
@@ -1135,6 +1139,44 @@ console.log('\n--- Archivo 19: movimientos de caja ---')
   const v19 = await db.query(sql19.slice(i19))
   pruebas++
   if (v19.rows.length === 5 && v19.rows.every(r => r.ok === true)) console.log('✓ archivo 19: 5 filas true, y se puede correr dos veces'); else { fallas++; console.log('✗ archivo 19', JSON.stringify(v19.rows)) }
+}
+
+// Archivo 20: datos del cliente para fiar y segundo contacto (C6b)
+console.log('\n--- Archivo 20: datos del cliente ---')
+{
+  const pCl = (await q(`insert into productos (negocio_id,codigo,nombre,precio_venta,precio_compra,stock,publicado) values ($1,'c20','Sal C',1000,500,100,true) returning id`, [A])).rows[0].id
+  const cIn = (await q(`insert into clientes (negocio_id,nombre,telefono) values ($1,'Incompleto','3005550000') returning id`, [A])).rows[0].id
+  await falla('no se fía a un cliente sin documento ni dirección', 'cajeroA', () => venta(A, [{ producto_id: pCl, cantidad: 1 }], [{ metodo: 'fiado', monto: 1000 }], { cli: cIn }), 'completa en Clientes su: documento, dirección')
+  await ok('sin fiado, el cliente incompleto sí puede comprar', 'cajeroA', () => venta(A, [{ producto_id: pCl, cantidad: 1 }], [{ metodo: 'efectivo', monto: 1000 }], { cli: cIn }), () => true)
+  await ok('el cajero completa los datos del cliente (con segundo contacto)', 'cajeroA', () => q(`update clientes set tipo_documento='CC', documento='555000111', direccion='Carrera 7 # 8-9', contacto2_nombre='Marta (hija)', contacto2_telefono='3006660000' where id=$1`, [cIn]), () => true)
+  await ok('ya se le puede fiar', 'cajeroA', () => venta(A, [{ producto_id: pCl, cantidad: 1 }], [{ metodo: 'fiado', monto: 1000 }], { cli: cIn }), () => true)
+  await falla('el documento no se repite en la misma tienda', 'cajeroA', () => q(`insert into clientes (negocio_id,nombre,tipo_documento,documento) values ($1,'Repetido','CC','555000111')`, [A]), 'clientes_documento_uni')
+  await ok('el mismo documento en OTRA tienda sí se puede', 'duenoB', () => q(`insert into clientes (negocio_id,nombre,tipo_documento,documento) values ($1,'Mismo doc en B','CC','555000111')`, [B]), () => true)
+  await ok('mismo número pero otro tipo de documento sí', 'cajeroA', () => q(`insert into clientes (negocio_id,nombre,tipo_documento,documento) values ($1,'NIT igual','NIT','555000111')`, [A]), () => true)
+  await falla('el segundo contacto no puede ser larguísimo', 'cajeroA', () => q(`update clientes set contacto2_nombre=repeat('x',61) where id=$1`, [cIn]), 'clientes_contacto2_largo')
+  // corregir movimientos de fiado
+  const mov = async (tipo, monto, nota, venta = null) => (await q(`insert into fiado_movimientos (negocio_id,cliente_id,tipo,monto,metodo,nota,venta_id) values ($1,$2,$3,$4,$5,$6,$7) returning id`, [A, cIn, tipo, monto, 'efectivo', nota, venta])).rows[0].id
+  const saldoIn = async () => Number((await q(`select saldo from clientes_saldo where id=$1`, [cIn])).rows[0].saldo)
+  const s0 = await saldoIn()
+  const mAb = await mov('abono', 300, 'Abono mal anotado')
+  await falla('el cajero no corrige movimientos', 'cajeroA', () => q(`select corregir_movimiento_fiado($1,$2,'Error de digitación')`, [A, mAb]), 'Solo el dueño')
+  await falla('hace falta el motivo', 'duenoA', () => q(`select corregir_movimiento_fiado($1,$2,'')`, [A, mAb]), 'motivo')
+  await falla('otro negocio no corrige el mío', 'duenoB', () => q(`select corregir_movimiento_fiado($1,$2,'Intento ajeno')`, [A, mAb]), 'Solo el dueño')
+  await ok('el dueño corrige un abono: la deuda vuelve a subir', 'duenoA', () => q(`select corregir_movimiento_fiado($1,$2,'Se anotó al cliente equivocado')`, [A, mAb]), async () => (await saldoIn()) === s0)
+  const aud = await q(`select count(*) n from auditoria where negocio_id=$1 and tabla='fiado_movimientos' and (antes::text like '%CORREGIDO%' or despues::text like '%CORREGIDO%')`, [A])
+  pruebas++; if (aud.rows[0].n >= 1) console.log('✓ la corrección queda en la auditoría con su motivo'); else { fallas++; console.log('✗ auditoría de la corrección') }
+  const mCar = await mov('cargo', 5000, 'Deuda del cuaderno')
+  const mAb2 = await mov('abono', 4000, 'Abono')
+  await falla('no se quita una deuda de la que dependen abonos', 'duenoA', () => q(`select corregir_movimiento_fiado($1,$2,'Prueba de borrado')`, [A, mCar]), 'abonos que dependen')
+  await q(`select corregir_movimiento_fiado($1,$2,'Quito el abono primero')`, [A, mAb2]).catch(() => {})
+  const vF = (await q(`select venta_id from fiado_movimientos where cliente_id=$1 and venta_id is not null limit 1`, [cIn])).rows[0]?.venta_id
+  if (vF) { const mV = (await q(`select id from fiado_movimientos where cliente_id=$1 and venta_id=$2`, [cIn, vF])).rows[0].id; await falla('la deuda de una venta se corrige anulando la venta', 'duenoA', () => q(`select corregir_movimiento_fiado($1,$2,'Prueba de venta')`, [A, mV]), 'anula la venta') }
+  const sql20 = fs.readFileSync(path.join(sqlDir, '20-clientes-datos.sql'), 'utf8')
+  const i20 = sql20.lastIndexOf("select 'clientes tiene el segundo contacto")
+  await db.exec(sql20.slice(0, i20))
+  const v20 = await db.query(sql20.slice(i20))
+  pruebas++
+  if (v20.rows.length === 6 && v20.rows.every(r => r.ok === true)) console.log('✓ archivo 20: 6 filas true, y se puede correr dos veces'); else { fallas++; console.log('✗ archivo 20', JSON.stringify(v20.rows)) }
 }
 
 console.log('\n--- Verificación automática de la base ---')

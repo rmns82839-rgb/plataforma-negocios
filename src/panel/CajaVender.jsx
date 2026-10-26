@@ -186,7 +186,7 @@ export default function CajaVender({ ctx, irAlDia }) {
       </section>
 
       {venta.paso === 'cobrar' ? (
-        <VentaCobrar nid={nid} sim={sim} venta={venta} cambiar={cambiar} formas={formas} calc={calcF} calculando={calculando} errTotal={errTotal} error={error} ocupado={ocupado} domicilios={ctx.modulos.includes('domicilios')}
+        <VentaCobrar ctx={ctx} nid={nid} sim={sim} venta={venta} cambiar={cambiar} formas={formas} calc={calcF} calculando={calculando} errTotal={errTotal} error={error} ocupado={ocupado} domicilios={ctx.modulos.includes('domicilios')}
           onVolver={() => { cambiar({ paso: 'armar', pagos: [] }); setError('') }} onRegistrar={registrar} />
       ) : (
         <VentaArmar productos={productos} error={error} venta={venta} lineas={lineas} mover={mover} ponerDescLinea={ponerDescLinea} calc={calc} calculando={calculando} errTotal={errTotal}

@@ -4,6 +4,7 @@ export function mensajeError(e) {
   if (/Tu plan permite hasta/.test(m)) return m
   if (/solo puede consultar|solo lectura/i.test(m)) return 'Tu cuenta es de solo lectura: puedes mirar, pero no cambiar nada.'
   if (/row-level security|permission denied|No autorizado/i.test(m)) return 'No tienes permiso para hacer esto con tu cuenta.'
+  if (/clientes_documento_uni/.test(m)) return 'Ya hay un cliente con ese tipo y número de documento en tu tienda.'
   if (/duplicate key|already exists|unique/i.test(m)) return 'Ya existe uno con ese nombre o código. Cambia el nombre o el código.'
   if (/color_(principal|acento)|contraste/i.test(m)) return 'Ese color es muy claro: el texto blanco no se leería. Elige uno más oscuro.'
   if (/Solo el dueño/.test(m)) return m

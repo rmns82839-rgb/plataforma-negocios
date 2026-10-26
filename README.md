@@ -168,3 +168,10 @@ El login, «Mis tiendas» y el panel usan siempre esta paleta. La tienda públic
 - Domicilio en la venta de mostrador (módulo `domicilios`): dirección, celular y costo; el envío se suma al total.
 - Productos por peso (kg, g, lb, l, ml, m…): cantidad decimal con atajos. `src/lib/pesaje.js`.
 - Aviso al cajero si el cliente ya debe (y cuánto está vencido).
+
+## C6b — Clientes y fiados (v14)
+- **SQL nuevo:** `supabase/20-clientes-datos.sql` (segundo contacto en `clientes`, `datos_credito_faltantes`, `corregir_movimiento_fiado`; `registrar_venta` y `registrar_venta_ropa` exigen documento, teléfono y dirección para fiar). Debe dar 6 filas true.
+- Pantalla **Clientes** (`src/panel/Clientes.jsx`, `ClienteForm.jsx`): buscar por nombre, documento o celular; filtros «Los que deben» y «Faltan datos»; datos, compras y acceso a su cuenta de fiado.
+- Documento: tipo + número (único por tienda y tipo), celular de 10 dígitos, dirección, correo, segundo contacto y autorización de datos (Ley 1581). Reglas en `src/lib/clientes.js`.
+- Fiar: la caja revisa los datos del cliente y los completa ahí mismo si faltan.
+- Fiados: recordatorio por WhatsApp al cliente y a su segundo contacto; el dueño puede corregir abonos y deudas anotadas a mano (queda en auditoría con motivo).

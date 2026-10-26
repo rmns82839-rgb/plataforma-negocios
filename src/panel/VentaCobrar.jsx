@@ -8,7 +8,7 @@ import { Titulo, Seccion, Opciones, Interruptor } from './piezas'
 import ClienteSelector from './ClienteSelector'
 import ModalPago from './ModalPago'
 
-export default function VentaCobrar({ nid, sim, venta, cambiar, formas, calc, calculando, errTotal, error, ocupado, domicilios, onVolver, onRegistrar }) {
+export default function VentaCobrar({ ctx, nid, sim, venta, cambiar, formas, calc, calculando, errTotal, error, ocupado, domicilios, onVolver, onRegistrar }) {
   const [forma, setForma] = useState(null)
   const [deuda, setDeuda] = useState(null)
   const dom = venta.dom
@@ -126,7 +126,7 @@ export default function VentaCobrar({ nid, sim, venta, cambiar, formas, calc, ca
       </BarraFija>
 
       {forma && (
-        <ModalPago forma={forma} falta={falta} nid={nid} cliente={venta.cliente} onCliente={(c) => cambiar({ cliente: c })} plazo={venta.plazo} onPlazo={(d) => cambiar({ plazo: d })} soloLectura={sim}
+        <ModalPago ctx={ctx} forma={forma} falta={falta} nid={nid} cliente={venta.cliente} onCliente={(c) => cambiar({ cliente: c })} plazo={venta.plazo} onPlazo={(d) => cambiar({ plazo: d })} soloLectura={sim}
           onCerrar={() => setForma(null)}
           onConfirmar={(p) => { cambiar({ pagos: agregarPago(pagos, p) }); setForma(null) }} />
       )}

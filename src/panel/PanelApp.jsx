@@ -15,6 +15,7 @@ import Equipo from './Equipo'
 import MiPlan from './MiPlan'
 import Caja from './Caja'
 import Fiados from './Fiados'
+import Clientes from './Clientes'
 import Reportes from './Reportes'
 
 const ROL = { dueno: 'Dueño', cajero: 'Cajero', soporte: 'Soporte · solo lectura' }
@@ -24,6 +25,7 @@ export default function PanelApp({ slug }) {
   const [ctx, setCtx] = useState(undefined)
   const [avisos, setAvisos] = useState([])
   const [seccion, setSeccion] = useState('inicio')
+  const [fiadoInicial, setFiadoInicial] = useState(null)
   const [resumen, setResumen] = useState(null)
   const [pub, setPub] = useState(null)
 
@@ -76,7 +78,8 @@ export default function PanelApp({ slug }) {
   const pagina = {
     pedidos: <Pedidos ctx={ctx} volver={volver} />,
     caja: <Caja ctx={ctx} volver={volver} />,
-    fiados: <Fiados ctx={ctx} volver={volver} />,
+    fiados: <Fiados key={fiadoInicial || 'f'} ctx={ctx} volver={volver} inicial={fiadoInicial} />,
+    clientes: <Clientes ctx={ctx} volver={volver} irAFiados={(id) => { setFiadoInicial(id); setSeccion('fiados') }} />,
     reportes: <Reportes ctx={ctx} volver={volver} />,
     productos: <Productos ctx={ctx} volver={volver} />,
     categorias: <Categorias ctx={ctx} volver={volver} />,
@@ -94,6 +97,7 @@ export default function PanelApp({ slug }) {
     ['pedidos', '🧾', 'Pedidos', resumen?.pedidos_pendientes > 0 ? `${resumen.pedidos_pendientes} por atender` : 'Ver pedidos', true],
     ['caja', '💵', 'Caja', 'Vender y cuadrar el día', ctx.modulos.includes('caja')],
     ['fiados', '📒', 'Fiados', 'Quién debe y abonos', ctx.modulos.includes('fiados')],
+    ['clientes', '📇', 'Clientes', 'Datos y compras', ctx.modulos.includes('caja') || ctx.modulos.includes('fiados')],
     ['reportes', '📊', 'Reportes', 'Ventas y ganancias', ctx.modulos.includes('reportes') && dueño],
     ['productos', '📦', 'Productos', 'Crear y editar', true],
     ['categorias', '🏷️', 'Categorías', 'Ordenar la tienda', true],
@@ -139,7 +143,7 @@ export default function PanelApp({ slug }) {
 
           <div className="grid grid-cols-2 gap-3">
             {botones.map(([k, icono, titulo, sub]) => (
-              <button key={k} onClick={() => setSeccion(k)} className="flex min-h-[132px] flex-col items-center justify-center gap-1 rounded-2xl border-2 border-black/5 bg-white p-3 text-center shadow-sm active:scale-[0.99]">
+              <button key={k} onClick={() => { setFiadoInicial(null); setSeccion(k) }} className="flex min-h-[132px] flex-col items-center justify-center gap-1 rounded-2xl border-2 border-black/5 bg-white p-3 text-center shadow-sm active:scale-[0.99]">
                 <span aria-hidden="true" className="text-4xl">{icono}</span>
                 <span className="break-words text-xl font-bold leading-tight">{titulo}</span>
                 <span className="text-base leading-tight text-tinta/60">{sub}</span>

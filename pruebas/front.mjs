@@ -4,6 +4,7 @@ import * as P from '../src/lib/pedido.js'
 import * as C from '../src/lib/csv.js'
 import * as W from '../src/lib/pesaje.js'
 import * as R from '../src/lib/recibo.js'
+import * as L from '../src/lib/clientes.js'
 let ok = 0
 const t = (n, f) => { try { f(); ok++; console.log('✓', n) } catch (e) { console.log('✗', n, '→', e.message); process.exitCode = 1 } }
 
@@ -225,6 +226,31 @@ t('validar: tienda de tarifa fija no pide cálculo', () => assert.deepEqual(P.va
   await tt('recibo: cuentas y texto', () => { assert.equal(rec.subtotal, 19000); assert.equal(rec.cambio, 10000); const t = R.textoRecibo(rec); assert.match(t, /1,5 × Queso — \$14\.000/); assert.match(t, /Descuento: −\$500/); assert.match(t, /Domicilio: \$4\.000/); assert.match(t, /TOTAL: \$18\.500/); assert.match(t, /Nequi: \$8\.500/); assert.match(t, /Devuelto: \$10\.000/) })
   await tt('recibo: página imprimible escapa el texto', () => { const h = R.htmlRecibo(rec); assert.match(h, /Tienda &lt;Demo&gt;/); assert.ok(!h.includes('<Demo>')); assert.match(h, /80mm/) })
   await tt('enlace de WhatsApp del recibo', () => { assert.match(R.enlaceWhatsApp('hola', '300 123 4567'), /^https:\/\/wa\.me\/573001234567\?text=hola$/); assert.match(R.enlaceWhatsApp('a b', ''), /^https:\/\/wa\.me\/\?text=a%20b$/) })
+  // ---- C6b ----
+  await tt('documento: limpiar y validar según el tipo', () => {
+    assert.equal(L.limpiarDocumento('CC', '1.023.456-789'), '1023456789'); assert.equal(L.limpiarDocumento('PP', ' ab-123 456'), 'AB123456')
+    assert.equal(L.validarDocumento('CC', '1.023.456'), ''); assert.match(L.validarDocumento('CC', '123'), /entre 5 y 11/); assert.equal(L.validarDocumento('NIT', '900.123.456-7'), ''); assert.match(L.validarDocumento('NIT', '12345'), /NIT/)
+    assert.match(L.validarDocumento('', '12345'), /tipo/); assert.equal(L.validarDocumento('', ''), ''); assert.match(L.validarDocumento('CC', ''), /número/); assert.equal(L.validarDocumento('PP', 'AB1234'), '')
+  })
+  await tt('celular: 10 dígitos que empiezan por 3', () => { assert.equal(L.limpiarCelular('+57 300 123 4567'), '3001234567'); assert.equal(L.validarCelular('3001234567'), ''); assert.match(L.validarCelular('123'), /10 números/); assert.match(L.validarCelular('2001234567'), /empezar por 3/); assert.equal(L.validarCelular(''), ''); assert.match(L.validarCelular('', { obligatorio: true }), /Escribe/) })
+  await tt('datos que faltan para fiar', () => { assert.deepEqual(L.datosFaltantes({ nombre: 'A' }), ['documento', 'teléfono', 'dirección']); assert.deepEqual(L.datosFaltantes({ documento: '1', telefono: '3', direccion: ' ' }), ['dirección']); assert.deepEqual(L.datosFaltantes({ documento: '1', telefono: '3', direccion: 'x' }), []) })
+  await tt('fila del cliente: guarda limpio y exige la autorización', () => {
+    const base = { nombre: '  Luz   Marina Torres ', tipo_documento: 'CC', documento: '1.023.456', telefono: '300 123 4567', direccion: 'Calle 10 # 5-20', contacto2_nombre: 'Marta', contacto2_telefono: '3109998877', cupo_credito: '50.000', dias_credito: '15' }
+    assert.match(L.filaCliente(base, { esDueno: true }).error, /autorizó/)
+    const r = L.filaCliente(base, { esDueno: true, acepta: true }).fila
+    assert.deepEqual([r.nombre, r.tipo_documento, r.documento, r.telefono, r.contacto2_telefono, r.cupo_credito, r.dias_credito], ['Luz Marina Torres', 'CC', '1023456', '3001234567', '3109998877', 50000, 15])
+    assert.equal(L.filaCliente(base, { acepta: true }).fila.cupo_credito, undefined)   // el cajero no toca el crédito
+    assert.match(L.filaCliente({ ...base, contacto2_nombre: '' }, { acepta: true }).error, /nombre del segundo/)
+    assert.match(L.filaCliente({ ...base, contacto2_telefono: '123' }, { acepta: true }).error, /^Segundo contacto: el celular/)
+    assert.match(L.filaCliente({ nombre: 'Al' }).error, /nombre completo/); assert.match(L.filaCliente({ ...base, direccion: 'Cll' }, { acepta: true }).error, /dirección/); assert.match(L.filaCliente({ ...base, email: 'x@' }, { acepta: true }).error, /correo/)
+    assert.equal(L.filaCliente({ nombre: 'Solo Nombre' }).fila.documento, null)   // solo con el nombre no hace falta autorización
+  })
+  await tt('recordatorio de cobro a los dos contactos', () => {
+    const c = { nombre: 'Luz Marina Torres', telefono: '3001234567', contacto2_nombre: 'Marta', contacto2_telefono: '3109998877' }
+    const d = L.destinatariosCobro(c); assert.equal(d.length, 2); assert.equal(d[1].principal, false); assert.equal(L.destinatariosCobro({ nombre: 'X' }).length, 0)
+    assert.match(L.mensajeCobroA(d[0], c, 45000, 'Tienda Demo'), /^Hola Luz, te escribimos de Tienda Demo\..*\$45\.000/)
+    assert.match(L.mensajeCobroA(d[1], c, 45000, 'Tienda Demo'), /^Hola Marta, .*Luz tiene un saldo pendiente de \$45\.000/)
+  })
 }
 
 console.log(`\n${ok} pruebas correctas`)

@@ -5,6 +5,8 @@ import { mensajeError } from '../lib/errores'
 import { cop } from '../lib/pedido'
 import { Btn, Campo, clsInput } from '../tienda/ui'
 import { soloDigitos } from '../lib/caja'
+import { filaCliente, POLITICA_VERSION } from '../lib/clientes'
+import { Interruptor } from './piezas'
 
 export default function ClienteSelector({ nid, cliente, onElegir, soloLectura, obligatorio = false }) {
   const [abierto, setAbierto] = useState(false)
@@ -13,6 +15,7 @@ export default function ClienteSelector({ nid, cliente, onElegir, soloLectura, o
   const [nuevo, setNuevo] = useState(false)
   const [f, setF] = useState({ nombre: '', telefono: '' })
   const [msg, setMsg] = useState('')
+  const [acepta, setAcepta] = useState(false)
   const [ocupado, setOcupado] = useState(false)
 
   useEffect(() => {
@@ -33,16 +36,15 @@ export default function ClienteSelector({ nid, cliente, onElegir, soloLectura, o
 
   async function crear() {
     setMsg('')
-    const nombre = f.nombre.trim()
-    if (nombre.length < 3) return setMsg('Escribe el nombre del cliente')
-    let tel = soloDigitos(f.telefono)
-    if (tel.length === 12 && tel.startsWith('57')) tel = tel.slice(2)
-    if (tel && tel.length !== 10) return setMsg('El celular debe tener 10 dígitos (o déjalo vacío)')
+    const r = filaCliente({ nombre: f.nombre, telefono: f.telefono }, { acepta })
+    if (r.error) return setMsg(r.error)
+    const fila = { negocio_id: nid, nombre: r.fila.nombre, telefono: r.fila.telefono, origen: 'mostrador' }
+    if (r.fila.telefono) { fila.acepta_datos_en = new Date().toISOString(); fila.politica_version = POLITICA_VERSION }
     setOcupado(true)
-    const { data, error } = await supabase.from('clientes').insert({ negocio_id: nid, nombre, telefono: tel || null }).select('id,nombre,telefono').single()
+    const { data, error } = await supabase.from('clientes').insert(fila).select('id,nombre,telefono').single()
     setOcupado(false)
     if (error) return setMsg(mensajeError(error))
-    onElegir({ ...data, saldo: 0, cupo_credito: 0 }); setAbierto(false); setNuevo(false); setF({ nombre: '', telefono: '' })
+    onElegir({ ...data, saldo: 0, cupo_credito: 0 }); setAbierto(false); setNuevo(false); setF({ nombre: '', telefono: '' }); setAcepta(false)
   }
 
   if (cliente && !abierto) {
@@ -82,6 +84,8 @@ export default function ClienteSelector({ nid, cliente, onElegir, soloLectura, o
           {msg && <p className="text-lg font-semibold text-red-700">{msg}</p>}
           <Campo etiqueta="Nombre completo"><input className={clsInput} value={f.nombre} onChange={(e) => setF({ ...f, nombre: e.target.value })} /></Campo>
           <Campo etiqueta="Celular (opcional)" ayuda="10 dígitos. Sirve para recordarle su cuenta por WhatsApp."><input className={clsInput} inputMode="tel" value={f.telefono} onChange={(e) => setF({ ...f, telefono: e.target.value })} /></Campo>
+          {f.telefono.trim() && <Interruptor valor={acepta} onChange={setAcepta} texto="El cliente autorizó guardar su celular" ayuda="Ley 1581 de protección de datos." />}
+          <p className="text-base text-tinta/60">Los demás datos (documento, dirección) se completan después en «Clientes».</p>
           <Btn type="button" disabled={ocupado} onClick={crear}>{ocupado ? 'Guardando…' : 'Guardar cliente'}</Btn>
           <button type="button" onClick={() => { setNuevo(false); setMsg('') }} className="min-h-[48px] text-lg font-semibold text-principal">← Volver a la lista</button>
         </>

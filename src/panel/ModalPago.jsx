@@ -1,13 +1,16 @@
 // Un pago, una forma: se abre al tocar «Efectivo», «Nequi», «Fiado»… y pide solo lo que esa forma necesita.
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { supabase } from '../lib/supabase'
+import { datosFaltantes } from '../lib/clientes'
 import { cop } from '../lib/pedido'
 import { aNumero, BILLETES, comisionDe } from '../lib/caja'
 import { Btn, Volver, Aviso, Campo, clsInput } from '../tienda/ui'
 import ClienteSelector from './ClienteSelector'
+import ClienteForm from './ClienteForm'
 
 const PLAZOS = [[0, 'Sin fecha'], [7, '7 días'], [15, '15 días'], [30, '30 días']]
 
-export default function ModalPago({ forma, falta, nid, cliente, onCliente, plazo, onPlazo, soloLectura, onConfirmar, onCerrar }) {
+export default function ModalPago({ ctx, forma, falta, nid, cliente, onCliente, plazo, onPlazo, soloLectura, onConfirmar, onCerrar }) {
   const [texto, setTexto] = useState(String(falta))
   const [recibido, setRecibido] = useState('')
   const [error, setError] = useState('')
@@ -17,10 +20,24 @@ export default function ModalPago({ forma, falta, nid, cliente, onCliente, plazo
   const rec = aNumero(recibido)
   const comision = comisionDe(forma, monto)
 
+  // Para fiar hay que conocer al cliente: se traen sus datos y, si falta algo, se completan aquí mismo
+  const [datos, setDatos] = useState(null)
+  const cliId = cliente?.id
+  useEffect(() => {
+    setDatos(null)
+    if (!fiado || !cliId) return
+    let vivo = true
+    supabase.from('clientes').select('*').eq('negocio_id', nid).eq('id', cliId).single().then(({ data }) => vivo && setDatos(data || null))
+    return () => { vivo = false }
+  }, [fiado, cliId, nid])
+  const faltan = fiado && datos ? datosFaltantes(datos) : []
+
   function confirmar() {
     if (!(monto > 0)) return setError('Escribe cuánto va a pagar con esta forma')
     if (monto > falta) return setError(`No puede ser más de lo que falta (${cop(falta)})`)
     if (fiado && !cliente) return setError('Para fiar, elige primero el cliente')
+    if (fiado && !datos) return setError('Espera un momento: estamos revisando los datos del cliente')
+    if (faltan.length) return setError(`Para fiarle falta: ${faltan.join(', ')}`)
     if (efectivo && rec > 0 && rec < monto) return setError('El efectivo recibido es menor que el valor a pagar')
     onConfirmar({ metodo: forma.id, monto, ...(efectivo && rec > monto ? { recibido: rec } : {}) })
   }
@@ -64,6 +81,12 @@ export default function ModalPago({ forma, falta, nid, cliente, onCliente, plazo
               <p className="mb-2 text-lg font-semibold">¿A quién se le fía?</p>
               <ClienteSelector nid={nid} cliente={cliente} onElegir={onCliente} soloLectura={soloLectura} obligatorio />
             </div>
+            {cliente && faltan.length > 0 && (
+              <div className="rounded-2xl border-2 border-amber-300 bg-amber-50 p-3">
+                <p className="mb-3 text-lg font-semibold">Para fiarle hay que completar: {faltan.join(', ')}.</p>
+                <ClienteForm ctx={ctx} cliente={datos} sinVolver resaltarFaltantes onGuardado={(c) => setDatos(c)} />
+              </div>
+            )}
             <div>
               <p className="mb-2 text-lg font-semibold">¿En cuánto tiempo paga?</p>
               <div className="grid grid-cols-2 gap-2" role="group" aria-label="Plazo">
