@@ -69,3 +69,102 @@ export function mensajeCobro({ nombre, saldo, tienda }) {
   const primero = String(nombre || '').trim().split(/\s+/)[0] || ''
   return `Hola ${primero}, te escribimos de ${tienda}. Te recordamos con mucho gusto que tienes un saldo pendiente de $${Math.round(saldo).toLocaleString('es-CO')}. Cuando puedas, pásanos a pagar. ¡Gracias!`
 }
+
+// =====================================================================
+// C6a: ventas en espera, descuentos y pagos por partes
+// =====================================================================
+export const MAX_VENTAS = 6
+const DOS_DIAS = 2 * 86400000
+
+// Venta nueva: el número es el menor libre (1 a 6) para que las pestañas no se salten
+export function nuevaVenta(abiertas = [], ahora = Date.now()) {
+  const usados = new Set(abiertas.map((v) => v.n))
+  let n = 1
+  while (usados.has(n)) n++
+  return { id: `v${ahora.toString(36)}${Math.random().toString(36).slice(2, 6)}`, n, ts: ahora, paso: 'armar', carrito: {}, cliente: null, descTipo: 'monto', descValor: '', descLinea: {}, pagos: [], plazo: 0 }
+}
+
+// Lo que se guarda en el equipo: solo ventas con forma válida y de menos de 2 días (por si cambió algo)
+export function sanearVentas(obj, ahora = Date.now()) {
+  if (!obj || !Array.isArray(obj.lista)) return null
+  const num = (x) => (Number.isFinite(Number(x)) ? Number(x) : 0)
+  const lista = obj.lista.slice(0, MAX_VENTAS).filter((v) => v && typeof v.id === 'string' && ahora - num(v.ts) < DOS_DIAS).map((v) => ({
+    id: v.id, n: Math.min(Math.max(Math.round(num(v.n)) || 1, 1), MAX_VENTAS), ts: num(v.ts),
+    paso: v.paso === 'cobrar' ? 'cobrar' : 'armar',
+    carrito: Object.fromEntries(Object.entries(v.carrito || {}).filter(([, c]) => num(c) > 0).map(([k, c]) => [k, Math.min(num(c), 9999)])),
+    cliente: v.cliente && typeof v.cliente.id === 'string' ? { id: v.cliente.id, nombre: String(v.cliente.nombre || ''), telefono: v.cliente.telefono ?? null, saldo: num(v.cliente.saldo), cupo_credito: num(v.cliente.cupo_credito) } : null,
+    descTipo: v.descTipo === 'pct' ? 'pct' : 'monto',
+    descValor: soloDigitos(v.descValor).slice(0, 9),
+    descLinea: Object.fromEntries(Object.entries(v.descLinea || {}).filter(([, d]) => num(d) > 0).map(([k, d]) => [k, String(Math.round(num(d)))])),
+    pagos: (Array.isArray(v.pagos) ? v.pagos : []).filter((p) => p && typeof p.metodo === 'string' && num(p.monto) > 0).map((p) => ({ metodo: p.metodo, monto: Math.round(num(p.monto)), ...(num(p.recibido) > 0 ? { recibido: Math.round(num(p.recibido)) } : {}) })),
+    plazo: [0, 7, 15, 30].includes(num(v.plazo)) ? num(v.plazo) : 0,
+  }))
+  if (lista.length === 0) return null
+  const activa = lista.some((v) => v.id === obj.activa) ? obj.activa : lista[0].id
+  return { lista, activa }
+}
+
+// Descuento general en pesos a partir de lo que escribió el cajero ($ o %) y el subtotal
+export function descuentoGeneral(tipo, valor, base) {
+  const v = aNumero(valor)
+  if (tipo === 'pct') return Math.round((Number(base) || 0) * Math.min(v, 100) / 100)
+  return v
+}
+
+// Suma un pago a la lista. Si ya había uno con la misma forma, los junta.
+export function agregarPago(pagos, nuevo) {
+  const monto = Math.round(Number(nuevo.monto))
+  if (!(monto > 0)) return pagos
+  const i = pagos.findIndex((p) => p.metodo === nuevo.metodo)
+  const rec = (p) => (p.recibido > 0 ? p.recibido : p.monto)
+  if (i < 0) return [...pagos, { metodo: nuevo.metodo, monto, ...(nuevo.recibido > monto ? { recibido: Math.round(nuevo.recibido) } : {}) }]
+  const ya = pagos[i]
+  const suma = ya.monto + monto
+  const recibido = rec(ya) + (nuevo.recibido > monto ? Math.round(nuevo.recibido) : monto)
+  return pagos.map((p, k) => (k === i ? { metodo: p.metodo, monto: suma, ...(recibido > suma ? { recibido } : {}) } : p))
+}
+export const quitarPago = (pagos, metodo) => pagos.filter((p) => p.metodo !== metodo)
+export const sumaPagos = (pagos) => pagos.reduce((s, p) => s + p.monto, 0)
+export const faltante = (pagos, total) => Math.round(Number(total) || 0) - sumaPagos(pagos)
+
+// Cuánto devuelve en total (suma del cambio de cada pago en efectivo)
+export const cambioTotal = (pagos) => pagos.reduce((s, p) => s + (p.recibido > p.monto ? p.recibido - p.monto : 0), 0)
+
+// Botones de formas de pago: 3 por fila; si la última fila queda incompleta, se reparte el ancho (2 → mitad y mitad, 1 → toda la fila)
+export function spansMetodos(n) {
+  const filas = Math.floor(n / 3)
+  const resto = n % 3
+  const clases = Array(filas * 3).fill('col-span-2')
+  if (resto === 1) clases.push('col-span-6')
+  if (resto === 2) clases.push('col-span-3', 'col-span-3')
+  return clases
+}
+
+export const BILLETES = [20000, 50000, 100000]
+
+// Comisión que cobra la forma de pago sobre un monto
+export const comisionDe = (forma, monto) => Math.round((Number(monto) || 0) * (Number(forma?.comision) || 0) / 100)
+
+// Fecha límite del fiado: hoy (Bogotá) + n días
+export function fechaLimite(dias, ahora = new Date()) {
+  if (!(dias > 0)) return null
+  return sumarDias(diaBogota(ahora), dias)
+}
+
+// Nombre de forma de pago → id válido para la base (a-z, 0-9 y _; 2 a 30 caracteres)
+export function idForma(nombre, existentes = []) {
+  const base = String(nombre || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 26)
+  if (base.length < 2) return null
+  let id = base, k = 2
+  while (existentes.includes(id)) id = `${base}_${k++}`
+  return id
+}
+
+// Comisión escrita por una persona ("2,5" o "2.5") → número entre 0 y 20, o null si no sirve
+export function leerComision(texto) {
+  const t = String(texto ?? '').trim().replace(',', '.')
+  if (t === '') return 0
+  if (!/^\d{1,2}(\.\d{1,2})?$/.test(t)) return null
+  const n = Number(t)
+  return n >= 0 && n <= 20 ? n : null
+}

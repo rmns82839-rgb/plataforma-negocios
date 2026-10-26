@@ -153,3 +153,10 @@ Las públicas reciben el **slug**: `crear_pedido_tienda(p_slug, p_datos, p_items
 ## Marca Matriz (v11)
 La plataforma lleva la marca **Matriz — «El origen de lo bueno»**: `src/tienda/MarcaMatriz.jsx` (isotipo SVG + logotipo), `public/favicon.svg`, fuentes Cormorant Garamond (logotipo) y Jost (texto). Paleta: Negro #0B0B0C, Champagne #D8B978, Oro hondo #A8803A, Esmeralda #0B6B4A (solo acento), Hueso #F7F4EC.
 El login, «Mis tiendas» y el panel usan siempre esta paleta. La tienda pública conserva los colores y el logo de cada negocio; el pie dice «Tienda creada con MATRIZ».
+
+## C6a — Caja: ventas en espera, pagos por partes, descuentos y formas de pago (v12)
+- **SQL nuevo:** `supabase/18-formas-pago-comision.sql` (columna `comision` por forma de pago; `registrar_venta` y `registrar_venta_ropa` la usan). Debe dar 4 filas true.
+- Hasta 6 ventas abiertas a la vez; se guardan en el equipo (por tienda y usuario, 2 días).
+- Pago por modal por forma, billetes rápidos, «Exacto», cambio; el resto se paga con cualquier forma (incluido fiado con plazo 7/15/30 días).
+- Descuento general en $ o % (botones 5 % y 10 %) y descuento por producto.
+- Pantalla «Formas de pago» (dueño): encender, ordenar, comisión, agregar.

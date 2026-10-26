@@ -37,7 +37,7 @@ export default function PanelApp({ slug }) {
       const { data: marca } = await supabase.rpc('negocio_publico', { p_slug: slug })
       if (!vivo) return
       // El panel usa siempre la paleta de Matriz; los colores de la tienda se ven solo en la tienda pública.
-      setCtx({ neg: m, rol: m.rol, esDueno: m.rol === 'dueno', soloLectura: m.rol === 'soporte', modulos: marca?.modulos || [], marca })
+      setCtx({ userId: sesion?.user?.id ?? '', neg: m, rol: m.rol, esDueno: m.rol === 'dueno', soloLectura: m.rol === 'soporte', modulos: marca?.modulos || [], marca })
       supabase.rpc('registrar_acceso', { p_negocio_id: m.negocio_id, p_detalle: 'Panel' })
       if (m.rol === 'dueno') {
         const { data: av } = await supabase.rpc('accesos_pendientes', { p_negocio_id: m.negocio_id })

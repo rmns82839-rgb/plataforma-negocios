@@ -6,7 +6,7 @@ import { cop } from '../lib/pedido'
 import { Btn, Campo, clsInput } from '../tienda/ui'
 import { soloDigitos } from '../lib/caja'
 
-export default function ClienteSelector({ nid, cliente, onElegir, soloLectura }) {
+export default function ClienteSelector({ nid, cliente, onElegir, soloLectura, obligatorio = false }) {
   const [abierto, setAbierto] = useState(false)
   const [q, setQ] = useState('')
   const [lista, setLista] = useState([])
@@ -58,7 +58,7 @@ export default function ClienteSelector({ nid, cliente, onElegir, soloLectura })
       </div>
     )
   }
-  if (!abierto) return <Btn variante="suave" type="button" onClick={() => setAbierto(true)}>Elegir un cliente (opcional)</Btn>
+  if (!abierto) return <Btn variante="suave" type="button" onClick={() => setAbierto(true)}>{obligatorio ? 'Elegir el cliente' : 'Elegir un cliente (opcional)'}</Btn>
 
   return (
     <div className="space-y-3 rounded-2xl border-2 border-black/10 bg-white p-4">

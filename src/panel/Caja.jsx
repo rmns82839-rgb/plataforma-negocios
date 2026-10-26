@@ -3,6 +3,7 @@ import { Volver } from '../tienda/ui'
 import { Titulo, Opciones, SoloLectura } from './piezas'
 import CajaVender from './CajaVender'
 import CajaDia from './CajaDia'
+import FormasPago from './FormasPago'
 
 export default function Caja({ ctx, volver }) {
   const [vista, setVista] = useState('vender')
@@ -13,10 +14,11 @@ export default function Caja({ ctx, volver }) {
       <Volver onClick={volver} texto="Volver al panel" />
       <Titulo>Caja</Titulo>
       {ctx.soloLectura && <SoloLectura />}
-      <div className="mb-5"><Opciones valor={vista} opciones={[['vender', 'Vender'], ['dia', 'Resumen del día']]} onChange={ir} /></div>
+      <div className="mb-5"><Opciones valor={vista} columnas={3} opciones={[['vender', 'Vender'], ['dia', 'Resumen del día'], ['formas', 'Formas de pago']]} onChange={ir} /></div>
       {/* La venta en curso se conserva al mirar el resumen: por eso las dos pantallas siguen montadas */}
       <div hidden={vista !== 'vender'}><CajaVender ctx={ctx} irAlDia={() => ir('dia')} /></div>
       {vista === 'dia' && <CajaDia key={refresco} ctx={ctx} />}
+      {vista === 'formas' && <FormasPago ctx={ctx} />}
     </div>
   )
 }

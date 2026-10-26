@@ -37,7 +37,7 @@ for (const n of ['duenoA', 'cajeroA', 'duenoB', 'soporte', 'extra', 'duenoV', 'g
 
 // ---------- Cargar los SQL del proyecto ----------
 let fallas = 0, pruebas = 0
-for (const f of ['01-plataforma.sql', '02-datos.sql', '03-seguridad.sql', '04-funciones-plataforma.sql', '05-storage-realtime.sql', '06-funciones-negocio.sql', '07-tablero-y-pedidos.sql', '08-permisos.sql', '10-planes-modulos.sql', '11-catalogo-clientes.sql', '12-redondeo-domicilio.sql', '14-panel.sql', '15-domicilio-km.sql', '16-direcciones-cliente.sql', '17-caja-pedidos.sql']) {
+for (const f of ['01-plataforma.sql', '02-datos.sql', '03-seguridad.sql', '04-funciones-plataforma.sql', '05-storage-realtime.sql', '06-funciones-negocio.sql', '07-tablero-y-pedidos.sql', '08-permisos.sql', '10-planes-modulos.sql', '11-catalogo-clientes.sql', '12-redondeo-domicilio.sql', '14-panel.sql', '15-domicilio-km.sql', '16-direcciones-cliente.sql', '17-caja-pedidos.sql', '18-formas-pago-comision.sql']) {
   try { await db.exec(fs.readFileSync(path.join(sqlDir, f), 'utf8')); console.log('OK   ', f) }
   catch (e) { console.log('FALLA', f, '→', e.message); process.exit(1) }
 }
@@ -1065,6 +1065,39 @@ let ped1, ped2, ped3
   pruebas++
   if (v17.rows.length === 5 && v17.rows.every(r => r.ok === true)) console.log('✓ archivo 17: 5 filas true, y se puede correr dos veces')
   else { fallas++; console.log('✗ archivo 17: verificación inesperada', JSON.stringify(v17.rows)) }
+}
+
+// Archivo 18: comisión por forma de pago (C6a)
+console.log('\n--- Archivo 18: comisión por forma de pago ---')
+{
+  const pCom = (await q(`insert into productos (negocio_id,codigo,nombre,precio_venta,precio_compra,stock,publicado) values ($1,'c18','Café C',10000,6000,100,true) returning id`, [A])).rows[0].id
+  await ok('el dueño pone 2,5 % de comisión a Nequi', 'duenoA', () => q(`update formas_pago set comision=2.5 where negocio_id=$1 and id='nequi'`, [A]), () => true)
+  await falla('la comisión no puede pasar de 20 %', 'duenoA', () => q(`update formas_pago set comision=25 where negocio_id=$1 and id='nequi'`, [A]), 'formas_pago_comision_rango')
+  await falla('el cajero no cambia las comisiones', 'cajeroA', async () => { const r = await q(`update formas_pago set comision=9 where negocio_id=$1 and id='nequi' returning id`, [A]); if (r.rows.length === 0) throw new Error('row-level security') }, 'row-level security')
+  await falla('el soporte no cambia las comisiones', 'soporte', async () => { const r = await q(`update formas_pago set comision=9 where negocio_id=$1 and id='nequi' returning id`, [A]); if (r.rows.length === 0) throw new Error('row-level security') }, 'row-level security')
+  await falla('otro negocio no toca mis formas de pago', 'duenoB', async () => { const r = await q(`update formas_pago set comision=9 where negocio_id=$1 and id='nequi' returning id`, [A]); if (r.rows.length === 0) throw new Error('row-level security') }, 'row-level security')
+  const r1 = await como('cajeroA', () => venta(A, [{ producto_id: pCom, cantidad: 1 }], [{ metodo: 'nequi', monto: 10000 }]))
+  const c1 = await q(`select comision from venta_pagos where venta_id=$1`, [r1.rows[0].id])
+  pruebas++
+  if (Number(c1.rows[0].comision) === 250) console.log('✓ venta por Nequi: comisión 2,5 % = 250'); else { fallas++; console.log('✗ comisión Nequi', c1.rows[0]) }
+  await q(`update formas_pago set comision=3 where negocio_id=$1 and id='datafono'`, [A])
+  const r2 = await como('cajeroA', () => venta(A, [{ producto_id: pCom, cantidad: 2 }], [{ metodo: 'efectivo', monto: 5000, recibido: 5000 }, { metodo: 'datafono', monto: 15000 }]))
+  const c2 = await q(`select metodo, comision from venta_pagos where venta_id=$1 order by metodo`, [r2.rows[0].id])
+  pruebas++
+  if (c2.rows.find(x => x.metodo === 'efectivo').comision == 0 && c2.rows.find(x => x.metodo === 'datafono').comision == 450) console.log('✓ pago dividido: efectivo sin comisión, datáfono 3 % = 450'); else { fallas++; console.log('✗ comisión dividida', JSON.stringify(c2.rows)) }
+  const r3 = await como('cajeroA', () => venta(A, [{ producto_id: pCom, cantidad: 1 }], [{ metodo: 'transferencia', monto: 10000 }]))
+  pruebas++
+  if ((await q(`select comision from venta_pagos where venta_id=$1`, [r3.rows[0].id])).rows[0].comision == 0) console.log('✓ forma sin comisión no cobra nada'); else { fallas++; console.log('✗ comisión en forma sin comisión') }
+  // descuento por línea y general juntos
+  await ok('descuento por línea + general', 'duenoA', () => q(`select previsualizar_venta($1,$2::jsonb,null,500) r`, [A, J([{ producto_id: pCom, cantidad: 2, descuento: 1000 }])]), r => r.rows[0].r.total == 18500)
+  await q(`update negocio_reglas set comision_datafono=4 where negocio_id=$1`, [B])
+  await q(`update formas_pago set comision=0 where negocio_id=$1 and id='datafono'`, [B])
+  const sql18 = fs.readFileSync(path.join(sqlDir, '18-formas-pago-comision.sql'), 'utf8')
+  const i18 = sql18.lastIndexOf("select 'formas_pago tiene la columna comision'")
+  await db.exec(sql18.slice(0, i18))   // segunda corrida (idempotente)
+  const v18 = await db.query(sql18.slice(i18))
+  pruebas++
+  if (v18.rows.length === 4 && v18.rows.every(r => r.ok === true)) console.log('✓ archivo 18: 4 filas true, y se puede correr dos veces'); else { fallas++; console.log('✗ archivo 18', JSON.stringify(v18.rows)) }
 }
 
 console.log('\n--- Verificación automática de la base ---')

@@ -178,6 +178,37 @@ t('validar: tienda de tarifa fija no pide cálculo', () => assert.deepEqual(P.va
   await tt('sin forma de pago ni total', () => { assert.match(K.armarPagos([{ metodo: '' }], 5700).error, /Elige/); assert.ok(K.armarPagos([{ metodo: 'efectivo' }], 0).error) })
   await tt('cambio', () => { assert.equal(K.cambio('10.000', 5700), 4300); assert.equal(K.cambio('', 5700), null); assert.equal(K.cambio('5000', 5700), null) })
   await tt('mensaje de cobro amable', () => { const m = K.mensajeCobro({ nombre: 'Luz Marina Torres', saldo: 45000, tienda: 'Tienda Demo' }); assert.match(m, /^Hola Luz,/); assert.match(m, /\$45\.000/); assert.match(m, /Tienda Demo/) })
+  // ---- C6a ----
+  await tt('venta nueva usa el menor número libre', () => { const a = K.nuevaVenta([]); const b = K.nuevaVenta([a]); const c = K.nuevaVenta([a, b]); assert.deepEqual([a.n, b.n, c.n], [1, 2, 3]); assert.equal(K.nuevaVenta([{ n: 2 }, { n: 3 }]).n, 1) })
+  await tt('descuento en % sobre el subtotal', () => { assert.equal(K.descuentoGeneral('pct', '10', 25500), 2550); assert.equal(K.descuentoGeneral('pct', '5', 10010), 501); assert.equal(K.descuentoGeneral('pct', '500', 1000), 1000); assert.equal(K.descuentoGeneral('monto', '1.500', 9999), 1500) })
+  await tt('agregar pagos: suma, junta la misma forma y calcula lo que falta', () => {
+    let p = K.agregarPago([], { metodo: 'efectivo', monto: 5000, recibido: 20000 })
+    assert.deepEqual(p, [{ metodo: 'efectivo', monto: 5000, recibido: 20000 }])
+    p = K.agregarPago(p, { metodo: 'nequi', monto: 3000 })
+    assert.equal(K.faltante(p, 10000), 2000)
+    p = K.agregarPago(p, { metodo: 'efectivo', monto: 2000 })
+    assert.deepEqual(p[0], { metodo: 'efectivo', monto: 7000, recibido: 22000 })
+    assert.equal(K.faltante(p, 10000), 0); assert.equal(K.cambioTotal(p), 15000)
+  })
+  await tt('quitar pago y pago en cero se ignora', () => { const p = [{ metodo: 'a', monto: 1 }, { metodo: 'b', monto: 2 }]; assert.deepEqual(K.quitarPago(p, 'a'), [{ metodo: 'b', monto: 2 }]); assert.equal(K.agregarPago(p, { metodo: 'c', monto: 0 }), p) })
+  await tt('botones de formas de pago: 3 por fila y última fila repartida', () => {
+    assert.deepEqual(K.spansMetodos(6), Array(6).fill('col-span-2'))
+    assert.deepEqual(K.spansMetodos(7), [...Array(6).fill('col-span-2'), 'col-span-6'])
+    assert.deepEqual(K.spansMetodos(5), [...Array(3).fill('col-span-2'), 'col-span-3', 'col-span-3'])
+    assert.deepEqual(K.spansMetodos(1), ['col-span-6']); assert.deepEqual(K.spansMetodos(2), ['col-span-3', 'col-span-3'])
+  })
+  await tt('comisión de una forma de pago', () => { assert.equal(K.comisionDe({ comision: 2.5 }, 10000), 250); assert.equal(K.comisionDe({}, 10000), 0); assert.equal(K.comisionDe({ comision: 3 }, 15000), 450) })
+  await tt('fecha límite del fiado (hora de Bogotá)', () => { assert.equal(K.fechaLimite(7, new Date('2026-10-26T03:00:00Z')), '2026-11-01'); assert.equal(K.fechaLimite(0), null); assert.equal(K.fechaLimite(30, new Date('2026-10-25T12:00:00Z')), '2026-11-24') })
+  await tt('id de forma de pago', () => { assert.equal(K.idForma('Bre-B Bancolombia', []), 'bre_b_bancolombia'); assert.equal(K.idForma('Nequi', ['nequi']), 'nequi_2'); assert.equal(K.idForma('Ñandú ✓', []), 'nandu'); assert.equal(K.idForma('!', []), null) })
+  await tt('comisión escrita por una persona', () => { assert.equal(K.leerComision('2,5'), 2.5); assert.equal(K.leerComision(''), 0); assert.equal(K.leerComision('25'), null); assert.equal(K.leerComision('abc'), null); assert.equal(K.leerComision('20'), 20) })
+  await tt('lo guardado en el equipo se sanea (6 ventas, 2 días, datos raros)', () => {
+    const ahora = Date.now()
+    const v = (o) => ({ id: 'x' + Math.random(), n: 1, ts: ahora, carrito: { a: 2, b: 0, c: -1 }, descTipo: 'raro', descValor: 'a1b0', descLinea: { a: '300', b: 0 }, pagos: [{ metodo: 'efectivo', monto: 100 }, { metodo: 5, monto: 3 }, { metodo: 'x', monto: 0 }], plazo: 9, ...o })
+    const r = K.sanearVentas({ lista: [v(), v(), v(), v(), v(), v(), v(), v({ ts: ahora - 3 * 86400000 })], activa: 'no existe' }, ahora)
+    assert.equal(r.lista.length, 6); assert.equal(r.activa, r.lista[0].id)
+    assert.deepEqual(r.lista[0].carrito, { a: 2 }); assert.equal(r.lista[0].descTipo, 'monto'); assert.equal(r.lista[0].descValor, '10'); assert.deepEqual(r.lista[0].descLinea, { a: '300' }); assert.equal(r.lista[0].pagos.length, 1); assert.equal(r.lista[0].plazo, 0)
+    assert.equal(K.sanearVentas({ lista: [v({ ts: ahora - 3 * 86400000 })] }, ahora), null); assert.equal(K.sanearVentas(null), null); assert.equal(K.sanearVentas({ lista: 'x' }), null)
+  })
 }
 
 console.log(`\n${ok} pruebas correctas`)
