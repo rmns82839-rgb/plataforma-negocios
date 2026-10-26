@@ -3,18 +3,20 @@ import { urlImagen } from '../lib/supabase'
 import { cop } from '../lib/pedido'
 import { Cantidad, clsInput } from './ui'
 
+const POR_TANDA = 60
 const sinTildes = (t) => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 
 function Foto({ p }) {
   const url = urlImagen(p.imagenes?.[0])
   return url
-    ? <img src={url} alt={p.nombre} loading="lazy" className="aspect-[4/3] w-full rounded-xl object-cover" />
+    ? <img src={url} alt={p.nombre} loading="lazy" className="aspect-[4/3] w-full rounded-xl bg-white object-contain" />
     : <div aria-hidden="true" className="flex aspect-[4/3] w-full items-center justify-center rounded-xl bg-principal/10 text-5xl font-bold text-principal/40">{p.nombre.charAt(0).toUpperCase()}</div>
 }
 
 export default function Catalogo({ catalogo, carrito, cambiar }) {
   const [texto, setTexto] = useState('')
   const [cat, setCat] = useState('')
+  const [mostrar, setMostrar] = useState(POR_TANDA)
 
   const nombresCat = useMemo(() => {
     const dePro = new Set(catalogo.productos.map((p) => p.categoria).filter(Boolean))
@@ -47,12 +49,12 @@ export default function Catalogo({ catalogo, carrito, cambiar }) {
         </section>
       )}
 
-      <input type="search" value={texto} onChange={(e) => setTexto(e.target.value)} placeholder="Buscar un producto" aria-label="Buscar un producto" className={`${clsInput} mb-4`} />
+      <input type="search" value={texto} onChange={(e) => { setTexto(e.target.value); setMostrar(POR_TANDA) }} placeholder="Buscar un producto" aria-label="Buscar un producto" className={`${clsInput} mb-4`} />
 
       {nombresCat.length > 0 && (
         <div className="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-3">
           {['', ...nombresCat].map((c) => (
-            <button key={c || 'todo'} onClick={() => setCat(c)} aria-pressed={cat === c}
+            <button key={c || 'todo'} onClick={() => { setCat(c); setMostrar(POR_TANDA) }} aria-pressed={cat === c}
               className={`min-h-[56px] rounded-2xl border-2 px-3 py-2 text-lg font-semibold leading-tight ${c === '' ? 'col-span-2 sm:col-span-1' : ''} ${cat === c ? 'border-principal bg-principal text-white' : 'border-black/10 bg-white text-tinta'}`}>
               {c || 'Todo'}
             </button>
@@ -67,7 +69,7 @@ export default function Catalogo({ catalogo, carrito, cambiar }) {
       )}
 
       <div className="grid gap-4 sm:grid-cols-2">
-        {lista.map((p) => {
+        {lista.slice(0, mostrar).map((p) => {
           const c = carrito[p.id] || 0
           const promo = promoDe(p)
           return (
@@ -88,6 +90,13 @@ export default function Catalogo({ catalogo, carrito, cambiar }) {
           )
         })}
       </div>
+
+      {lista.length > mostrar && (
+        <button onClick={() => setMostrar((m) => m + POR_TANDA)}
+          className="mt-6 min-h-[56px] w-full rounded-2xl border-2 border-principal bg-white px-4 text-lg font-semibold text-principal active:scale-[0.99]">
+          Ver más productos ({lista.length - mostrar} por ver)
+        </button>
+      )}
     </div>
   )
 }
