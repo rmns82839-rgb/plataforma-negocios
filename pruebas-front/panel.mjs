@@ -50,4 +50,22 @@ await t('traerTodo junta las páginas de 1000', async () => {
 })
 await t('traerTodo devuelve el error', async () => { const r = await traerTodo(() => ({ range: async () => ({ data: null, error: { message: 'x' } }) })); assert.equal(r.error.message, 'x') })
 
+
+const V = await import('../src/lib/vitrina.js')
+await t('estrellas: texto y límites', () => { assert.equal(V.estrellasTexto(4), '★★★★☆'); assert.equal(V.estrellasTexto(9), '★★★★★'); assert.equal(V.estrellasTexto(-1), '☆☆☆☆☆'); assert.equal(V.estrellasTexto(null), '☆☆☆☆☆') })
+await t('ingredientes: separa por línea o coma, sin repetidos', () => {
+  const r = V.ingredientesDeTexto('Arroz\n Papa criolla ,arroz\n\nAguacate'); assert.deepEqual(r.map((x) => x.k), ['arroz', 'papa-criolla', 'aguacate'])
+})
+await t('ingredientes: máximo 20 y 40 letras', () => { assert.equal(V.ingredientesDeTexto(Array.from({ length: 30 }, (_, i) => 'x' + i).join('\n')).length, 20); assert.ok(V.ingredientesDeTexto('a'.repeat(80))[0].n.length <= 40) })
+await t('ingredientes: ida y vuelta', () => assert.equal(V.ingredientesATexto(V.ingredientesDeTexto('Fríjol\nPlátano')), 'Fríjol\nPlátano'))
+await t('audio: acepta mp3 de 3 MB', () => assert.equal(V.validarAudio({ type: 'audio/mpeg', size: 3e6 }), ''))
+await t('audio: rechaza 5 MB, imágenes y vacío', () => { assert.match(V.validarAudio({ type: 'audio/mpeg', size: 5e6 }), /4 MB/); assert.match(V.validarAudio({ type: 'image/png', size: 10 }), /música/); assert.ok(V.validarAudio(undefined)) })
+await t('música: la ruta empieza por el negocio (lo exige la base)', () => { const r = V.rutaMusica('abc', 'audio/mp4', 1); assert.ok(r.startsWith('abc/') && r.endsWith('.m4a')) })
+await t('seguimiento: cancelado manda sobre todo', () => assert.equal(V.textoSeguimiento({ estado: 'cancelado', seguimiento: 'entregado' }).titulo, 'Pedido cancelado'))
+await t('seguimiento: los 4 estados y sin dato', () => {
+  assert.equal(V.textoSeguimiento({ estado: 'pendiente', seguimiento: 'recibido' }).titulo, 'Pedido recibido'); assert.equal(V.textoSeguimiento({ seguimiento: 'preparando' }).icono, '👩‍🍳')
+  assert.equal(V.textoSeguimiento({ seguimiento: 'en_camino' }).titulo, 'Va en camino'); assert.equal(V.textoSeguimiento({ seguimiento: 'entregado' }).titulo, 'Entregado'); assert.equal(V.textoSeguimiento(null), null)
+})
+await t('solo dígitos', () => assert.equal(V.soloDigitos('+57 (300) 123-4567'), '573001234567'))
+
 console.log(`\n${ok} pruebas pasaron`)

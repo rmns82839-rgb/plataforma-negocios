@@ -6,6 +6,7 @@ import { useSesion } from '../lib/sesion'
 import { totales, costoDomicilioCalculado, mensajePedido, urlWhatsapp, cop } from '../lib/pedido'
 import { Btn, Volver, Aviso, Logo, BarraFija, PiePlataforma } from './ui'
 import Catalogo from './Catalogo'
+import { MenuDelDia, MusicaFondo, Opiniones, SeguirPedido } from './Extras'
 import { Carrito, Datos, Revisar } from './Pasos'
 import { entrarConGoogle } from '../lib/google'
 import EntrarCodigo from './EntrarCodigo'
@@ -23,6 +24,7 @@ export default function Tienda({ slug }) {
   const sesion = useSesion()
   const [n, setN] = useState(undefined)
   const [catalogo, setCatalogo] = useState(null)
+  const [extras, setExtras] = useState(null)   // menú del día, música y opiniones (cada uno solo si el módulo está activo)
   const [error, setError] = useState('')
   const [detalle, setDetalle] = useState('')
   const [carrito, setCarrito] = useState(() => leer(`carrito:${slug}`, {}))
@@ -41,7 +43,7 @@ export default function Tienda({ slug }) {
   // Tienda + catálogo
   useEffect(() => {
     let vivo = true
-    setN(undefined); setCatalogo(null); setError('')
+    setN(undefined); setCatalogo(null); setExtras(null); setError('')
     ;(async () => {
       const { data: t, error: et } = await supabase.rpc('negocio_publico', { p_slug: slug })
       if (!vivo) return
@@ -49,6 +51,9 @@ export default function Tienda({ slug }) {
       setN(t ?? null)
       if (!t) return
       aplicarMarca(t)
+      if (t.modulos.includes('catalogo_publico') && ['opiniones', 'menu_del_dia', 'musica_fondo'].some((m) => t.modulos.includes(m))) {
+        supabase.rpc('extras_tienda', { p_slug: slug }).then(({ data }) => { if (vivo) setExtras(data || null) }, () => {})
+      }
       if (!t.modulos.includes('catalogo_publico') || !t.modulos.includes('productos')) { setCatalogo({ productos: [], categorias: [], ofertas: [], promociones: [] }); return }
       const { data: c, error: e } = await supabase.rpc('catalogo_tienda', { p_slug: slug })
       if (!vivo) return
@@ -93,6 +98,8 @@ export default function Tienda({ slug }) {
   }, [carrito, catalogo])
   const tot = useMemo(() => totales(items, catalogo?.promociones), [items, catalogo])
   const cuenta = items.reduce((s, x) => s + x.cantidad, 0)
+
+  const recargarExtras = () => supabase.rpc('extras_tienda', { p_slug: slug }).then(({ data }) => setExtras(data || null), () => {})
 
   const cambiar = (id, c) => setCarrito((prev) => {
     const sig = { ...prev }
@@ -198,9 +205,15 @@ export default function Tienda({ slug }) {
             </div>
           </header>
 
+          <MusicaFondo musica={extras?.musica} />
+          <MenuDelDia menu={extras?.menu_hoy} />
+
           {error && <Aviso tipo="error">{error}</Aviso>}
           {!catalogo && !error && <p className="py-10 text-center text-xl text-tinta/60">Cargando productos…</p>}
           {catalogo && <div className={cuenta > 0 ? 'pb-36' : ''}><Catalogo catalogo={catalogo} carrito={carrito} cambiar={cambiar} /></div>}
+
+          <Opiniones slug={slug} datos={extras?.opiniones} sesion={sesion} personal={personal || simulado} entrarGoogle={entrarGoogle} recargar={recargarExtras} />
+          {pedidosOk && !personal && !simulado && <SeguirPedido slug={slug} />}
 
           {!pedidosOk && urlWhatsapp(n.whatsapp, `Hola ${n.nombre}, vi su catálogo y quiero hacer un pedido.`) && (
             <div className="mt-6"><a href={urlWhatsapp(n.whatsapp, `Hola ${n.nombre}, vi su catálogo y quiero hacer un pedido.`)} className="flex min-h-[56px] items-center justify-center rounded-2xl bg-[#128C4A] px-6 text-lg font-semibold text-white">Escribir por WhatsApp</a></div>

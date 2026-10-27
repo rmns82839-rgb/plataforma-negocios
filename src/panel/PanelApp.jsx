@@ -18,6 +18,7 @@ import Fiados from './Fiados'
 import Clientes from './Clientes'
 import Reportes from './Reportes'
 import Armazon from './Armazon'
+import Vitrina from './Vitrina'
 
 const ROL = { dueno: 'Dueño', cajero: 'Cajero', soporte: 'Soporte · solo lectura' }
 
@@ -84,6 +85,7 @@ export default function PanelApp({ slug }) {
     reportes: <Reportes ctx={ctx} volver={volver} />,
     productos: <Productos ctx={ctx} volver={volver} />,
     categorias: <Categorias ctx={ctx} volver={volver} />,
+    vitrina: <Vitrina ctx={ctx} volver={volver} />,
     tienda: <MiTienda ctx={ctx} volver={volver} />,
     equipo: <Equipo ctx={ctx} volver={volver} miId={sesion.user?.id} />,
     plan: <MiPlan ctx={ctx} volver={volver} />,
@@ -102,9 +104,10 @@ export default function PanelApp({ slug }) {
     ['reportes', '📊', 'Reportes', 'Ventas y ganancias', ctx.modulos.includes('reportes') && dueño],
     ['productos', '📦', 'Productos', 'Crear y editar', true],
     ['categorias', '🏷️', 'Categorías', 'Ordenar la tienda', true],
+    ['vitrina', '⭐', 'Opiniones y menú', 'Opiniones, menú del día, música', dueño && ['opiniones', 'menu_del_dia', 'musica_fondo'].some((x) => ctx.modulos.includes(x))],
     ['tienda', '🏪', 'Mi tienda', 'Datos, logo, domicilio', dueño],
     ['equipo', '👥', 'Mi equipo', 'Quién puede entrar', dueño],
-    ['plan', '⭐', 'Mi plan', 'Precio y límites', dueño],
+    ['plan', '💳', 'Mi plan', 'Precio y límites', dueño],
   ].filter((b) => b[4])
 
   const ir_ = (k) => { setFiadoInicial(null); setSeccion(k) }

@@ -13,3 +13,8 @@ export const supabase = configurado
 export function urlImagen(ruta) {
   return ruta && url ? `${url}/storage/v1/object/public/negocios/${ruta}` : null
 }
+
+// La música de fondo vive en su propio espacio (solo audio); en la base queda la RUTA.
+export function urlMusica(ruta) {
+  return ruta && url ? `${url}/storage/v1/object/public/musica-negocios/${ruta}` : null
+}
