@@ -28,6 +28,7 @@ import QrCatalogo from './QrCatalogo'
 import { precioConMargen, gananciaPorUnidad } from '../lib/margen'
 import { confirmar } from '../lib/confirmar'
 import { usePlataforma } from '../context/plataforma'
+import { enlaceTienda } from '../lib/enlaces'
 
 export default function Productos() {
   const { modulos } = usePlataforma()
@@ -213,11 +214,11 @@ export default function Productos() {
 
       <Desplegable titulo="Catálogo en línea" nota="Ver y compartir el enlace de la tienda">
       <div className="grid grid-cols-2 gap-2">
-        <a href="/tienda" target="_blank" rel="noopener noreferrer"
+        <a href={enlaceTienda()} target="_blank" rel="noopener noreferrer"
            className="h-10 rounded-xl bg-slate-100 text-slate-700 text-xs font-semibold grid place-items-center">
           Ver catálogo en línea
         </a>
-        <button onClick={() => copiar(`${window.location.origin}/tienda`)}
+        <button onClick={() => copiar(enlaceTienda())}
           className="h-10 rounded-xl bg-lima/20 text-marca text-xs font-semibold">
           {textoCopiar(copiado, 'Copiar enlace')}
         </button>

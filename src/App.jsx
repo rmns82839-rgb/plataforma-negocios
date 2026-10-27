@@ -8,6 +8,8 @@ import Inicio from './pages/Inicio'
 import Tienda from './tienda/Tienda'
 import PanelApp from './panel/PanelApp'
 import PaginaMisPedidos from './tienda/PaginaMisPedidos'
+import { lazy, Suspense } from 'react'
+const PistolaPagina = lazy(() => import('./cibus/PistolaPagina'))
 
 export default function App() {
   const { vista, slug } = useRuta()
@@ -33,6 +35,7 @@ export default function App() {
   }
   if (vista === 'publico') return <Tienda slug={slug} />
   if (vista === 'panel') return <PanelApp slug={slug} />
+  if (vista === 'pistola') return <Suspense fallback={<Cargando />}><PistolaPagina slug={slug} /></Suspense>
   if (vista === 'mis-pedidos') return <PaginaMisPedidos slug={slug} />
   if (sesion === undefined) return <Cargando />
   return sesion ? <Inicio /> : <Login />

@@ -2,8 +2,9 @@
 import { useEffect, useState } from 'react'
 import Modal from './Modal'
 import { armarCartel } from '../lib/cartelQr'
+import { enlaceTienda } from '../lib/enlaces'
 
-export default function QrCatalogo({ enlace = `${window.location.origin}/tienda`, onCerrar }) {
+export default function QrCatalogo({ enlace = enlaceTienda(), onCerrar }) {
   const [cartel, setCartel] = useState(null)
   const [aviso, setAviso] = useState('')
   useEffect(() => {
