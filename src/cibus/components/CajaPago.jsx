@@ -182,7 +182,7 @@ export default function CajaPago({ c }) {
           <div className="space-y-2">
             <div className="grid grid-cols-[1fr_auto] gap-2 items-center rounded-xl bg-slate-50 p-3">
               <div className="min-w-0">
-                <p className="text-sm font-medium truncate">{cliente.nombre}</p>
+                <p className="text-sm font-medium break-words">{cliente.nombre}</p>
                 <p className="text-xs text-slate-400">
                   {Number(cliente.saldo) > 0 ? `Debe ${dinero(cliente.saldo)}` : 'Sin deuda'}
                   {saldoPrepago > 0 ? ` · saldo prepago ${dinero(saldoPrepago)}` : ''}

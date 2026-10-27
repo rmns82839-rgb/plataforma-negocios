@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import Cifra from './Cifra'
 import { usePersistido, borrarBorradores, TREINTA_MIN } from '../lib/usePersistido'
 import { supabase } from '../lib/supabase'
 import { dinero } from '../lib/formato'
@@ -91,7 +92,7 @@ export default function Fiados() {
       <div className="bg-white rounded-2xl shadow-sm p-4 space-y-3">
         <div>
           <p className="text-xs text-slate-400">Te deben en total</p>
-          <p className="text-2xl font-bold text-marca">{dinero(totalDeuda)}</p>
+          <Cifra className="text-2xl font-bold text-marca">{dinero(totalDeuda)}</Cifra>
         </div>
         <div className={`grid gap-2 ${dueno === true ? 'grid-cols-2' : 'grid-cols-1'}`}>
           <button onClick={() => setNuevo(true)}
@@ -141,15 +142,15 @@ export default function Fiados() {
                 <button onClick={() => setAbierto(c)}
                   className="w-full min-h-14 px-4 py-2 grid grid-cols-[1fr_auto] gap-3 items-center text-left active:bg-slate-50">
                   <div className="min-w-0">
-                    <p className="text-sm font-medium truncate">{c.nombre}</p>
-                    <p className={`text-xs truncate ${vencido ? 'text-red-500 font-medium' : 'text-slate-400'}`}>
+                    <p className="text-sm font-medium break-words">{c.nombre}</p>
+                    <p className={`text-xs break-words ${vencido ? 'text-red-500 font-medium' : 'text-slate-400'}`}>
                       {debe && c.deuda_desde
                         ? `${vencido ? 'Vencido · ' : ''}debe hace ${diasDesde(c.deuda_desde)} días`
                         : [c.documento && `${c.tipo_documento ?? ''} ${c.documento}`.trim(), c.telefono].filter(Boolean).join(' · ') || 'Sin deuda'}
                     </p>
-                    {actividad && <p className="text-[11px] text-slate-400 truncate">{actividad}</p>}
+                    {actividad && <p className="text-[11px] text-slate-400 break-words">{actividad}</p>}
                     {debe && d.hay && (
-                      <p className="text-[11px] text-slate-400 truncate">
+                      <p className="text-[11px] text-slate-400 break-words">
                         {d.fiado > 0 ? `Fiado ${dinero(d.fiado)} · ` : ''}Préstamo rápido {dinero(d.prestamo)}
                       </p>
                     )}

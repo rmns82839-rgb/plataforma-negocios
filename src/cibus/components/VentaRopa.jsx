@@ -224,8 +224,8 @@ export default function VentaRopa({ pedido = null, onCerrar, onVendido }) {
                     <button onClick={() => setAbierta(abierta?.id === p.id ? null : p)}
                       className="w-full min-h-12 px-4 py-2 grid grid-cols-[1fr_auto] gap-3 items-center text-left active:bg-slate-50">
                       <span className="min-w-0">
-                        <span className="block text-sm font-medium truncate">{p.nombre}</span>
-                        <span className="block text-[11px] text-slate-400 truncate">{textoGenero(p.genero)}{p.categoria ? ` · ${p.categoria}` : ''}</span>
+                        <span className="block text-sm font-medium break-words">{p.nombre}</span>
+                        <span className="block text-[11px] text-slate-400 break-words">{textoGenero(p.genero)}{p.categoria ? ` · ${p.categoria}` : ''}</span>
                       </span>
                       <span className="text-sm font-semibold">{dinero(p.precio)}</span>
                     </button>
@@ -267,7 +267,7 @@ export default function VentaRopa({ pedido = null, onCerrar, onVendido }) {
               {cuenta.detalle.map(l => (
                 <li key={l.variante.id} className="py-3 grid grid-cols-[1fr_auto] gap-x-3 gap-y-2 items-center">
                   <div className="min-w-0">
-                    <p className="text-sm font-medium truncate">{l.prenda.nombre}</p>
+                    <p className="text-sm font-medium break-words">{l.prenda.nombre}</p>
                     <p className="text-xs text-slate-400">{nombreVariante(l.variante)} · {dinero(l.prenda.precio)} c/u{l.variante.stock < l.cantidad ? ` · quedan ${l.variante.stock}` : ''}</p>
                   </div>
                   <p className="text-sm font-semibold text-right">{dinero(l.bruto - l.descuento)}</p>
@@ -311,7 +311,7 @@ export default function VentaRopa({ pedido = null, onCerrar, onVendido }) {
             <p className="text-xs font-medium text-slate-500">Cliente {esFiado ? '(obligatorio para fiar)' : '(opcional)'}</p>
             {cliente ? (
               <div className="grid grid-cols-[1fr_auto] gap-2 items-center rounded-xl bg-slate-50 p-3">
-                <span className="text-sm font-medium truncate">{cliente.nombre}</span>
+                <span className="text-sm font-medium break-words">{cliente.nombre}</span>
                 <button onClick={() => setCliente(null)} aria-label="Quitar cliente" className="h-9 w-9 rounded-full bg-slate-200 text-slate-500">✕</button>
               </div>
             ) : (

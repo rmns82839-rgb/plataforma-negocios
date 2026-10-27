@@ -174,8 +174,8 @@ export default function OfertasAdmin() {
                     {o.imagen && <img src={o.imagen} alt="" className="w-full h-full object-cover" />}
                   </span>
                   <span className="min-w-0">
-                    <span className="block text-sm font-semibold truncate">{o.titulo}</span>
-                    <span className="block text-xs text-slate-400 truncate">
+                    <span className="block text-sm font-semibold break-words">{o.titulo}</span>
+                    <span className="block text-xs text-slate-400 break-words">
                       {CATALOGOS.find(c => c.id === o.catalogo)?.texto}{o.etiqueta ? ` · ${o.etiqueta}` : ''}{o.hasta ? ` · ${hastaTexto(o.hasta)}` : ''}
                     </span>
                   </span>

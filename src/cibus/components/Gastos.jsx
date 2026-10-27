@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import Cifra from './Cifra'
 import { usePersistido, borrarBorradores, TREINTA_MIN } from '../lib/usePersistido'
 import { supabase } from '../lib/supabase'
 import { dinero, aNumero, fechaHora } from '../lib/formato'
@@ -75,7 +76,7 @@ export default function Gastos({ rango }) {
       <div className="bg-white rounded-2xl shadow-sm p-4 grid grid-cols-2 gap-3 items-center">
         <div>
           <p className="text-xs text-slate-400">Gastos del periodo</p>
-          <p className="text-2xl font-bold text-naranja-oscuro">{dinero(total)}</p>
+          <Cifra className="text-2xl font-bold text-naranja-oscuro">{dinero(total)}</Cifra>
         </div>
         <button onClick={abrirNuevo}
           className="h-11 rounded-xl bg-marca text-white text-sm font-semibold active:bg-marca-oscuro">
@@ -100,7 +101,7 @@ export default function Gastos({ rango }) {
               <button onClick={() => setAbierto(g)}
                 className="w-full min-h-14 px-4 py-2 grid grid-cols-[1fr_auto] gap-3 items-center text-left active:bg-slate-50">
                 <div className="min-w-0">
-                  <p className="text-sm font-medium truncate">{g.tipo}{g.descripcion ? ` · ${g.descripcion}` : ''}</p>
+                  <p className="text-sm font-medium break-words">{g.tipo}{g.descripcion ? ` · ${g.descripcion}` : ''}</p>
                   <p className="text-xs text-slate-400">{fechaHora(g.fecha)}</p>
                 </div>
                 <span className="text-sm font-semibold text-naranja-oscuro">{dinero(g.monto)}</span>

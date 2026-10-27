@@ -309,7 +309,7 @@ export default function CatalogoPublico() {
       <div className="hidden lg:block"><FiltroCategorias items={generos} activo={genero} onElegir={setGenero} etiqueta={(g) => (g === 'todos' ? 'Todos' : textoGenero(g))} minimo={3} /></div>
       {(genero !== 'todos' || categoria !== 'todas') && (
         <div className="lg:hidden grid grid-cols-[1fr_auto] gap-3 items-center rounded-2xl bg-white shadow-sm px-4 py-2.5">
-          <span className="text-sm truncate">Mostrando: <b className="font-semibold">{[genero !== 'todos' ? textoGenero(genero) : null, categoria !== 'todas' ? categoria : null].filter(Boolean).join(' · ')}</b></span>
+          <span className="text-sm break-words">Mostrando: <b className="font-semibold">{[genero !== 'todos' ? textoGenero(genero) : null, categoria !== 'todas' ? categoria : null].filter(Boolean).join(' · ')}</b></span>
           <button onClick={() => { setGenero('todos'); setCategoria('todas') }} className="h-9 px-3 rounded-lg bg-slate-100 text-xs font-medium text-slate-600">Quitar</button>
         </div>
       )}
@@ -374,7 +374,7 @@ export default function CatalogoPublico() {
                     )}
                   </div>
                   <div className="p-3 lg:p-4 space-y-0.5">
-                    {p.categoria && <p className="text-[10px] uppercase tracking-[0.18em] text-oro truncate">{p.categoria}</p>}
+                    {p.categoria && <p className="text-[10px] uppercase tracking-[0.18em] text-oro break-words">{p.categoria}</p>}
                     <p className="text-sm font-medium leading-tight line-clamp-2 min-h-[2.25rem]">{p.nombre}</p>
                     <p className="text-sm font-semibold text-oro-oscuro">
                       {precioPromo != null
@@ -407,7 +407,7 @@ export default function CatalogoPublico() {
                 {pedido.map(l => (
                   <li key={l.variante.id} className="py-3 grid grid-cols-[1fr_auto] gap-x-3 gap-y-2 items-center">
                     <div className="min-w-0">
-                      <p className="text-sm font-medium truncate">{l.prenda.nombre}</p>
+                      <p className="text-sm font-medium break-words">{l.prenda.nombre}</p>
                       <p className="text-xs text-slate-400">
                         {l.variante.talla}{l.variante.color ? ` · ${l.variante.color}` : ''}
                       </p>
@@ -432,7 +432,7 @@ export default function CatalogoPublico() {
               <div className="flex justify-between text-slate-500"><span>Subtotal</span><span>{dinero(cuenta.bruto)}</span></div>
               {cuenta.detalle.filter(l => l.descuento > 0).map(l => (
                 <div key={l.variante.id} className="flex justify-between text-oro-oscuro gap-3">
-                  <span className="truncate">{l.promo}</span><span>− {dinero(l.descuento)}</span>
+                  <span className="break-words">{l.promo}</span><span>− {dinero(l.descuento)}</span>
                 </div>
               ))}
             </div>

@@ -142,7 +142,7 @@ function Formulario({ promo, onGuardado, onCerrar }) {
           <div className="space-y-2">
             {producto && (
               <div className="grid grid-cols-[1fr_auto] gap-2 items-center rounded-xl bg-slate-50 p-3">
-                <span className="text-sm font-medium truncate">{producto.nombre}</span>
+                <span className="text-sm font-medium break-words">{producto.nombre}</span>
                 <button onClick={() => setProducto(null)} aria-label="Quitar" className="h-9 w-9 rounded-full bg-slate-200 text-slate-500">✕</button>
               </div>
             )}
@@ -252,8 +252,8 @@ export default function PromocionesAdmin() {
                 <button onClick={() => setForm(p)}
                   className="w-full bg-white rounded-2xl shadow-sm p-3 grid grid-cols-[1fr_auto] gap-3 items-center text-left active:bg-slate-50">
                   <span className="min-w-0">
-                    <span className="block text-sm font-semibold truncate">{p.nombre}</span>
-                    <span className="block text-xs text-slate-400 truncate">
+                    <span className="block text-sm font-semibold break-words">{p.nombre}</span>
+                    <span className="block text-xs text-slate-400 break-words">
                       {textoPromo(p, dinero)} · {objetivoTexto(p)}
                     </span>
                   </span>

@@ -225,7 +225,7 @@ export default function ImportarFotos({ productos, onCerrar, onGuardado }) {
 
           {plan && (
             <div className="rounded-2xl bg-slate-50 p-3 space-y-2">
-              <p className="text-xs text-slate-500 truncate">Archivo: {nombre || 'sin nombre'}</p>
+              <p className="text-xs text-slate-500 break-words">Archivo: {nombre || 'sin nombre'}</p>
               {plan.error ? <p className="text-sm text-red-600">{plan.error}</p> : (
                 <div className="grid grid-cols-2 gap-2 text-center">
                   <div className="rounded-xl bg-white py-2"><p className="text-lg font-bold text-marca">{pendientes.length}</p><p className="text-[11px] text-slate-500">listos para traer</p></div>
@@ -282,7 +282,7 @@ export default function ImportarFotos({ productos, onCerrar, onGuardado }) {
                 <label className="grid grid-cols-[auto_1fr] gap-2 items-center">
                   <input type="checkbox" checked={it.usar} onChange={() => alternarUsar(i)} className="h-5 w-5 accent-[#1f6f4a]" />
                   <span className="min-w-0"><span className="block text-sm font-medium break-words">{it.producto.nombre}</span>
-                    <span className="block text-[11px] text-slate-400 truncate">{it.producto.codigo || 'sin código'}</span></span>
+                    <span className="block text-[11px] text-slate-400 break-words">{it.producto.codigo || 'sin código'}</span></span>
                 </label>
                 {it.origen && <p className="text-[11px] text-slate-500 break-words">{it.origen}</p>}
                 <label className="grid grid-cols-[auto_1fr] gap-2 items-center text-xs text-slate-600">

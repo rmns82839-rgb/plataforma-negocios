@@ -54,7 +54,7 @@ function Destacado({ d, grande, onVer }) {
       </div>
       <div className="p-3 grid gap-2 content-between">
         <div className="space-y-0.5">
-          {d.categoria && <p className="text-[10px] uppercase tracking-[0.18em] text-oro truncate">{d.categoria}</p>}
+          {d.categoria && <p className="text-[10px] uppercase tracking-[0.18em] text-oro break-words">{d.categoria}</p>}
           <h3 className={`font-display font-semibold leading-tight text-negro ${grande ? 'text-xl' : 'text-base'} line-clamp-2`}>{d.nombre}</h3>
           <p className="text-sm font-semibold text-oro-oscuro">
             {d.precio != null ? <>{dinero(d.precio)} <span className="text-xs font-normal text-slate-400 line-through">{dinero(d.antes)}</span></> : (d.nota || '')}
@@ -128,7 +128,7 @@ export default function OfertasPublicas({ tema = 'ropa', catalogo, whatsapp, des
         )}
         <span className="relative min-w-0">
           <span className="block text-sm font-semibold text-champagne">{n === 1 ? 'Hay una oferta para ti' : `Hay ${n} ofertas para ti`}</span>
-          <span key={idx} className="block text-xs text-hueso/85 truncate oferta-entra">{lineas[idx % lineas.length]}</span>
+          <span key={idx} className="block text-xs text-hueso/85 break-words oferta-entra">{lineas[idx % lineas.length]}</span>
         </span>
         <span className="relative h-9 px-4 rounded-full bg-champagne text-negro text-xs font-bold inline-flex items-center gap-1.5 pulso-suave">
           Ver <span className="flecha-mueve" aria-hidden="true">→</span>

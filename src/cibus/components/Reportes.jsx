@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import Cifra from './Cifra'
 import { usePersistido, borrarBorradores } from '../lib/usePersistido'
 import { supabase } from '../lib/supabase'
 import { traerTodo } from '../lib/traerTodo'
@@ -14,7 +15,7 @@ function Tarjeta({ titulo, valor, destacado }) {
   return (
     <div className={`rounded-2xl p-4 shadow-sm ${destacado ? 'bg-marca text-white' : 'bg-white'}`}>
       <p className={`text-xs ${destacado ? 'text-white/70' : 'text-slate-400'}`}>{titulo}</p>
-      <p className="text-xl font-bold mt-1 truncate">{valor}</p>
+      <Cifra className="text-xl font-bold mt-1">{valor}</Cifra>
     </div>
   )
 }
@@ -190,7 +191,7 @@ function Resumen({ rango }) {
           <ul className="divide-y divide-slate-100 mt-2">
             {datos.top.map(t => (
               <li key={t.nombre} className="px-4 py-3 grid grid-cols-[1fr_4rem_6rem] gap-2 items-center text-sm">
-                <span className="truncate">{t.nombre}</span>
+                <span className="break-words">{t.nombre}</span>
                 <span className="text-center text-slate-500">×{numero(t.cantidad)}</span>
                 <span className="text-right font-semibold">{dinero(t.total)}</span>
               </li>
@@ -207,9 +208,9 @@ function Resumen({ rango }) {
           <ul className="divide-y divide-slate-100 mt-2">
             {datos.anuladas.map(a => (
               <li key={a.id} className="px-4 py-3 grid grid-cols-[1fr_auto] gap-x-3 gap-y-0.5 text-sm">
-                <span className="font-medium truncate">N.º {numeroFactura(a.numero)}{a.clientes?.nombre ? ` · ${a.clientes.nombre}` : ''}</span>
+                <span className="font-medium break-words">N.º {numeroFactura(a.numero)}{a.clientes?.nombre ? ` · ${a.clientes.nombre}` : ''}</span>
                 <span className="text-right font-semibold">{dinero(a.total)}</span>
-                <span className="text-xs text-slate-400 truncate">{fechaFactura(a.anulada_en)}{a.anulada_por ? ` · ${a.anulada_por}` : ''}</span>
+                <span className="text-xs text-slate-400 break-words">{fechaFactura(a.anulada_en)}{a.anulada_por ? ` · ${a.anulada_por}` : ''}</span>
                 <span />
                 <span className="text-xs text-slate-500 col-span-2">Motivo: {a.motivo_anulacion}</span>
               </li>

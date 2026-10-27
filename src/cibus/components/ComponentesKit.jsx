@@ -42,7 +42,7 @@ export default function ComponentesKit({ kitId, valor, onCambiar, ocupados = [] 
       <ul className="space-y-2">
         {valor.map(v => (
           <li key={v.id} className="grid grid-cols-[1fr_5rem_2.5rem] gap-2 items-center">
-            <span className="text-sm truncate">{v.nombre}</span>
+            <span className="text-sm break-words">{v.nombre}</span>
             <input value={v.txt} onChange={e => poner(v.id, { txt: e.target.value })} inputMode="decimal"
                    aria-label={`Cantidad de ${v.nombre}`} className={`${claseInput} h-11 text-center`} />
             <button onClick={() => onCambiar(valor.filter(x => x.id !== v.id))} aria-label={`Quitar ${v.nombre}`}

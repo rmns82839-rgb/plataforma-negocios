@@ -79,8 +79,8 @@ export default function PrestamoNuevo({ cliente: inicial = null, onCerrar, onCre
       {cliente ? (
         <div className="rounded-2xl bg-slate-50 p-3 grid grid-cols-[1fr_auto] gap-3 items-center">
           <div className="min-w-0">
-            <p className="text-sm font-semibold truncate">{cliente.nombre}</p>
-            <p className="text-xs text-slate-500 truncate">
+            <p className="text-sm font-semibold break-words">{cliente.nombre}</p>
+            <p className="text-xs text-slate-500 break-words">
               {[cliente.documento && `${cliente.tipo_documento ?? ''} ${cliente.documento}`.trim(),
                 cliente.telefono, cliente.direccion].filter(Boolean).join(' · ') || 'Sin datos'}
             </p>
@@ -113,8 +113,8 @@ export default function PrestamoNuevo({ cliente: inicial = null, onCerrar, onCre
                 <li key={c.id}>
                   <button onClick={() => { setCliente(c); setTexto('') }}
                     className="w-full px-3 py-2 text-left active:bg-slate-100">
-                    <p className="text-sm font-medium truncate">{c.nombre}</p>
-                    <p className="text-xs text-slate-400 truncate">{[c.documento, c.telefono].filter(Boolean).join(' · ') || 'Sin documento'}</p>
+                    <p className="text-sm font-medium break-words">{c.nombre}</p>
+                    <p className="text-xs text-slate-400 break-words">{[c.documento, c.telefono].filter(Boolean).join(' · ') || 'Sin documento'}</p>
                   </button>
                 </li>
               ))}

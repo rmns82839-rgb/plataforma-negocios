@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import Cifra from './Cifra'
 import { usePersistido, borrarBorradores, TREINTA_MIN } from '../lib/usePersistido'
 import { supabase } from '../lib/supabase'
 import { dinero, fechaSolo } from '../lib/formato'
@@ -59,7 +60,7 @@ export default function Prestamos() {
       <div className="bg-white rounded-2xl shadow-sm p-4 grid grid-cols-2 gap-3 items-center">
         <div>
           <p className="text-xs text-slate-400">Por cobrar (con interés)</p>
-          <p className="text-2xl font-bold text-marca">{dinero(porCobrar)}</p>
+          <Cifra className="text-2xl font-bold text-marca">{dinero(porCobrar)}</Cifra>
           <p className="text-xs text-slate-400">Prestado vigente {dinero(prestado)}</p>
         </div>
         <button onClick={() => setNuevo(true)}
@@ -96,8 +97,8 @@ export default function Prestamos() {
               <button onClick={() => setAbierto(p)}
                 className="w-full min-h-14 px-4 py-2 grid grid-cols-[1fr_auto] gap-3 items-center text-left active:bg-slate-50">
                 <div className="min-w-0">
-                  <p className="text-sm font-medium truncate">{p.cliente_nombre}</p>
-                  <p className={`text-xs truncate ${vencido(p) ? 'text-red-500 font-medium' : 'text-slate-400'}`}>
+                  <p className="text-sm font-medium break-words">{p.cliente_nombre}</p>
+                  <p className={`text-xs break-words ${vencido(p) ? 'text-red-500 font-medium' : 'text-slate-400'}`}>
                     {p.estado === 'activo'
                       ? (vencido(p) ? `${p.cuotas_vencidas} cuota(s) vencida(s)` : `Próximo pago ${fechaSolo(p.proxima_fecha)}`)
                       : p.estado === 'pagado' ? 'Pagado' : 'Cancelado'}

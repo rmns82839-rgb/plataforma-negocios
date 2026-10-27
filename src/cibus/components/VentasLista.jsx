@@ -85,10 +85,10 @@ export default function VentasLista({ rango }) {
               <button onClick={() => abrir(v)}
                 className="w-full min-h-14 px-4 py-2 grid grid-cols-[1fr_auto] gap-3 items-center text-left active:bg-slate-50">
                 <div className="min-w-0">
-                  <p className={`text-sm font-medium truncate ${v.anulada ? 'text-slate-400 line-through' : ''}`}>
+                  <p className={`text-sm font-medium break-words ${v.anulada ? 'text-slate-400 line-through' : ''}`}>
                     N.º {numeroFactura(v.numero)} · {textoMetodo(v.metodo)}{v.clientes?.nombre ? ` · ${v.clientes.nombre}` : ''}
                   </p>
-                  <p className="text-xs text-slate-400 truncate">
+                  <p className="text-xs text-slate-400 break-words">
                     {fechaHora(v.fecha)} · {v.venta_items.length} {v.venta_items.length === 1 ? 'producto' : 'productos'}
                     {v.anulada && <span className="text-red-500 font-medium"> · Anulada</span>}
                   </p>
@@ -118,7 +118,7 @@ export default function VentasLista({ rango }) {
           <ul className="divide-y divide-slate-100">
             {abierta.venta_items.map((it, i) => (
               <li key={i} className="py-2 grid grid-cols-[1fr_auto] gap-3 text-sm">
-                <span className="truncate">{numero(it.cantidad)} × {it.nombre}{it.promo ? ` · ${it.promo}` : ''}</span>
+                <span className="break-words">{numero(it.cantidad)} × {it.nombre}{it.promo ? ` · ${it.promo}` : ''}</span>
                 <span className="font-semibold">{dinero(Math.round(it.precio_unitario * it.cantidad) - Number(it.descuento_linea || 0))}</span>
               </li>
             ))}

@@ -80,9 +80,9 @@ export default function PedidosRopa({ onCambio }) {
               <li key={p.id} className="bg-white rounded-2xl shadow-sm p-4 space-y-3">
                 <div className="grid grid-cols-[1fr_auto] gap-3 items-start">
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold truncate">Pedido N.º {p.numero}{p.nombre ? ` · ${p.nombre}` : ''}</p>
+                    <p className="text-sm font-semibold break-words">Pedido N.º {p.numero}{p.nombre ? ` · ${p.nombre}` : ''}</p>
                     <p className="text-xs text-slate-400">{hace(p.creado_en)}{p.telefono ? ` · ${p.telefono}` : ''}</p>
-                    {p.entrega !== 'recoger' && p.direccion && <p className="text-xs text-slate-400 truncate">{p.direccion}</p>}
+                    {p.entrega !== 'recoger' && p.direccion && <p className="text-xs text-slate-400 break-words">{p.direccion}</p>}
                     <p className="pt-1">
                       <span className={`inline-block text-[11px] font-semibold px-2.5 py-0.5 rounded-full ${p.entrega === 'recoger' ? 'bg-oro/20 text-oro-oscuro' : 'bg-marca text-champagne'}`}>
                         {p.entrega === 'recoger' ? 'Recoge en tienda' : 'A domicilio'}

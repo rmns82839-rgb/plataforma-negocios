@@ -74,7 +74,7 @@ export default function Domicilios() {
               <li key={v.id} className="bg-white rounded-2xl shadow-sm p-4 space-y-3">
                 <div className="grid grid-cols-[1fr_auto] gap-3 items-start">
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold truncate">N.º {numeroFactura(v.numero)}{v.clientes?.nombre ? ` · ${v.clientes.nombre}` : ''}</p>
+                    <p className="text-sm font-semibold break-words">N.º {numeroFactura(v.numero)}{v.clientes?.nombre ? ` · ${v.clientes.nombre}` : ''}</p>
                     <p className="text-xs text-slate-400">{fechaHora(v.fecha)}</p>
                   </div>
                   <span className={`text-[11px] font-medium rounded-full px-2.5 py-1 ${COLOR[v.dom_estado] ?? COLOR.pendiente}`}>

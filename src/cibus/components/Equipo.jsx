@@ -81,8 +81,8 @@ export default function Equipo() {
         {gente.map(g => (
           <li key={g.user_id} className="px-4 py-3 grid grid-cols-[1fr_auto] gap-3 items-center">
             <div className="min-w-0">
-              <p className="text-sm font-medium truncate">{g.email}</p>
-              <p className="text-xs text-slate-400 truncate">
+              <p className="text-sm font-medium break-words">{g.email}</p>
+              <p className="text-xs text-slate-400 break-words">
                 {ROLES[g.rol]}{g.ultimo_ingreso ? ` · último ingreso ${fechaHora(g.ultimo_ingreso)}` : ' · nunca ha entrado'}
               </p>
             </div>

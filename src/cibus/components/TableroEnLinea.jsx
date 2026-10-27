@@ -1,7 +1,8 @@
-// Pestaña "En línea" del Tablero: pedidos de /tienda y /ropa, dinero por catálogo, cómo los reciben,
+// Pestaña "En línea" del Tablero: pedidos del catálogo de la tienda, dinero, cómo los reciben,
 // qué más piden, a qué horas, mostrador contra en línea y visitas contra pedidos.
 // Todo viene de la función tablero_en_linea (migracion-v29.sql). Solo el dueño.
 import { useEffect, useMemo, useState } from 'react'
+import Cifra from './Cifra'
 import { supabase } from '../lib/supabase'
 import { dinero, numero } from '../lib/formato'
 import { PALETA } from '../lib/graficas'
@@ -36,7 +37,7 @@ function Dato({ titulo, valor, nota, tono }) {
   return (
     <div className="bg-white rounded-2xl shadow-sm p-4 min-w-0 grid content-between gap-1 min-h-24">
       <p className="text-xs text-slate-400">{titulo}</p>
-      <p className={`text-xl font-bold ${tono === 'malo' ? 'text-red-700' : ''}`}>{valor}</p>
+      <Cifra className={`text-xl font-bold ${tono === 'malo' ? 'text-red-700' : ''}`}>{valor}</Cifra>
       <p className="text-[11px] text-slate-400">{nota ?? ' '}</p>
     </div>
   )
@@ -166,7 +167,7 @@ function armarSerie(dias, mapa, campos) {
 
 export default function TableroEnLinea({ rango }) {
   const [res, setRes] = useState(null)
-  const [cat, setCat] = useState('tienda')   // catálogo mostrado en la gráfica de visitas
+  const cat = 'tienda'   // cada negocio tiene UN catálogo (el de su rubro)
 
   useEffect(() => {
     let vivo = true
@@ -187,14 +188,14 @@ export default function TableroEnLinea({ rango }) {
   const calc = useMemo(() => {
     if (!d) return null
     const por = (c) => (d.catalogos ?? []).find(x => x.cat === c) ?? { recibidos: 0, atendidos: 0, cancelados: 0, pendientes: 0, valor_recibido: 0, valor_atendido: 0, a_domicilio: 0, a_recoger: 0 }
-    const t = por('tienda'); const r = por('ropa')
-    const suma = (k) => Number(t[k]) + Number(r[k])
+    const t = por('tienda')
+    const suma = (k) => Number(t[k])
     const visitas = (c) => Number((d.visitas ?? []).find(x => x.catalogo === c)?.visitantes ?? 0)
     const mapaCmp = new Map((d.comparacion?.por_dia ?? []).map(x => [x.dia, x]))
     const mapaVis = new Map((d.por_dia ?? []).map(x => [x.dia, x]))
     const horas = Array.from({ length: 24 }, (_, h) => ({ hora: h, pedidos: Number((d.por_hora ?? []).find(x => x.hora === h)?.pedidos ?? 0) }))
     return {
-      t, r, suma, visitas, horas,
+      t, suma, visitas, horas,
       serieCmp: armarSerie(dias, mapaCmp, ['mostrador', 'en_linea']),
       serieVis: (c) => armarSerie(dias, new Map([...mapaVis].map(([k, v]) => [k, { visitas: v[`visitas_${c}`], pedidos: v[`pedidos_${c}`] }])), ['visitas', 'pedidos']),
     }
@@ -203,7 +204,7 @@ export default function TableroEnLinea({ rango }) {
   if (!res) return <p className="text-center text-sm text-slate-400 py-8">Calculando…</p>
   if (res.error) return <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{res.error}</p>
 
-  const { t, r, suma, visitas, horas } = calc
+  const { t, suma, visitas, horas } = calc
   const recibidos = suma('recibidos')
   const maxHora = Math.max(...horas.map(h => h.pedidos), 0)
   const mejorHora = maxHora > 0 ? horas.reduce((m, h) => (h.pedidos > m.pedidos ? h : m), horas[0]) : null
@@ -214,25 +215,25 @@ export default function TableroEnLinea({ rango }) {
   const maxTop = Math.max(...top.map(x => Number(x.cantidad)), 0)
   const desdeVisitas = d.visitas_desde
   const nVis = visitas(cat)
-  const nPed = Number(cat === 'tienda' ? t.recibidos : r.recibidos)
+  const nPed = Number(t.recibidos)
   const aDom = suma('a_domicilio'); const aRec = suma('a_recoger')
 
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <Dato titulo="Pedidos recibidos" valor={numero(recibidos)} nota={`Tienda ${t.recibidos} · Ropa ${r.recibidos}`} />
+        <Dato titulo="Pedidos recibidos" valor={numero(recibidos)} nota="Desde tu catálogo en línea" />
         <Dato titulo="Atendidos" valor={numero(suma('atendidos'))} nota={recibidos ? `${pct(suma('atendidos'), recibidos)}% de los recibidos` : null} />
         <Dato titulo="Pendientes" valor={numero(suma('pendientes'))} nota="Esperando respuesta" tono={suma('pendientes') > 0 ? 'malo' : undefined} />
         <Dato titulo="Cancelados" valor={numero(suma('cancelados'))} nota={recibidos ? `${pct(suma('cancelados'), recibidos)}% de los recibidos` : null} />
       </div>
 
       <div className="grid lg:grid-cols-2 gap-3">
-        <Bloque titulo="Dinero por catálogo" nota="Pedidos sin contar los cancelados">
-          <div className="grid grid-cols-2 gap-3">
-            {[['Tienda', t], ['Ropa', r]].map(([nombre, x]) => (
+        <Bloque titulo="Dinero de los pedidos" nota="Pedidos sin contar los cancelados">
+          <div className="grid grid-cols-1 gap-3">
+            {[['Tu catálogo', t]].map(([nombre, x]) => (
               <div key={nombre} className="rounded-xl bg-fondo p-3 grid gap-1 content-between min-w-0">
                 <p className="text-xs text-slate-400">{nombre}</p>
-                <p className="text-lg font-bold">{dinero(x.valor_recibido)}</p>
+                <Cifra className="text-lg font-bold">{dinero(x.valor_recibido)}</Cifra>
                 <p className="text-[11px] text-slate-400">Ya atendido: {dinero(x.valor_atendido)}</p>
                 <p className="text-[11px] text-slate-400">{x.recibidos} {x.recibidos === 1 ? 'pedido' : 'pedidos'}</p>
               </div>
@@ -244,7 +245,7 @@ export default function TableroEnLinea({ rango }) {
           {aDom + aRec === 0 ? <Vacio texto="Sin pedidos en este periodo" /> : (
             <>
               <Partida a={{ nombre: 'A domicilio', valor: aDom, color: COLOR_A }} b={{ nombre: 'Recoger en tienda', valor: aRec, color: COLOR_B }} />
-              <p className="text-[11px] text-slate-400">Tienda: {t.a_domicilio} a domicilio · {t.a_recoger} a recoger. Ropa: {r.a_domicilio} a domicilio · {r.a_recoger} a recoger.</p>
+              <p className="text-[11px] text-slate-400">{t.a_domicilio} a domicilio · {t.a_recoger} a recoger.</p>
             </>
           )}
         </Bloque>
@@ -305,20 +306,13 @@ export default function TableroEnLinea({ rango }) {
         serie={calc.serieCmp} vacio="Sin ventas en este periodo"
         claves={[{ k: 'mostrador', nombre: 'Mostrador', color: COLOR_A }, { k: 'en_linea', nombre: 'En línea', color: COLOR_B }]} />
 
-      <div className="grid grid-cols-2 gap-2">
-        {[['tienda', 'Tienda'], ['ropa', 'Ropa']].map(([id, texto]) => (
-          <button key={id} onClick={() => setCat(id)} aria-pressed={cat === id}
-            className={`h-11 rounded-xl text-sm font-medium ${cat === id ? 'bg-negro text-champagne' : 'bg-white text-slate-600 shadow-sm'}`}>{texto}</button>
-        ))}
-      </div>
-
       <div className="grid grid-cols-3 gap-3">
         <Dato titulo="Visitantes" valor={numero(nVis)} nota="Equipos únicos" />
         <Dato titulo="Pedidos" valor={numero(nPed)} nota="Recibidos" />
         <Dato titulo="Conversión" valor={nVis > 0 ? `${numero(Math.round((nPed / nVis) * 100))} %` : '—'} nota="Visitas que piden" />
       </div>
 
-      <BarrasDias titulo={`Visitas y pedidos · ${cat === 'tienda' ? 'Tienda' : 'Ropa'}`} nota="Cuánta gente entra y cuántos terminan pidiendo" modo="pares" formato={numero}
+      <BarrasDias titulo="Visitas y pedidos" nota="Cuánta gente entra y cuántos terminan pidiendo" modo="pares" formato={numero}
         serie={calc.serieVis(cat)} vacio="Aún no hay visitas ni pedidos en este periodo"
         claves={[{ k: 'visitas', nombre: 'Visitantes', color: COLOR_A }, { k: 'pedidos', nombre: 'Pedidos', color: COLOR_B }]} />
       <p className="text-[11px] text-slate-400">

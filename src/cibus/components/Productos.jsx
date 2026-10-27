@@ -195,7 +195,7 @@ export default function Productos() {
           <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:thin]" role="group" aria-label="Categorías">
             {categorias.map(c => (
               <button key={c} onClick={() => setCategoria(c)}
-                className={`shrink-0 w-28 h-8 rounded-full text-xs font-medium capitalize truncate px-3 ${
+                className={`shrink-0 w-28 h-8 rounded-full text-xs font-medium capitalize break-words px-3 ${
                   categoria === c ? 'bg-negro text-champagne' : 'bg-white text-slate-600 ring-1 ring-slate-200'}`}>
                 {c === 'todas' ? 'Todas' : c}
               </button>
@@ -259,12 +259,12 @@ export default function Productos() {
           {visibles.map(p => {
             const bajo = Number(p.stock) <= Number(p.stock_minimo)
             return (
-              <li key={p.id} className="p-3 grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 items-center">
+              <li key={p.id} className="p-3 grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-x-3 gap-y-2 items-center">
                 <button onClick={() => setForm(p)} className="min-w-0 text-left grid grid-cols-[auto_1fr] gap-3 items-center">
                   <Miniatura producto={p} tam="h-11 w-11" />
                   <span className="min-w-0 block">
-                  <p className="text-sm font-medium truncate">{p.nombre}</p>
-                  <p className="text-xs text-slate-400 truncate">
+                  <p className="text-sm font-medium break-words">{p.nombre}</p>
+                  <p className="text-xs text-slate-400 break-words">
                     {p.codigo || 'sin código'} · {dinero(p.precio_venta)}{p.unidad && p.unidad !== 'und' ? ` / ${p.unidad}` : ''}
                   </p>
                   {porVencer(p) && (
@@ -282,15 +282,15 @@ export default function Productos() {
                     setFotosHechas(prev => ({ ...prev, [prod.id]: nuevas }))
                   }} />
                 ) : (
-                <div className="grid grid-cols-[4.5rem_auto] gap-2 items-center">
+                <div className={`grid ${dueno === true && conCompras ? 'grid-cols-2' : 'grid-cols-1'} sm:grid-cols-[4.5rem_auto] gap-2 items-center`}>
                   <button onClick={() => setAjuste(p)} title="Ajustar por conteo"
-                    className={`text-center text-sm font-semibold rounded-lg py-1 ${
+                    className={`text-center text-sm font-semibold rounded-lg py-2 sm:py-1 ${
                       bajo ? 'bg-naranja/15 text-naranja-oscuro' : 'bg-slate-100 text-slate-600'}`}>
                     {numero(p.stock)}
                   </button>
                   {dueno === true && conCompras && (
                   <button onClick={() => setIngreso(p)}
-                    className="h-9 px-3 rounded-lg bg-lima/20 text-marca text-xs font-semibold">
+                    className="h-10 sm:h-9 px-3 rounded-lg bg-lima/20 text-marca text-sm sm:text-xs font-semibold">
                     + Stock
                   </button>
                   )}

@@ -37,7 +37,7 @@ export default function PiePublico({ whatsapp, tema = 'ropa' }) {
     n.horario && <Fila key="h" titulo="Horario"><p className="whitespace-pre-line">{n.horario}</p></Fila>,
     (n.telefono || n.email || wa) && <Fila key="c" titulo="Contacto">
       {n.telefono && <p><a href={`tel:${soloDigitos(n.telefono)}`}>{n.telefono}</a></p>}
-      {n.email && <p className="truncate"><a href={`mailto:${n.email}`}>{n.email}</a></p>}
+      {n.email && <p className="break-words"><a href={`mailto:${n.email}`}>{n.email}</a></p>}
     </Fila>,
   ].filter(Boolean)
 

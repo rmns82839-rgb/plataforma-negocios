@@ -9,7 +9,7 @@ export default function FiltroCategorias({ items, activo, onElegir, etiqueta = (
       <div className="hidden lg:flex lg:flex-wrap gap-2">
         {items.map(c => (
           <button key={c} onClick={() => onElegir(c)}
-            className={`h-10 w-32 rounded-full text-xs font-medium capitalize truncate px-3 transition ${
+            className={`h-10 w-32 rounded-full text-xs font-medium capitalize break-words px-3 transition ${
               activo === c ? (tema === 'tienda' ? 'bg-cibus text-white' : 'bg-negro text-champagne') : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:ring-oro'}`}>
             {etiqueta(c)}
           </button>

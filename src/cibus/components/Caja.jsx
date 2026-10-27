@@ -562,7 +562,7 @@ export default function Caja() {
                   <button key={p.id} onClick={() => { agregar(p); setBusqueda(''); setResultados([]) }}
                     className="w-full min-h-12 px-4 py-2 flex items-center justify-between gap-3 text-left active:bg-slate-50">
                     <Miniatura producto={p} tam="h-9 w-9" />
-                    <span className="text-sm truncate flex-1">{p.nombre}</span>
+                    <span className="text-sm break-words flex-1">{p.nombre}</span>
                     <span className="text-sm font-semibold text-marca shrink-0">{dinero(p.precio_venta)}</span>
                   </button>
                 ))}

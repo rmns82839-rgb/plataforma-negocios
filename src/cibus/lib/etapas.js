@@ -7,11 +7,13 @@ export const NUEVAS = {
   productos:{ modulo: 'productos' },
   fiados:   { modulo: 'fiados' },
   prestamos:{ modulo: 'prestamos' },
+  reportes: { modulo: 'reportes' },
+  tablero:  { modulo: 'reportes' },
+  envivo:   { modulo: 'caja' },
   practica: { modulo: null },
 }
 // Pantallas de Cibus que aún usan la versión anterior de la plataforma: id de Cibus → [id de la pantalla anterior, módulo]
 export const LEGADO = {
-  reportes: ['reportes', 'reportes'],
   clientes: ['clientes', null],
   pedidostienda: ['pedidos', null],
   formas: ['formas', 'caja'],

@@ -79,7 +79,7 @@ export default function PrestamoRapido({ cliente: inicial = null, clientes = [],
       {cliente ? (
         <div className="grid grid-cols-[1fr_auto] gap-2 items-center rounded-xl bg-slate-50 p-3">
           <div className="min-w-0">
-            <p className="text-sm font-medium truncate">{cliente.nombre}</p>
+            <p className="text-sm font-medium break-words">{cliente.nombre}</p>
             <p className="text-xs text-slate-400">{Number(cliente.saldo) > 0 ? `Ya debe ${dinero(cliente.saldo)}` : 'Sin deuda'}</p>
           </div>
           {!inicial && (
@@ -96,7 +96,7 @@ export default function PrestamoRapido({ cliente: inicial = null, clientes = [],
               {coincidencias.map(c => (
                 <button key={c.id} onClick={() => { setCliente(c); setBusca('') }}
                   className="w-full min-h-12 px-4 py-2 grid grid-cols-[1fr_auto] gap-3 items-center text-left active:bg-slate-50">
-                  <span className="text-sm truncate">{c.nombre}</span>
+                  <span className="text-sm break-words">{c.nombre}</span>
                   <span className="text-xs text-slate-400">{Number(c.saldo) > 0 ? `debe ${dinero(c.saldo)}` : ''}</span>
                 </button>
               ))}

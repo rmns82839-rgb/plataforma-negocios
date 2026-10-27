@@ -56,7 +56,7 @@ export default function BarraCatalogo({ tema = 'ropa', secciones = [], ofertas =
                 {s.items.map((c, i) => (
                   <button key={c} onClick={() => { s.onElegir(c); setAbierta(false); window.scrollTo({ top: 0, behavior: 'smooth' }) }}
                     style={i === s.items.length - 1 && s.items.length % 2 === 1 ? { gridColumn: 'span 2' } : undefined}
-                    className={`h-12 rounded-xl text-sm font-medium capitalize truncate px-3 ${
+                    className={`h-12 rounded-xl text-sm font-medium capitalize break-words px-3 ${
                       s.activo === c ? (verde ? 'bg-cibus text-white' : 'bg-negro text-champagne') : 'bg-slate-100 text-slate-700 active:bg-slate-200'}`}>
                     {(s.etiqueta ?? ((x) => x))(c)}
                   </button>
@@ -78,7 +78,7 @@ export function AvisoAgregado({ aviso, tema, onSeguir, onVer }) {
   return (
     <div className="fixed inset-x-0 bottom-[calc(5.75rem+env(safe-area-inset-bottom))] z-40 px-3 flex justify-center pointer-events-none">
       <div role="status" className={`pointer-events-auto w-full max-w-md rounded-2xl px-4 py-3 shadow-2xl ring-1 grid grid-cols-[1fr_auto_auto] gap-2 items-center ${verde ? 'bg-cibus ring-white/20 text-white' : 'bg-negro ring-champagne/30 text-hueso'}`}>
-        <span className="min-w-0 text-sm"><span className="block font-semibold truncate">✓ {aviso} agregado</span><span className="block text-xs opacity-70">¿Quieres seguir mirando?</span></span>
+        <span className="min-w-0 text-sm"><span className="block font-semibold break-words">✓ {aviso} agregado</span><span className="block text-xs opacity-70">¿Quieres seguir mirando?</span></span>
         <button onClick={onSeguir} className="h-10 px-3 rounded-xl bg-white/10 text-xs font-medium">Seguir</button>
         <button onClick={onVer} className="h-10 px-3 rounded-xl bg-champagne text-negro text-xs font-semibold">Ver pedido</button>
       </div>
@@ -97,7 +97,7 @@ export function Sugeridos({ items, onVer }) {
         {items.slice(0, n).map(p => (
           <button key={p.id} onClick={() => onVer(p.id)} className="text-left rounded-xl bg-slate-50 overflow-hidden active:opacity-80">
             <div className="aspect-square bg-slate-100 relative">{p.imagen ? <img src={p.imagen} alt="" loading="lazy" className="w-full h-full object-cover" /> : <SinFoto />}</div>
-            <div className="p-2"><p className="text-xs font-medium truncate">{p.nombre}</p><p className="text-xs text-oro-oscuro font-semibold">{dinero(p.precio)}</p></div>
+            <div className="p-2"><p className="text-xs font-medium break-words">{p.nombre}</p><p className="text-xs text-oro-oscuro font-semibold">{dinero(p.precio)}</p></div>
           </button>
         ))}
       </div>

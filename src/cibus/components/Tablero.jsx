@@ -1,5 +1,6 @@
 // Tablero de indicadores del dueño: números grandes, gráficas simples y alertas. Todo se calcula en la base (rpc tablero).
 import { useCallback, useEffect, useState } from 'react'
+import Cifra from './Cifra'
 import { supabase } from '../lib/supabase'
 import { useDueno } from '../context/rol'
 import { dinero, numero } from '../lib/formato'
@@ -37,7 +38,7 @@ function Dato({ titulo, valor, nota, tono }) {
   return (
     <div className="bg-white rounded-2xl shadow-sm p-4 min-w-0 grid content-between gap-1 h-24">
       <p className="text-xs text-slate-400 leading-snug break-words">{titulo}</p>
-      <p className={`text-xl font-bold truncate ${tono === 'malo' ? 'text-red-700' : ''}`}>{valor}</p>
+      <Cifra className={`text-xl font-bold ${tono === 'malo' ? 'text-red-700' : ''}`}>{valor}</Cifra>
       <p className="text-[11px] text-slate-400 leading-snug break-words">{nota ?? ' '}</p>
     </div>
   )
@@ -63,7 +64,7 @@ function Barras({ serie, titulo }) {
         <ul className="divide-y divide-slate-100 max-h-56 overflow-y-auto text-sm">
           {serie.map(s => (
             <li key={s.dia ?? s.hora} className="py-2 grid grid-cols-[1fr_3rem_6rem] gap-2">
-              <span className="truncate">{s.etiqueta}</span>
+              <span className="break-words">{s.etiqueta}</span>
               <span className="text-slate-400 text-center">{s.ventas}</span>
               <span className="text-right font-medium">{dinero(s.vendido)}</span>
             </li>
@@ -71,7 +72,7 @@ function Barras({ serie, titulo }) {
         </ul>
       ) : (
         <>
-          <p className="h-5 text-xs text-slate-600 truncate" aria-live="polite">
+          <p className="h-5 text-xs text-slate-600 break-words" aria-live="polite">
             {sel ? `${sel.etiqueta} · ${dinero(sel.vendido)} · ${sel.ventas} ${sel.ventas === 1 ? 'venta' : 'ventas'}`
               : mejor ? `Lo mejor: ${mejor.etiqueta} · ${dinero(mejor.vendido)}` : ''}
           </p>
@@ -94,9 +95,9 @@ function Barras({ serie, titulo }) {
           <div className="grid grid-cols-[2.5rem_1fr] gap-2">
             <span />
             <div className="grid grid-cols-3 text-[10px] text-slate-400">
-              <span className="text-left truncate">{serie[marcas[0]].etiqueta}</span>
-              <span className="text-center truncate">{serie.length > 2 ? serie[marcas[1]].etiqueta : ''}</span>
-              <span className="text-right truncate">{serie.length > 1 ? serie[marcas[2]].etiqueta : ''}</span>
+              <span className="text-left break-words">{serie[marcas[0]].etiqueta}</span>
+              <span className="text-center break-words">{serie.length > 2 ? serie[marcas[1]].etiqueta : ''}</span>
+              <span className="text-right break-words">{serie.length > 1 ? serie[marcas[2]].etiqueta : ''}</span>
             </div>
           </div>
         </>
@@ -115,13 +116,13 @@ function Ranking({ titulo, nota, filas, vacio = 'Sin datos en este periodo' }) {
           {filas.map(f => (
             <li key={f.clave} className="grid gap-1">
               <div className="grid grid-cols-[1fr_auto] gap-3 text-sm">
-                <span className="truncate">{f.nombre}</span>
+                <span className="break-words">{f.nombre}</span>
                 <span className="font-semibold">{dinero(f.valor)}</span>
               </div>
               <div className="h-1.5 rounded-full bg-slate-100">
                 <div className="h-full rounded-full bg-oro" style={{ width: `${max ? Math.max(2, (f.valor / max) * 100) : 0}%` }} />
               </div>
-              {f.detalle && <p className="text-[11px] text-slate-400 truncate">{f.detalle}</p>}
+              {f.detalle && <p className="text-[11px] text-slate-400 break-words">{f.detalle}</p>}
             </li>
           ))}
         </ul>
@@ -134,7 +135,7 @@ function Alerta({ titulo, valor, nota, malo }) {
   return (
     <div className={`rounded-2xl p-4 min-h-24 grid gap-1 content-between min-w-0 ${malo ? 'bg-red-50' : 'bg-white shadow-sm'}`}>
       <p className={`text-xs leading-snug break-words ${malo ? 'text-red-700' : 'text-slate-400'}`}>{titulo}</p>
-      <p className={`text-xl font-bold break-words leading-tight ${malo ? 'text-red-700' : ''}`}>{valor}</p>
+      <Cifra className={`text-xl font-bold leading-tight ${malo ? 'text-red-700' : ''}`}>{valor}</Cifra>
       <p className="text-[11px] text-slate-400 leading-snug break-words">{nota ?? ' '}</p>
     </div>
   )
@@ -183,7 +184,7 @@ function Vista({ rango }) {
       <div className="bg-negro rounded-2xl p-5 grid gap-1 lg:grid-cols-[1fr_auto] lg:items-end">
         <div className="grid gap-1 min-w-0">
           <p className="text-xs text-champagne/70">Vendido · {etiquetaRango(rango)}</p>
-          <p className="font-display text-4xl lg:text-5xl font-semibold text-champagne truncate">{dinero(vendido)}</p>
+          <Cifra min={22} className="font-display text-4xl lg:text-5xl font-semibold text-champagne">{dinero(vendido)}</Cifra>
           <p className={`text-xs ${v && !v.nuevo && !v.sube ? 'text-red-300' : 'text-hueso/70'}`}>{textoVariacion(v)}</p>
           {d.comparacion && <p className="text-[11px] text-hueso/60">{textoComparacion(d.comparacion)}</p>}
         </div>

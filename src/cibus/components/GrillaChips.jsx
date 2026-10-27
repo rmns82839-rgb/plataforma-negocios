@@ -10,7 +10,7 @@ export default function GrillaChips({ items, activo, onElegir, etiqueta = (c) =>
         const span = ultima && resto !== 0 ? 4 - resto : 1
         return (
           <button key={c} onClick={() => onElegir(c)} style={span > 1 ? { gridColumn: `span ${span}` } : undefined}
-            className={`h-10 rounded-xl text-xs font-medium capitalize truncate px-2 ${
+            className={`h-10 rounded-xl text-xs font-medium capitalize break-words px-2 ${
               activo === c ? 'bg-marca text-white' : 'bg-white text-slate-600 shadow-sm'}`}>
             {etiqueta(c)}
           </button>

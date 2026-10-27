@@ -106,7 +106,7 @@ export default function CajaLineas({ lineas, ultimoId, editandoId, pesandoId, on
               <div className="min-w-0 grid grid-cols-[auto_1fr] gap-3 items-center">
                 <Miniatura producto={p} tam="h-14 w-14 lg:h-16 lg:w-16" />
                 <div className="min-w-0">
-                <p className="text-base lg:text-2xl font-semibold leading-tight truncate">{p.nombre}</p>
+                <p className="text-base lg:text-2xl font-semibold leading-tight break-words">{p.nombre}</p>
                 <p className="text-xs lg:text-base text-slate-500 mt-0.5">
                   {precioDe(l) !== precioLista(l) && (
                     <span className="line-through text-slate-400 mr-1.5">{dinero(precioLista(l))}</span>
@@ -145,18 +145,18 @@ export default function CajaLineas({ lineas, ultimoId, editandoId, pesandoId, on
                 <div className={`grid gap-2 w-full lg:justify-self-end ${esPesable(p) ? 'grid-cols-3 lg:max-w-[22rem]' : 'grid-cols-2 lg:max-w-[15rem]'}`}>
                   {esPesable(p) && (
                     <button onClick={() => onPesar(pesandoId === p.id ? null : p.id)}
-                      className={`h-11 lg:h-12 px-1 truncate rounded-xl text-sm font-medium ${
+                      className={`h-11 lg:h-12 px-1 break-words rounded-xl text-sm font-medium ${
                         pesandoId === p.id ? 'bg-negro text-champagne' : 'bg-lima/20 text-marca active:bg-lima/30'}`}>
                       Pesar
                     </button>
                   )}
                   <button onClick={() => onEditar(editandoId === p.id ? null : p.id)}
-                    className={`h-11 lg:h-12 px-1 truncate rounded-xl text-sm font-medium ${
+                    className={`h-11 lg:h-12 px-1 break-words rounded-xl text-sm font-medium ${
                       editandoId === p.id || ajustada ? 'bg-negro text-champagne' : 'bg-slate-100 text-slate-600 active:bg-slate-200'}`}>
                     Ajustar
                   </button>
                   <button onClick={() => onQuitar(p.id)}
-                    className="h-11 lg:h-12 px-1 truncate rounded-xl bg-red-50 text-sm font-medium text-red-600 active:bg-red-100">
+                    className="h-11 lg:h-12 px-1 break-words rounded-xl bg-red-50 text-sm font-medium text-red-600 active:bg-red-100">
                     Quitar
                   </button>
                 </div>

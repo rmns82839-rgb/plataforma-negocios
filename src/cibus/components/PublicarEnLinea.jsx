@@ -55,8 +55,8 @@ export default function PublicarEnLinea({ productos, onCerrar, onGuardado }) {
                   <label className="grid grid-cols-[auto_3rem_1fr] gap-3 items-center px-3 py-2">
                     <input type="checkbox" checked={!fuera.has(p.id)} onChange={() => marcar([p.id], fuera.has(p.id))} className="h-5 w-5 accent-[#1f6f4a]" />
                     <img src={fotosDe(p)[0]} alt="" className="h-12 w-12 rounded-lg object-contain bg-white ring-1 ring-slate-100" />
-                    <span className="min-w-0"><span className="block text-sm font-medium truncate">{p.nombre}</span>
-                      <span className="block text-[11px] text-slate-400 truncate">{p.categoria || 'Sin categoría'}</span></span>
+                    <span className="min-w-0"><span className="block text-sm font-medium break-words">{p.nombre}</span>
+                      <span className="block text-[11px] text-slate-400 break-words">{p.categoria || 'Sin categoría'}</span></span>
                   </label>
                 </li>
               ))}

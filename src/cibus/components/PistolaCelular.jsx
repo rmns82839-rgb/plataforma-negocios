@@ -86,7 +86,7 @@ function Pantalla() {
                     {venta.items.map((it, i) => (
                       <li key={i} className="px-4 py-2 grid grid-cols-[auto_1fr_auto] gap-3 text-sm items-center">
                         <span className="text-slate-400 tabular-nums">{numero(it.c)}×</span>
-                        <span className="text-slate-700 truncate">{it.n}</span>
+                        <span className="text-slate-700 break-words">{it.n}</span>
                         <span className="tabular-nums text-slate-700">{dinero(it.t)}</span>
                       </li>
                     ))}
@@ -116,7 +116,7 @@ function Pantalla() {
             <ul className="bg-white rounded-2xl shadow-sm divide-y divide-slate-100">
               {enviados.map((e, i) => (
                 <li key={`${e.codigo}-${i}`} className="pl-4 pr-1 py-1 grid grid-cols-[1fr_auto_auto] items-center gap-2 text-sm">
-                  <span className="font-mono text-slate-700 truncate">{e.codigo}</span>
+                  <span className="font-mono text-slate-700 break-words">{e.codigo}</span>
                   <span className={e.ok ? 'text-esmeralda font-medium' : 'text-slate-400'}>{e.ok ? '✓ recibido' : 'enviado…'}</span>
                   <button onClick={() => setConfirmar(i)} aria-label={`Quitar ${e.codigo} de la lista`}
                     className="w-9 h-9 grid place-items-center text-slate-400 rounded-lg active:bg-slate-100">✕</button>

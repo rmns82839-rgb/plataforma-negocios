@@ -4,10 +4,13 @@
 //  · aviso al dueño cuando entra la cuenta de soporte
 // Todo es opcional: si el canal falla (o no se corrió migracion-v28.sql) la app sigue normal.
 import { useEffect, useState, useSyncExternalStore } from 'react'
-import { supabase } from './supabase'
+import { supabase, negocioActual } from './supabase'
+import { slugActual } from './enlaces'
 
-const CANAL_VISITAS = 'visitas-en-vivo'
-const CANAL_PERSONAL = 'personal-en-vivo'
+// Cada tienda tiene sus propios canales: visitas:{tienda} (las visitas del catálogo, sin datos personales)
+// y envivo:{tienda}:personal (privado: la base solo deja entrar al personal de ESA tienda).
+const canalVisitas = (negocioId) => `visitas:${negocioId}`
+const canalPersonalDe = () => `envivo:${negocioActual()}:personal`
 
 const idAzar = () => globalThis.crypto?.randomUUID?.() ?? `v-${Date.now()}-${Math.random().toString(36).slice(2)}`
 
@@ -38,12 +41,12 @@ const contarVisita = (catalogo) => {
     const id = idVisitante()
     if (!id) return
     localStorage.setItem(clave, '1')
-    supabase.rpc('registrar_visita', { p_catalogo: catalogo, p_visitante: id }).then(() => {}, () => {})
+    supabase.rpc('registrar_visita', { p_slug: slugActual(), p_catalogo: catalogo, p_visitante: id }).then(() => {}, () => {})
   } catch { /* sin almacenamiento */ }
 }
 
 // ---------- Catálogos públicos: "hay alguien mirando" ----------
-export function useVisitante(catalogo) {
+export function useVisitante(catalogo, negocioId = negocioActual()) {
   useEffect(() => {
     let canal = null
     let vivo = true
@@ -58,8 +61,8 @@ export function useVisitante(catalogo) {
       if (!vivo) return
       contarVisita(catalogo)
       try {
-        limpiar(CANAL_VISITAS)
-        canal = supabase.channel(CANAL_VISITAS, { config: { presence: { key: idAzar() } } })
+        limpiar(canalVisitas(negocioId))
+        canal = supabase.channel(canalVisitas(negocioId), { config: { presence: { key: idAzar() } } })
         canal.subscribe((estado) => { if (estado === 'SUBSCRIBED' && vivo && !document.hidden) marcar() })
         document.addEventListener('visibilitychange', alCambiar)
       } catch { canal = null }
@@ -70,21 +73,21 @@ export function useVisitante(catalogo) {
       document.removeEventListener('visibilitychange', alCambiar)
       if (canal) { try { supabase.removeChannel(canal) } catch { /* ya cerrado */ } }
     }
-  }, [catalogo])
+  }, [catalogo, negocioId])
 }
 
 /** Panel del dueño: cuántos visitantes hay ahora en cada catálogo. estado: 'conectando' | 'ok' | 'error' */
 export function useVisitasEnVivo(activo = true) {
-  const [datos, setDatos] = useState({ tienda: 0, ropa: 0, estado: 'conectando' })
+  const [datos, setDatos] = useState({ tienda: 0, estado: 'conectando' })
   useEffect(() => {
     if (!activo) return undefined
     let canal = null
     try {
-      limpiar(CANAL_VISITAS)
-      canal = supabase.channel(CANAL_VISITAS, { config: { presence: { key: `panel-${idAzar()}` } } })
+      limpiar(canalVisitas(negocioActual()))
+      canal = supabase.channel(canalVisitas(negocioActual()), { config: { presence: { key: `panel-${idAzar()}` } } })
       canal.on('presence', { event: 'sync' }, () => {
         const lista = presentes(canal).filter(p => p.c)
-        setDatos({ tienda: lista.filter(p => p.c === 'tienda').length, ropa: lista.filter(p => p.c === 'ropa').length, estado: 'ok' })
+        setDatos({ tienda: lista.length, estado: 'ok' })
       })
       canal.subscribe((estado) => {
         if (estado === 'CHANNEL_ERROR' || estado === 'TIMED_OUT') setDatos(d => ({ ...d, estado: 'error' }))
@@ -109,8 +112,8 @@ let miDato = null
 export function iniciarPresenciaPersonal(yo) {
   miDato = { ...yo, desde: Date.now() }
   try {
-    limpiar(CANAL_PERSONAL)
-    canalPersonal = supabase.channel(CANAL_PERSONAL, { config: { private: true, presence: { key: `${yo.id}-${idAzar().slice(0, 8)}` } } })
+    limpiar(canalPersonalDe())
+    canalPersonal = supabase.channel(canalPersonalDe(), { config: { private: true, presence: { key: `${yo.id}-${idAzar().slice(0, 8)}` } } })
     canalPersonal.on('presence', { event: 'sync' }, () => {
       personal = presentes(canalPersonal).filter(p => p.correo)
       avisar()

@@ -6,7 +6,7 @@ export const MAX_VENTAS = 6
 
 const Info = ({ v }) => (
   <>
-    <span className="block text-sm font-semibold leading-tight truncate">{v.label}</span>
+    <span className="block text-sm font-semibold leading-tight break-words">{v.label}</span>
     <span className="block text-xs opacity-70 leading-tight">{v.productos === 0 ? 'Vacía' : `${v.productos} prod. · ${dinero(v.total)}`}</span>
   </>
 )

@@ -48,7 +48,7 @@ export default function MiCuenta() {
     <div className="space-y-4">
       <div className="bg-white rounded-2xl shadow-sm p-4 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
         <span className="text-slate-400">Correo</span>
-        <span className="font-medium truncate">{correo}</span>
+        <span className="font-medium break-words">{correo}</span>
         <span className="text-slate-400">Rol</span>
         <span className="font-medium">{dueno === true ? 'Dueño' : dueno === false ? 'Cajero' : '…'}</span>
       </div>

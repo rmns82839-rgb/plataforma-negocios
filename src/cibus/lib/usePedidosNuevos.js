@@ -1,4 +1,4 @@
-// Cuenta los pedidos pendientes que llegaron desde los catálogos en línea (/tienda y /ropa).
+// Cuenta los pedidos pendientes que llegaron desde los catálogos en línea del catálogo de la tienda.
 // Se revisa al abrir, cada minuto y al volver a la app; si sube el número, el celular vibra un momento.
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from './supabase'
@@ -23,15 +23,15 @@ const contarOpiniones = async () => {
 }
 
 export function usePedidosNuevos(activo = true, conOpiniones = false) {
-  const [n, setN] = useState({ tienda: 0, ropa: 0, opiniones: 0 })
+  const [n, setN] = useState({ tienda: 0, opiniones: 0 })
   const [lista, setLista] = useState([])
   const antes = useRef(null)
   const antesOp = useRef(null)
   const revisar = useCallback(async () => {
-    const [tienda, ropa, opiniones] = await Promise.all([contar('pedidos_tienda'), contar('pedidos_ropa'), conOpiniones ? contarOpiniones() : 0])
-    setN({ tienda, ropa, opiniones })
+    const [tienda, opiniones] = await Promise.all([contar('pedidos_tienda'), conOpiniones ? contarOpiniones() : 0])
+    setN({ tienda, opiniones })
     setLista(tienda > 0 ? await resumenTienda() : [])
-    const suma = tienda + ropa
+    const suma = tienda
     if (antes.current !== null && suma > antes.current) { try { navigator.vibrate?.([200, 100, 200]) } catch { /* sin vibración */ }; sonar('pedido') }
     else if (antesOp.current !== null && opiniones > antesOp.current) { try { navigator.vibrate?.([120, 80, 120]) } catch { /* sin vibración */ }; sonar('opinion') }
     antes.current = suma
@@ -48,10 +48,10 @@ export function usePedidosNuevos(activo = true, conOpiniones = false) {
     try {
       for (const c of supabase.getChannels()) if (c.topic === 'realtime:avisos-pedidos') supabase.removeChannel(c)
       canal = supabase.channel('avisos-pedidos')
-      for (const tabla of ['pedidos_tienda', 'pedidos_ropa']) canal.on('postgres_changes', { event: 'INSERT', schema: 'public', table: tabla }, () => { clearTimeout(espera); espera = setTimeout(revisar, 800) })
+      for (const tabla of ['pedidos_tienda']) canal.on('postgres_changes', { event: 'INSERT', schema: 'public', table: tabla }, () => { clearTimeout(espera); espera = setTimeout(revisar, 800) })
       canal.subscribe()
     } catch { canal = null }
     return () => { clearInterval(t); clearTimeout(espera); document.removeEventListener('visibilitychange', v); if (canal) { try { supabase.removeChannel(canal) } catch { /* ya cerrado */ } } }
   }, [activo, revisar])
-  return { ...n, listaTienda: lista, total: n.tienda + n.ropa, revisar }
+  return { ...n, listaTienda: lista, total: n.tienda, revisar }
 }

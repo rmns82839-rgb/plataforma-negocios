@@ -1,6 +1,7 @@
 // "En vivo": lo que pasa ahora en el negocio — ventas del día, visitantes de los catálogos,
 // personal conectado, pedidos por atender y últimos accesos. Se refresca solo (tiempo real + cada 30 s).
 import { useCallback, useEffect, useRef, useState } from 'react'
+import Cifra from './Cifra'
 import { supabase } from '../lib/supabase'
 import { useConfig } from '../lib/config'
 import { dinero, inicioDia } from '../lib/formato'
@@ -17,9 +18,9 @@ const nombreDe = (correo) => String(correo ?? '').split('@')[0] || 'Sin nombre'
 function Dato({ titulo, valor, nota, resaltar }) {
   return (
     <div className={`rounded-2xl shadow-sm p-4 min-w-0 grid content-between gap-1 h-24 ${resaltar ? 'bg-negro' : 'bg-white'}`}>
-      <p className={`text-xs truncate ${resaltar ? 'text-champagne/70' : 'text-slate-400'}`}>{titulo}</p>
-      <p className={`text-xl font-bold truncate ${resaltar ? 'text-champagne' : ''}`}>{valor}</p>
-      <p className={`text-[11px] truncate ${resaltar ? 'text-hueso/60' : 'text-slate-400'}`}>{nota ?? ' '}</p>
+      <p className={`text-xs break-words ${resaltar ? 'text-champagne/70' : 'text-slate-400'}`}>{titulo}</p>
+      <Cifra className={`text-xl font-bold ${resaltar ? 'text-champagne' : ''}`}>{valor}</Cifra>
+      <p className={`text-[11px] break-words ${resaltar ? 'text-hueso/60' : 'text-slate-400'}`}>{nota ?? ' '}</p>
     </div>
   )
 }
@@ -28,8 +29,8 @@ function Bloque({ titulo, nota, children }) {
   return (
     <section className="bg-white rounded-2xl shadow-sm p-4 space-y-3 min-w-0">
       <div className="min-w-0">
-        <h2 className="text-sm font-semibold truncate">{titulo}</h2>
-        {nota && <p className="text-[11px] text-slate-400 truncate">{nota}</p>}
+        <h2 className="text-sm font-semibold break-words">{titulo}</h2>
+        {nota && <p className="text-[11px] text-slate-400 break-words">{nota}</p>}
       </div>
       {children}
     </section>
@@ -43,7 +44,7 @@ export default function EnVivo() {
   const visitas = useVisitasEnVivo(true)
   const conectados = usePersonalConectado()
   const [ventas, setVentas] = useState([])
-  const [pend, setPend] = useState({ tienda: 0, ropa: 0 })
+  const [pend, setPend] = useState({ tienda: 0 })
   const [accesos, setAccesos] = useState([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
@@ -58,11 +59,10 @@ export default function EnVivo() {
       const { count, error: err } = await supabase.from(tabla).select('id', { count: 'exact', head: true }).eq('estado', 'pendiente')
       return err ? 0 : (count ?? 0)
     }
-    const [v, tienda, ropa, a] = await Promise.all([
+    const [v, tienda, a] = await Promise.all([
       supabase.from('ventas').select('id, numero, fecha, total, metodo, anulada, domicilio')
         .gte('fecha', inicioDia()).order('fecha', { ascending: false }).range(0, 299),
       contar('pedidos_tienda'),
-      contar('pedidos_ropa'),
       supabase.from('accesos').select('id, fecha, correo, rol').order('fecha', { ascending: false }).range(0, 7),
     ])
     if (v.error) setError(v.error.message); else setError('')
@@ -78,7 +78,7 @@ export default function EnVivo() {
     }
     vistas.current = new Set(lista.map(x => x.id))
     setVentas(lista)
-    setPend({ tienda, ropa })
+    setPend({ tienda })
     // si la tabla de accesos no existe todavía (falta migracion-v28.sql), simplemente no se muestra
     setAccesos(a.error ? null : (a.data ?? []))
     setActualizado(Date.now())
@@ -92,7 +92,7 @@ export default function EnVivo() {
     try {
       for (const c of supabase.getChannels()) if (c.topic === 'realtime:cambios-en-vivo') supabase.removeChannel(c)
       canal = supabase.channel('cambios-en-vivo')
-      for (const tabla of ['ventas', 'pedidos_tienda', 'pedidos_ropa']) {
+      for (const tabla of ['ventas', 'pedidos_tienda']) {
         canal.on('postgres_changes', { event: '*', schema: 'public', table: tabla }, pedir)
       }
       canal.subscribe()
@@ -111,7 +111,7 @@ export default function EnVivo() {
   const validas = ventas.filter(v => !v.anulada)
   const vendido = validas.reduce((s, v) => s + Number(v.total || 0), 0)
   const anuladas = ventas.length - validas.length
-  const visitantes = visitas.tienda + visitas.ropa
+  const visitantes = visitas.tienda
   const segundos = Math.max(0, Math.round((Date.now() - actualizado) / 1000))
   const hace = segundos < 8 ? 'ahora mismo' : segundos < 60 ? `hace ${segundos} s` : `hace ${Math.round(segundos / 60)} min`
 
@@ -141,8 +141,8 @@ export default function EnVivo() {
         <Dato resaltar titulo="Vendido hoy" valor={cargando ? '…' : dinero(vendido)} nota={`${validas.length} venta${validas.length === 1 ? '' : 's'}`} />
         <Dato titulo="Ventas de hoy" valor={cargando ? '…' : validas.length} nota={anuladas ? `${anuladas} anulada${anuladas === 1 ? '' : 's'}` : 'Ninguna anulada'} />
         <Dato titulo="Visitando ahora" valor={visitas.estado === 'error' ? '—' : visitantes}
-              nota={visitas.estado === 'error' ? 'Canal no disponible' : `Tienda ${visitas.tienda} · Ropa ${visitas.ropa}`} />
-        <Dato titulo="Pedidos por atender" valor={pend.tienda + pend.ropa} nota={`Tienda ${pend.tienda} · Ropa ${pend.ropa}`} />
+              nota={visitas.estado === 'error' ? 'Canal no disponible' : 'Mirando tu catálogo ahora'} />
+        <Dato titulo="Pedidos por atender" valor={pend.tienda} nota="Del catálogo en línea" />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -163,9 +163,9 @@ export default function EnVivo() {
           )}
         </Bloque>
 
-        <Bloque titulo="Visitando los catálogos" nota="Gente mirando /tienda y /ropa en este momento">
+        <Bloque titulo="Visitando los catálogos" nota="Gente mirando tu catálogo en este momento">
           <div className="grid grid-cols-2 gap-3">
-            {[['Tienda', visitas.tienda], ['Ropa', visitas.ropa]].map(([nombre, n]) => (
+            {[['Tu catálogo', visitas.tienda]].map(([nombre, n]) => (
               <div key={nombre} className="rounded-xl bg-fondo p-3 grid content-between h-20">
                 <p className="text-xs text-slate-400">{nombre}</p>
                 <p className="text-2xl font-bold">{visitas.estado === 'error' ? '—' : n}</p>

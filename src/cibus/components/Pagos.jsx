@@ -98,9 +98,9 @@ export default function Pagos({ rango }) {
           {visibles.map(f => (
             <li key={f.id} className="min-h-14 px-4 py-2 grid grid-cols-[1fr_auto] gap-3 items-center">
               <div className="min-w-0">
-                <p className="text-sm font-medium truncate">{f.cliente?.nombre ?? 'Cliente'}</p>
-                <p className="text-xs text-slate-400 truncate">{fechaHora(f.fecha)} · {textoMetodo(f.metodo)}</p>
-                <p className="text-xs text-slate-400 truncate">{f.tipo === 'fiado' ? 'Abono a fiado' : 'Pago de préstamo'}</p>
+                <p className="text-sm font-medium break-words">{f.cliente?.nombre ?? 'Cliente'}</p>
+                <p className="text-xs text-slate-400 break-words">{fechaHora(f.fecha)} · {textoMetodo(f.metodo)}</p>
+                <p className="text-xs text-slate-400 break-words">{f.tipo === 'fiado' ? 'Abono a fiado' : 'Pago de préstamo'}</p>
               </div>
               <span className="text-sm font-semibold text-marca">{dinero(f.monto)}</span>
             </li>
@@ -149,8 +149,8 @@ function SelectorCobro({ tipo, onCerrar, onElegir }) {
               <button onClick={() => onElegir(x)}
                 className="w-full px-4 py-3 grid grid-cols-[1fr_auto] gap-3 items-center text-left active:bg-slate-100">
                 <div className="min-w-0">
-                  <p className="text-sm font-medium truncate">{nombre(x)}</p>
-                  <p className="text-xs text-slate-400 truncate">{doc(x) ?? 'Sin documento'}</p>
+                  <p className="text-sm font-medium break-words">{nombre(x)}</p>
+                  <p className="text-xs text-slate-400 break-words">{doc(x) ?? 'Sin documento'}</p>
                 </div>
                 <span className="text-sm font-semibold text-naranja-oscuro">{dinero(x.saldo)}</span>
               </button>

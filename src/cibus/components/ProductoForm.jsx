@@ -316,7 +316,7 @@ export default function ProductoForm({ producto, onGuardado, onCerrar, onArchiva
             {lotes.map(l => (
               <li key={l.id} className="py-2 grid grid-cols-[1fr_auto] gap-3 text-xs items-center">
                 <div className="min-w-0">
-                  <p className="font-medium text-slate-700 truncate">{l.numero ? `Lote ${l.numero}` : 'Sin número de lote'}</p>
+                  <p className="font-medium text-slate-700 break-words">{l.numero ? `Lote ${l.numero}` : 'Sin número de lote'}</p>
                   <p className="text-slate-400">
                     Entró {fechaSolo(l.fecha)}{l.fecha_vencimiento ? ` · vence ${fechaSolo(l.fecha_vencimiento)}` : ''}
                   </p>

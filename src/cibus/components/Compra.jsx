@@ -146,7 +146,7 @@ export default function Compra({ onGuardado, onCerrar }) {
             {resultados.map(p => (
               <button key={p.id} onClick={() => { agregar(p); setBusqueda(''); setResultados([]) }}
                 className="w-full min-h-12 px-4 py-2 grid grid-cols-[1fr_auto] gap-3 items-center text-left active:bg-slate-50">
-                <span className="text-sm truncate">{p.nombre}</span>
+                <span className="text-sm break-words">{p.nombre}</span>
                 <span className="text-xs text-slate-400">hay {numero(p.stock)}</span>
               </button>
             ))}

@@ -199,7 +199,7 @@ function BarraLateral({ activa, sub, dueno, soporte = false, onIr, onSub, onSali
       className={`w-full h-10 px-3 rounded-xl flex items-center text-left text-sm transition-colors ${
         on ? 'bg-champagne/15 text-champagne font-semibold' : 'text-hueso/70 hover:bg-white/5 hover:text-hueso'}`}>
       <Icono nombre={icono} className="h-5 w-5 shrink-0" />
-      <span className={`truncate transition-all duration-300 ${rail ? 'w-0 ml-0 opacity-0' : 'ml-3 w-40 opacity-100'}`}>{texto}</span>
+      <span className={`break-words transition-all duration-300 ${rail ? 'w-0 ml-0 opacity-0' : 'ml-3 w-40 opacity-100'}`}>{texto}</span>
     </button>
   )
   return (
@@ -237,12 +237,12 @@ function BarraLateral({ activa, sub, dueno, soporte = false, onIr, onSub, onSali
         <button onClick={onAlternar} title={rail ? 'Mostrar menú' : undefined} aria-label={rail ? 'Mostrar menú' : 'Ocultar menú'}
           className="w-full h-10 px-3 rounded-xl flex items-center text-left text-sm text-hueso/70 hover:bg-white/5 hover:text-hueso transition-colors">
           <Icono nombre="atras" className={`h-5 w-5 shrink-0 transition-transform duration-300 ${rail ? 'rotate-180' : ''}`} />
-          <span className={`truncate transition-all duration-300 ${rail ? 'w-0 ml-0 opacity-0' : 'ml-3 w-40 opacity-100'}`}>Ocultar menú</span>
+          <span className={`break-words transition-all duration-300 ${rail ? 'w-0 ml-0 opacity-0' : 'ml-3 w-40 opacity-100'}`}>Ocultar menú</span>
         </button>
         <button onClick={onSalir} title={rail ? 'Salir' : undefined} aria-label="Salir"
           className="w-full h-10 px-3 rounded-xl flex items-center text-left text-sm text-hueso/70 hover:bg-white/5 hover:text-hueso transition-colors">
           <Icono nombre="salir" className="h-5 w-5 shrink-0" />
-          <span className={`truncate transition-all duration-300 ${rail ? 'w-0 ml-0 opacity-0' : 'ml-3 w-40 opacity-100'}`}>Salir</span>
+          <span className={`break-words transition-all duration-300 ${rail ? 'w-0 ml-0 opacity-0' : 'ml-3 w-40 opacity-100'}`}>Salir</span>
         </button>
       </div>
     </aside>
@@ -317,7 +317,7 @@ function Contenido() {
             <img src="/isotipo.png" alt="" className="h-10 w-10 object-contain" />
           )}
           <div className="min-w-0">
-            <p className="lg:hidden font-display font-light uppercase tracking-[0.3em] text-[11px] text-champagne/70 leading-none truncate">Matriz</p>
+            <p className="lg:hidden font-display font-light uppercase tracking-[0.3em] text-[11px] text-champagne/70 leading-none break-words">Matriz</p>
             <h1 className="font-display text-xl font-semibold text-hueso leading-tight break-words">{titulo}</h1>
           </div>
           <div className="flex items-center gap-2">
@@ -420,6 +420,7 @@ function Contenido() {
         {activa === 'mas' && !sub && <Menu onIr={setSub} dueno={dueno} soporte={soporte} nuevos={nuevos.tienda} opiniones={nuevos.opiniones} />}
         {activa === 'mas' && sub === 'tablero'  && dueno === true && <Tablero />}
         {activa === 'mas' && sub === 'envivo'   && dueno === true && <EnVivo />}
+        {activa === 'mas' && sub === 'reportes' && <Reportes />}
         {activa === 'mas' && sub === 'respaldo' && dueno === true && <Respaldo />}
         {activa === 'mas' && sub === 'avisos' && dueno === true && <AvisosClientes />}
         {activa === 'mas' && sub === 'sonidos' && <SonidosAvisos />}

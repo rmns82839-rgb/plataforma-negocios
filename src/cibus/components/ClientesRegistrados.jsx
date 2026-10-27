@@ -108,9 +108,9 @@ export default function ClientesRegistrados() {
               <li key={c.id} className="bg-white rounded-2xl shadow-sm p-4 space-y-3">
                 <div className="grid grid-cols-[1fr_auto] gap-3 items-start">
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold truncate">{c.nombre}</p>
-                    <p className="text-xs text-slate-400 truncate">{telefono10(c.telefono) || c.telefono || 'Sin celular'}{c.email ? ` · ${c.email}` : ''}</p>
-                    {c.direccion && <p className="text-xs text-slate-400 truncate">{c.direccion}</p>}
+                    <p className="text-sm font-semibold break-words">{c.nombre}</p>
+                    <p className="text-xs text-slate-400 break-words">{telefono10(c.telefono) || c.telefono || 'Sin celular'}{c.email ? ` · ${c.email}` : ''}</p>
+                    {c.direccion && <p className="text-xs text-slate-400 break-words">{c.direccion}</p>}
                   </div>
                   <span className={`text-[10px] font-semibold px-2 py-1 rounded-full ${c.acepta_promos ? 'bg-lima/30 text-marca' : 'bg-slate-100 text-slate-400'}`}>
                     {c.acepta_promos ? 'Promos sí' : 'Sin promos'}

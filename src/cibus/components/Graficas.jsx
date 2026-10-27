@@ -37,14 +37,14 @@ function Grafica({ titulo, nota, detalle, tabla, ancha, children }) {
             </tr></thead>
             <tbody className="divide-y divide-slate-100">
               {tabla.filas.map((f, i) => (
-                <tr key={i}>{f.map((c, j) => <td key={j} className={`py-1.5 ${j ? 'text-right font-medium' : 'truncate max-w-[10rem]'}`}>{c}</td>)}</tr>
+                <tr key={i}>{f.map((c, j) => <td key={j} className={`py-1.5 ${j ? 'text-right font-medium' : 'break-words max-w-[10rem]'}`}>{c}</td>)}</tr>
               ))}
             </tbody>
           </table>
         </div>
       ) : (
         <>
-          {detalle !== undefined && <p className="h-5 text-xs text-slate-600 truncate" aria-live="polite">{detalle}</p>}
+          {detalle !== undefined && <p className="h-5 text-xs text-slate-600 break-words" aria-live="polite">{detalle}</p>}
           {children}
         </>
       )}
@@ -88,7 +88,7 @@ function Rosca({ titulo, nota, filas, centro }) {
               <li key={f.nombre} onMouseEnter={() => setAct(i)} onMouseLeave={() => setAct(null)}
                   className="grid grid-cols-[0.75rem_1fr_auto] gap-2 items-center text-xs">
                 <span className="h-3 w-3 rounded-sm" style={{ background: f.color }} />
-                <span className="truncate">{f.nombre}</span>
+                <span className="break-words">{f.nombre}</span>
                 <span className="font-semibold">{pct(f.valor, total)} %</span>
               </li>
             ))}
@@ -145,7 +145,7 @@ function Cascada({ d }) {
             return (
               <li key={f.nombre} className="grid gap-1">
                 <div className="grid grid-cols-[1fr_auto] gap-3 text-xs">
-                  <span className="truncate">{f.nombre}</span>
+                  <span className="break-words">{f.nombre}</span>
                   <span className="font-semibold">{f.tipo === 'baja' ? '− ' : ''}{dinero(f.tipo === 'baja' ? f.valor : f.negativo ? f.desde : f.hasta)}</span>
                 </div>
                 <div className="relative h-3 rounded-full bg-slate-100">
@@ -212,7 +212,7 @@ function Apiladas({ filas }) {
               const g = Math.min(100, Math.max(0, pct(f.ganancia, f.venta)))
               return (
                 <li key={f.nombre} className="grid gap-1">
-                  <div className="grid grid-cols-[1fr_auto] gap-3 text-xs"><span className="truncate">{f.nombre}</span><span className="font-semibold">{g} % ganancia</span></div>
+                  <div className="grid grid-cols-[1fr_auto] gap-3 text-xs"><span className="break-words">{f.nombre}</span><span className="font-semibold">{g} % ganancia</span></div>
                   <div className="grid h-3.5 gap-[2px]" style={{ gridTemplateColumns: `${100 - g}fr ${g}fr` }}>
                     <span className="rounded-l-full" style={{ background: PALETA[0] }} />
                     <span className="rounded-r-full" style={{ background: PALETA[2], minWidth: g > 0 ? 4 : 0 }} />
@@ -329,7 +329,7 @@ function TablaProductos({ filas }) {
             <tbody className="divide-y divide-slate-100">
               {filas.map(f => (
                 <tr key={f.nombre}>
-                  <td className="py-2 truncate max-w-[12rem]">{f.nombre}</td>
+                  <td className="py-2 break-words max-w-[12rem]">{f.nombre}</td>
                   <td className="py-2 text-right">{numero(f.cantidad)}</td>
                   <td className="py-2 text-right">{dinero(f.venta)}</td>
                   <td className="py-2 text-right">{dinero(f.ganancia)}</td>

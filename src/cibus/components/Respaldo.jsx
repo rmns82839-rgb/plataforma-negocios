@@ -72,7 +72,7 @@ export default function Respaldo() {
             <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
               <div className="h-full bg-champagne transition-all duration-300" style={{ width: `${pct}%` }} />
             </div>
-            <p className="text-[11px] text-hueso/50 truncate">{prog.tabla ? `Leyendo ${prog.tabla}…` : 'Armando el archivo…'}</p>
+            <p className="text-[11px] text-hueso/50 break-words">{prog.tabla ? `Leyendo ${prog.tabla}…` : 'Armando el archivo…'}</p>
           </div>
         )}
       </div>

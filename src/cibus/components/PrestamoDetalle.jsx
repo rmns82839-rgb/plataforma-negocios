@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import Cifra from './Cifra'
 import { usePersistido, borrarBorradores } from '../lib/usePersistido'
 import { supabase } from '../lib/supabase'
 import { dinero, aNumero, fechaHora, fechaSolo } from '../lib/formato'
@@ -60,7 +61,7 @@ export default function PrestamoDetalle({ prestamo: p, onCerrar, onCambio }) {
       <div className="grid grid-cols-2 gap-3 items-center">
         <div>
           <p className="text-xs text-slate-400">{activo ? 'Falta por pagar' : p.estado === 'pagado' ? 'Pagado completo' : 'Cancelado'}</p>
-          <p className={`text-2xl font-bold ${Number(p.cuotas_vencidas) > 0 ? 'text-red-500' : 'text-marca'}`}>{dinero(saldo)}</p>
+          <Cifra className={`text-2xl font-bold ${Number(p.cuotas_vencidas) > 0 ? 'text-red-500' : 'text-marca'}`}>{dinero(saldo)}</Cifra>
           {Number(p.cuotas_vencidas) > 0 && (
             <p className="text-xs font-medium text-red-500">{p.cuotas_vencidas} cuota(s) vencida(s)</p>
           )}

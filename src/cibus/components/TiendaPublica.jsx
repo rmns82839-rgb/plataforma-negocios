@@ -459,7 +459,7 @@ export default function TiendaPublica() {
 
       {categoria !== 'todas' && (
         <div className="max-w-2xl mx-auto w-full grid grid-cols-[1fr_auto] gap-3 items-center rounded-2xl bg-white shadow-sm px-4 py-2.5">
-          <span className="text-sm truncate">Mostrando: <b className="font-semibold">{categoria}</b></span>
+          <span className="text-sm break-words">Mostrando: <b className="font-semibold">{categoria}</b></span>
           <button onClick={() => setCategoria('todas')} className="h-9 px-3 rounded-lg bg-slate-100 text-xs font-medium text-slate-600">Quitar</button>
         </div>
       )}
@@ -515,7 +515,7 @@ export default function TiendaPublica() {
                   )}
                 </div>
                 <div className="p-3 lg:p-4 space-y-0.5">
-                  {p.categoria && <p className="text-[10px] uppercase tracking-[0.18em] text-oro truncate">{p.categoria}</p>}
+                  {p.categoria && <p className="text-[10px] uppercase tracking-[0.18em] text-oro break-words">{p.categoria}</p>}
                   <p className="text-sm font-medium leading-tight line-clamp-2 min-h-[2.25rem]">{p.nombre}</p>
                   {(() => {
                     const d = enOferta.find(x => x.id === p.id)
@@ -610,7 +610,7 @@ export default function TiendaPublica() {
               <div className="flex justify-between text-slate-500"><span>Subtotal</span><span>{dinero(cuenta.bruto)}</span></div>
               {cuenta.detalle.filter(l => l.descuento > 0).map(l => (
                 <div key={l.producto.id} className="flex justify-between text-oro-oscuro gap-3">
-                  <span className="truncate">{l.promo}</span><span>− {dinero(l.descuento)}</span>
+                  <span className="break-words">{l.promo}</span><span>− {dinero(l.descuento)}</span>
                 </div>
               ))}
             </div>

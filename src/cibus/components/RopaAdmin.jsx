@@ -305,7 +305,7 @@ export default function RopaAdmin() {
       <div className="grid grid-cols-5 gap-2">
         {['todos', ...GENEROS.map(g => g.id)].map(g => (
           <button key={g} onClick={() => setGenero(g)}
-            className={`h-9 rounded-xl text-[11px] font-medium truncate px-1 ${genero === g ? 'bg-marca text-white' : 'bg-white text-slate-600 shadow-sm'}`}>
+            className={`h-9 rounded-xl text-[11px] font-medium break-words px-1 ${genero === g ? 'bg-marca text-white' : 'bg-white text-slate-600 shadow-sm'}`}>
             {g === 'todos' ? 'Todos' : textoGenero(g)}
           </button>
         ))}
@@ -316,7 +316,7 @@ export default function RopaAdmin() {
 
       <Desplegable titulo="Enlace del catálogo" nota="Copiar o ver como lo ve el cliente">
         <div className="grid grid-cols-[1fr_auto] gap-2 items-center">
-          <span className="text-sm text-slate-700 truncate">{enlace}</span>
+          <span className="text-sm text-slate-700 break-words">{enlace}</span>
           <button onClick={() => copiar(enlace)}
             className="h-10 px-4 rounded-lg bg-lima/20 text-marca text-xs font-semibold min-w-[8.5rem]">
             {textoCopiar(copiado, 'Copiar enlace')}
@@ -358,7 +358,7 @@ export default function RopaAdmin() {
                     )}
                   </div>
                   <div className="p-3 space-y-0.5">
-                    <p className="text-sm font-medium truncate">{p.nombre}</p>
+                    <p className="text-sm font-medium break-words">{p.nombre}</p>
                     <p className="text-sm font-semibold text-marca">{dinero(p.precio)}</p>
                     <p className="text-[10px] uppercase tracking-[0.15em] text-oro">{textoGenero(p.genero)}</p>
                     <p className={`text-xs ${stock === 0 ? 'text-naranja-oscuro' : 'text-slate-400'}`}>
