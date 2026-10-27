@@ -33,6 +33,7 @@ import { esErrorDeRed, idNuevo } from '../lib/offline'
 import { actualizarCatalogo, productoPorCodigo, buscarPorNombre, productosPorIds, descontarStockLocal } from '../lib/catalogoLocal'
 import ClienteDetalle from './ClienteDetalle'
 import { FUNCIONES } from '../lib/etapas'
+import { usePlataforma } from '../context/plataforma'
 import Icono from './Iconos'
 
 // Productos que se venden por peso o medida se mueven de a media unidad
@@ -58,6 +59,8 @@ const explicar = (msg) =>
     : msg
 
 export default function Caja() {
+  const { modulos: modulosTienda } = usePlataforma()
+  const prestamoRapido = FUNCIONES.prestamoRapido && modulosTienda.includes('fiados')
   const cfg = useConfig()
   const dueno = useDueno()
   const formasActivas = useMemo(() => cfg.formas.filter(f => f.activa), [cfg.formas])
@@ -532,14 +535,14 @@ export default function Caja() {
           <div className="space-y-2">
             <div className="grid grid-cols-2 gap-2">
               <button onClick={() => setVerEscaner(v => !v)}
-                className={`h-11 rounded-xl bg-white shadow-sm text-sm font-medium text-slate-600 ${dueno === true && FUNCIONES.prestamoRapido ? 'col-span-2' : ''}`}>
+                className={`h-11 rounded-xl bg-white shadow-sm text-sm font-medium text-slate-600 ${dueno === true && prestamoRapido ? 'col-span-2' : ''}`}>
                 {verEscaner ? 'Ocultar escáner' : 'Mostrar escáner'}
               </button>
               <button onClick={() => setVerRetiro(true)}
                 className="h-11 rounded-xl bg-white shadow-sm text-sm font-semibold text-negro grid grid-cols-[auto_auto] gap-2 items-center justify-center active:bg-slate-50">
                 <Icono nombre="gastos" className="h-5 w-5" /><span>Retiro de caja</span>
               </button>
-              {dueno === true && FUNCIONES.prestamoRapido && (
+              {dueno === true && prestamoRapido && (
                 <button onClick={() => setVerPrestamo(true)}
                   className="h-11 rounded-xl bg-negro text-champagne text-sm font-semibold grid grid-cols-[auto_auto] gap-2 items-center justify-center active:opacity-90">
                   <Icono nombre="prestamos" className="h-5 w-5" /><span>Préstamo rápido</span>
