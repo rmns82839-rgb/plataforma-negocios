@@ -126,10 +126,6 @@ function Formulario({ promo, onGuardado, onCerrar }) {
       </Campo>
 
       <div className="space-y-2">
-        <p className="text-xs font-medium text-slate-500">¿En qué catálogo?</p>
-        <Chips valor={f.catalogo}
-               onElegir={(v) => { setF(p => ({ ...p, catalogo: v, aplica: v === 'ropa' ? 'prenda' : 'producto', categoria: '' })); setProducto(null); setQ(''); setResultados([]) }}
-               opciones={[{ id: 'tienda', texto: 'Tienda' }, { id: 'ropa', texto: 'Ropa' }]} />
         <p className="text-xs font-medium text-slate-500 pt-1">¿A qué se aplica?</p>
         {esRopa ? (
           <Chips valor={f.aplica} onElegir={(v) => setF(p => ({ ...p, aplica: v, categoria: '' }))}
@@ -193,7 +189,7 @@ function Formulario({ promo, onGuardado, onCerrar }) {
           className={`h-11 rounded-xl text-sm font-medium ${!f.activa ? 'bg-marca text-white' : 'bg-slate-100 text-slate-600'}`}>Pausada</button>
       </div>
       <p className="text-xs text-slate-400">
-        Se aplica sola al vender y, en ropa, también se ve en el catálogo. Si un producto tiene varias promociones, gana la que más descuenta. No se suma con un precio cambiado a mano.
+        Se aplica sola al vender. Si un producto tiene varias promociones, gana la que más descuenta. No se suma con un precio cambiado a mano.
       </p>
 
       {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
@@ -216,9 +212,16 @@ export default function PromocionesAdmin() {
   const [form, setForm] = usePersistido('promos:form', null, true, TREINTA_MIN)
 
   const cargar = useCallback(async () => {
-    let { data, error: err } = await supabase.from('promociones').select('*, productos:producto_id(nombre), prendas:prenda_id(nombre)').order('creado_en', { ascending: false }).range(0, 199)
-    if (err) ({ data, error: err } = await supabase.from('promociones').select('*, productos:producto_id(nombre)').order('creado_en', { ascending: false }).range(0, 199))   // aún sin migracion-v11
-    if (err) setError(/relation .*promociones|schema cache|does not exist/i.test(err.message) ? 'Falta ejecutar migracion-v9.sql en Supabase.' : err.message)
+    // Dos consultas (no un «embed» con pista de columna: la base de la plataforma no lo resuelve)
+    const { data, error: err } = await supabase.from('promociones').select('*').order('creado_en', { ascending: false }).range(0, 199)
+    const ids = [...new Set((data ?? []).map(p => p.producto_id).filter(Boolean))]
+    const nombres = new Map()
+    if (ids.length) {
+      const { data: ps } = await supabase.from('productos').select('id, nombre').in('id', ids)
+      for (const x of ps ?? []) nombres.set(x.id, x.nombre)
+    }
+    if (data) for (const p of data) p.productos = p.producto_id && nombres.has(p.producto_id) ? { nombre: nombres.get(p.producto_id) } : null
+    if (err) setError(err.message)
     setLista(data ?? [])
     setCargando(false)
   }, [])

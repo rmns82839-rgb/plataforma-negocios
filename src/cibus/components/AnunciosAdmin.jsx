@@ -96,15 +96,6 @@ function Formulario({ anuncio, onGuardado, onCerrar }) {
   return (
     <>
       <Modal titulo={editando ? 'Editar anuncio' : 'Nuevo anuncio'} onCerrar={cerrar}>
-        <div className="space-y-2">
-          <p className="text-xs font-medium text-slate-500">¿Dónde se muestra?</p>
-          <div className="grid grid-cols-3 gap-2">
-            {CATALOGOS.map(c => (
-              <button key={c.id} onClick={() => setF(p => ({ ...p, catalogo: c.id }))}
-                className={`h-11 rounded-xl text-sm font-medium ${f.catalogo === c.id ? 'bg-marca text-white' : 'bg-slate-100 text-slate-600'}`}>{c.texto}</button>
-            ))}
-          </div>
-        </div>
         <Campo etiqueta="Título"><input value={f.titulo} onChange={set('titulo')} maxLength={80} placeholder="Ej: Pon tu publicidad aquí" className={claseInput} /></Campo>
         <Campo etiqueta="Texto (opcional)">
           <textarea value={f.texto} onChange={set('texto')} maxLength={300} rows={3} placeholder="Qué quieres decirle al cliente" className={`${claseInput} h-auto py-3`} />
@@ -135,7 +126,7 @@ function Formulario({ anuncio, onGuardado, onCerrar }) {
           <Campo etiqueta="Desde (opcional)"><input type="date" value={f.desde} onChange={set('desde')} className={claseInput} /></Campo>
           <Campo etiqueta="Hasta (opcional)"><input type="date" value={f.hasta} onChange={set('hasta')} className={claseInput} /></Campo>
         </div>
-        <FotosEditor fotos={fotos} onChange={setFotos} carpeta="anuncios/" max={1} />
+        <FotosEditor fotos={fotos} onChange={setFotos} bucket="anuncios-foto" carpeta="" max={1} />
         <div className="space-y-2 rounded-2xl bg-slate-50 p-3">
           <p className="text-sm font-semibold text-slate-700">Video corto (opcional)</p>
           <p className="text-sm text-slate-500">Máximo {MAX_VIDEO_SEG} segundos y {MAX_VIDEO_MB} MB. Es temporal: se borra solo el día de “Hasta” (máximo {MAX_DIAS_VIDEO} días) y no ocupa espacio después. La foto de arriba se ve mientras carga.</p>

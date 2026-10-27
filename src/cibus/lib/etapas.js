@@ -12,6 +12,8 @@ export const NUEVAS = {
   auditoria:{ modulo: null },
   cuenta:   { modulo: null },
   respaldo: { modulo: null },
+  promos:   { modulo: 'publicidad' },
+  ofertas:  { modulo: 'publicidad' },
   productos:{ modulo: 'productos' },
   fiados:   { modulo: 'fiados' },
   prestamos:{ modulo: 'prestamos' },

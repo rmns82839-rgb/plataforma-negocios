@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { comprimirImagen } from '../lib/imagen'
-import { MAX_FOTOS } from '../lib/fotos'
+import { MAX_FOTOS, urlFoto } from '../lib/fotos'
 import { confirmar } from '../lib/confirmar'
 
 // Subir, quitar y ordenar fotos (la primera es la portada). Se guardan en el bucket "prendas".
-export default function FotosEditor({ fotos, onChange, carpeta = '', max = MAX_FOTOS }) {
+export default function FotosEditor({ fotos, onChange, carpeta = '', max = MAX_FOTOS, bucket = 'prendas' }) {
   const [subiendo, setSubiendo] = useState(false)
   const [error, setError] = useState('')
 
@@ -20,9 +20,9 @@ export default function FotosEditor({ fotos, onChange, carpeta = '', max = MAX_F
         const blob = await comprimirImagen(archivo)
         const ruta = `${carpeta}${crypto.randomUUID()}.jpg`
         const { error: err } = await supabase.storage
-          .from('prendas').upload(ruta, blob, { contentType: 'image/jpeg' })
+          .from(bucket).upload(ruta, blob, { contentType: 'image/jpeg' })
         if (err) throw err
-        nuevas.push(supabase.storage.from('prendas').getPublicUrl(ruta).data.publicUrl)
+        nuevas.push(supabase.storage.from(bucket).getPublicUrl(ruta).data.publicUrl)
       }
       onChange([...fotos, ...nuevas])
     } catch (err) {
@@ -45,7 +45,7 @@ export default function FotosEditor({ fotos, onChange, carpeta = '', max = MAX_F
       <div className="grid grid-cols-5 gap-2">
         {fotos.map((src, i) => (
           <div key={src} className="relative aspect-square rounded-lg overflow-hidden bg-slate-100">
-            <img src={src} alt="" className="w-full h-full object-cover" />
+            <img src={urlFoto(src)} alt="" className="w-full h-full object-cover" />
             <button onClick={() => quitar(i)} aria-label="Quitar foto"
               className="absolute top-0.5 right-0.5 h-5 w-5 rounded-full bg-black/60 text-white text-[10px]">✕</button>
             {i === 0 ? (

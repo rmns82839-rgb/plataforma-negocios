@@ -106,10 +106,14 @@ const adaptarProductos = (q) => ({
   update: (f, ...a) => q.update(conRutas(f), ...a),
 })
 
+// Ofertas y anuncios: la base exige la RUTA de la foto ({negocio}/anuncios/archivo), no su dirección completa
+const sinDireccion = (f) => (f && typeof f === 'object' && 'imagen' in f ? { ...f, imagen: f.imagen ? aRuta(f.imagen) : f.imagen } : f)
+const adaptarImagen = (q) => ({ ...q, insert: (f, ...a) => q.insert(sinDireccion(f), ...a), update: (f, ...a) => q.update(sinDireccion(f), ...a) })
+
 const desdeNegocio = (tabla) => {
   if (tabla === 'negocio') return negocioFalso()
   const q0 = db().from(tabla)
-  const q = tabla === 'productos' ? adaptarProductos(q0) : q0
+  const q = tabla === 'productos' ? adaptarProductos(q0) : (tabla === 'ofertas' || tabla === 'anuncios') ? adaptarImagen(q0) : q0
   if (!practicaActiva()) return q
   return new Proxy(q, {
     get(t, k) {
@@ -122,7 +126,7 @@ const desdeNegocio = (tabla) => {
 }
 
 // Los archivos de la plataforma viven en un solo espacio («negocios») con una carpeta por tienda: {negocio}/{carpeta}/archivo
-const ESPACIOS = { prendas: ['negocios', 'productos'], 'musica-fondo': ['musica-negocios', ''], 'anuncios-video': ['negocios', 'anuncios'] }
+const ESPACIOS = { prendas: ['negocios', 'productos'], 'musica-fondo': ['musica-negocios', ''], 'anuncios-video': ['negocios', 'anuncios'], 'anuncios-foto': ['negocios', 'anuncios'] }
 const destino = (bucket, ruta) => {
   const [espacio, carpeta] = ESPACIOS[bucket] ?? [bucket, '']
   const limpia = String(ruta).replace(/^\/+/, '')

@@ -28,7 +28,7 @@ const estado = (o) => {
 function Formulario({ oferta, onGuardado, onCerrar }) {
   const editando = Boolean(oferta?.id)
   const [f, setF, bor] = useBorradorForm(`borrador-oferta${editando ? '-' + oferta.id : ''}`, {
-    catalogo: oferta?.catalogo ?? 'ambos',
+    catalogo: oferta?.catalogo ?? 'tienda',
     titulo: oferta?.titulo ?? '',
     detalle: oferta?.detalle ?? '',
     etiqueta: oferta?.etiqueta ?? '',
@@ -77,17 +77,6 @@ function Formulario({ oferta, onGuardado, onCerrar }) {
   return (
     <Modal titulo={editando ? 'Editar oferta' : 'Nueva oferta'} onCerrar={() => { limpiarBorrador(); onCerrar?.() }}>
       {bor.recuperado && <AvisoBorrador onNuevo={desdeCero} />}
-      <div className="space-y-2">
-        <p className="text-xs font-medium text-slate-500">¿Dónde se muestra?</p>
-        <div className="grid grid-cols-3 gap-2">
-          {CATALOGOS.map(c => (
-            <button key={c.id} onClick={() => setF(p => ({ ...p, catalogo: c.id }))}
-              className={`h-11 rounded-xl text-sm font-medium ${f.catalogo === c.id ? 'bg-marca text-white' : 'bg-slate-100 text-slate-600'}`}>
-              {c.texto}
-            </button>
-          ))}
-        </div>
-      </div>
       <Campo etiqueta="Título (lo primero que ve el cliente)">
         <input value={f.titulo} onChange={set('titulo')} maxLength={80} placeholder="Ej: Semana de la camiseta" className={claseInput} />
       </Campo>
@@ -102,7 +91,7 @@ function Formulario({ oferta, onGuardado, onCerrar }) {
         <Campo etiqueta="Desde (opcional)"><input type="date" value={f.desde} onChange={set('desde')} className={claseInput} /></Campo>
         <Campo etiqueta="Hasta (opcional)"><input type="date" value={f.hasta} onChange={set('hasta')} className={claseInput} /></Campo>
       </div>
-      <FotosEditor fotos={fotos} onChange={setFotos} carpeta="ofertas/" max={1} />
+      <FotosEditor fotos={fotos} onChange={setFotos} bucket="anuncios-foto" carpeta="" max={1} />
       <div className="grid grid-cols-2 gap-2">
         <button onClick={() => setF(p => ({ ...p, activa: true }))}
           className={`h-11 rounded-xl text-sm font-medium ${f.activa ? 'bg-marca text-white' : 'bg-slate-100 text-slate-600'}`}>Activa</button>
