@@ -17,7 +17,7 @@ export function aplicarMarca(m) {
   if (icono) {
     if (!link) { link = document.createElement('link'); link.rel = 'icon'; document.head.appendChild(link) }
     link.href = icono
-  } else if (link) link.href = '/favicon.svg'
+  } else if (link) { link.type = 'image/png'; link.href = '/favicon-64.png' }
 }
 
 // <link>/<meta> del <head> que se crean si no existen y se reemplazan si ya están
