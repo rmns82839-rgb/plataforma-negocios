@@ -13,6 +13,10 @@ export const NUEVAS = {
   cuenta:   { modulo: null },
   respaldo: { modulo: null },
   promos:   { modulo: 'publicidad' },
+  domicilios:    { modulo: 'domicilios' },
+  comentarios:   { modulo: 'opiniones' },
+  pedidostienda: { modulo: 'pedidos_en_linea' },
+  clientes:      { modulo: null },
   ofertas:  { modulo: 'publicidad' },
   productos:{ modulo: 'productos' },
   fiados:   { modulo: 'fiados' },
@@ -24,13 +28,10 @@ export const NUEVAS = {
 }
 // Pantallas de Cibus que aún usan la versión anterior de la plataforma: id de Cibus → [id de la pantalla anterior, módulo]
 export const LEGADO = {
-  clientes: ['clientes', null],
-  pedidostienda: ['pedidos', null],
   formas: ['formas', 'caja'],
   plan: ['plan', null],
   categorias: ['categorias', 'productos'],
   negocio: ['tienda', null],
-  comentarios: ['vitrina', 'opiniones'],
   menudia: ['vitrina', 'menu_del_dia'],
   musica: ['vitrina', 'musica_fondo'],
   resumen: ['resumen', 'resumen_semanal'],

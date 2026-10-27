@@ -432,6 +432,9 @@ function Contenido() {
         {activa === 'mas' && sub === 'exportar' && <div className="lg:max-w-2xl lg:mx-auto"><Exportar /></div>}
         {activa === 'mas' && sub === 'ropa'     && <RopaAdmin />}
         {activa === 'mas' && sub === 'domicilios' && <Domicilios />}
+        {activa === 'mas' && sub === 'clientes' && dueno === true && <ClientesRegistrados />}
+        {activa === 'mas' && sub === 'comentarios' && dueno === true && <ComentariosAdmin />}
+        {activa === 'mas' && sub === 'pedidostienda' && <PedidosTienda onCobrar={() => irA('caja')} />}
         {activa === 'mas' && sub === 'promos'   && <PromocionesAdmin />}
         {activa === 'mas' && sub === 'ofertas'  && <OfertasPublicidad />}
         {activa === 'mas' && sub === 'guia'     && dueno === true && <GuiaDinero />}

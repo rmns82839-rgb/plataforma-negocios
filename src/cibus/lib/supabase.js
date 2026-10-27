@@ -74,7 +74,7 @@ const RPC_DE_LECTURA = /^(es_|listar|tablero|mfa|registrar_acceso|mi_perfil|dato
 const RPC_PUBLICAS = /^(crear_pedido_|registrar_visita|guardar_mi_perfil|borrar_mi_perfil|publicar_|borrar_mis_|guardar_suscripcion_push|borrar_mi_suscripcion_push|registrar_app_instalada)/
 
 // Funciones de Cibus que en la plataforma se llaman distinto
-const ALIAS = { listar_comentarios_admin: 'listar_opiniones_admin', listar_equipo: 'listar_miembros', quitar_personal: 'quitar_miembro', agregar_personal: 'invitar_miembro' }
+const ALIAS = { listar_comentarios_admin: 'listar_opiniones_admin', listar_equipo: 'listar_miembros', quitar_personal: 'quitar_miembro', agregar_personal: 'invitar_miembro', moderar_comentario: 'moderar_opinion' }
 
 // Los avisos en tiempo real también se limitan a esta tienda
 const canalDeNegocio = (nombre, opc) => {
@@ -110,9 +110,13 @@ const adaptarProductos = (q) => ({
 const sinDireccion = (f) => (f && typeof f === 'object' && 'imagen' in f ? { ...f, imagen: f.imagen ? aRuta(f.imagen) : f.imagen } : f)
 const adaptarImagen = (q) => ({ ...q, insert: (f, ...a) => q.insert(sinDireccion(f), ...a), update: (f, ...a) => q.update(sinDireccion(f), ...a) })
 
+// Menú del día que se ve hoy: la plataforma lo guarda en menu_hoy con su fecha (Cibus tenía una vista aparte)
+const hoyBogota = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date())
+const soloHoy = (q) => ({ ...q, select: (...a) => q.select(...a).eq('fecha', hoyBogota()) })
+
 const desdeNegocio = (tabla) => {
   if (tabla === 'negocio') return negocioFalso()
-  const q0 = db().from(tabla)
+  const q0 = tabla === 'menu_hoy_publico' ? soloHoy(db().from('menu_hoy')) : db().from(tabla)
   const q = tabla === 'productos' ? adaptarProductos(q0) : (tabla === 'ofertas' || tabla === 'anuncios') ? adaptarImagen(q0) : q0
   if (!practicaActiva()) return q
   return new Proxy(q, {
