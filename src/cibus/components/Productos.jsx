@@ -10,6 +10,7 @@ import Modal, { Campo } from './Modal'
 import Miniatura from './Miniatura'
 import ProductoForm from './ProductoForm'
 import ImportarFotos from './ImportarFotos'
+import Repetidos from './Repetidos'
 import CargaMasiva from './CargaMasiva'
 import { catalogoBaseCsv } from '../lib/catalogoBase'
 import { esGenerica } from '../lib/imagenGenerica'
@@ -32,6 +33,7 @@ import { enlaceTienda } from '../lib/enlaces'
 
 export default function Productos() {
   const { modulos } = usePlataforma()
+  const [verRepetidos, setVerRepetidos] = useState(false)
   const conCompras = modulos.includes('compras')       // «Compra» y «+ Stock» registran una compra: necesitan ese módulo
   const [productos, setProductos] = useState([])
   const [cargando, setCargando] = useState(true)
@@ -61,7 +63,7 @@ export default function Productos() {
   const [copiado, copiar] = useCopiado()
   const [verQr, setVerQr] = useState(false)
 
-  const modalAbierto = Boolean(form || compra || ingreso || ajuste || fotos || publicar || carga)
+  const modalAbierto = Boolean(form || compra || ingreso || ajuste || fotos || publicar || carga || verRepetidos)
   const listaRef = useRef([])
   const cargar = useCallback(async () => {
     setCargando(true)
@@ -209,6 +211,11 @@ export default function Productos() {
           Cargar muchos productos de una vez
         </button>
       )}
+      {dueno === true && (
+        <button onClick={() => setVerRepetidos(true)} className="w-full min-h-12 rounded-xl bg-white shadow-sm text-slate-700 text-base font-semibold active:bg-slate-100">
+          Buscar productos repetidos
+        </button>
+      )}
       {verEscaner && !modalAbierto && <Escaner onCodigo={alEscanear} compacto />}
       <BotonCelular onCodigo={alEscanear} deshabilitado={modalAbierto} />
 
@@ -317,6 +324,7 @@ export default function Productos() {
       )}
 
       {carga && dueno === true && <CargaMasiva productos={productos} onCerrar={() => setCarga(false)} onGuardado={cargar} />}
+      {verRepetidos && dueno === true && <Repetidos productos={productos} onCerrar={() => setVerRepetidos(false)} onCambio={cargar} />}
 
       {fotos && dueno === true && (
         <ImportarFotos productos={productos} onCerrar={() => setFotos(false)} onGuardado={cargar} />

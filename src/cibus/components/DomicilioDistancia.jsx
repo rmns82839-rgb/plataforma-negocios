@@ -1,6 +1,6 @@
 // Calcula el domicilio por distancia (tarifa base + km × valor por km) en el pedido del catálogo.
 // La ruta real la mide el servidor (/api/domicilio) y la tarifa la calcula la base de datos con lo que configuró el dueño:
-// aquí solo se muestra. Si no se puede calcular, se avisa y el cliente puede pedir que la tienda confirme el domicilio.
+// aquí solo se muestra. Si no se puede calcular, se avisa y el cliente corrige la dirección o usa su ubicación (ya no se puede pedir que la tienda lo calcule).
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { dinero, numero } from '../lib/formato'
@@ -108,18 +108,11 @@ export default function DomicilioDistancia({ direccion, subtotal, maxKm, resulta
       {vigente?.estado === 'error' && (
         <div className="space-y-2">
           <p className="text-base rounded-lg px-3 py-2 bg-champagne/30 text-negro break-words">{vigente.mensaje}</p>
-          {!proboGPS && navigator.geolocation ? (
-            <>
-              <p className="text-base text-slate-700">Muchas direcciones no aparecen en el mapa. Lo más exacto es usar tu ubicación (estando en el lugar de entrega) o escribir el barrio y la ciudad.</p>
-              <button onClick={usarUbicacion} disabled={cargando}
-                className="w-full min-h-14 rounded-xl bg-cibus text-white text-base font-semibold px-2 leading-tight disabled:opacity-40 active:opacity-80">
-                📍 Usar mi ubicación
-              </button>
-            </>
-          ) : (
-            <button onClick={() => onResultado({ clave, estado: 'manual' })}
-              className="w-full min-h-12 rounded-xl bg-white ring-1 ring-slate-200 text-slate-700 text-base font-semibold px-2 leading-tight active:bg-slate-100">
-              Que la tienda me confirme el domicilio
+          <p className="text-base text-slate-700">Muchas direcciones no aparecen en el mapa. Lo más exacto es usar tu ubicación (estando en el lugar de entrega) o escribir también el barrio y la ciudad.</p>
+          {navigator.geolocation && (
+            <button onClick={usarUbicacion} disabled={cargando}
+              className="w-full min-h-14 rounded-xl bg-cibus text-white text-base font-semibold px-2 leading-tight disabled:opacity-40 active:opacity-80">
+              {proboGPS ? '📍 Probar de nuevo con mi ubicación' : '📍 Usar mi ubicación'}
             </button>
           )}
         </div>
