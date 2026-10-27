@@ -7,6 +7,7 @@ import { totales, costoDomicilioCalculado, mensajePedido, urlWhatsapp, cop } fro
 import { Btn, Volver, Aviso, Logo, BarraFija, PiePlataforma } from './ui'
 import Catalogo from './Catalogo'
 import { MenuDelDia, MusicaFondo, Opiniones, SeguirPedido } from './Extras'
+import Instalar from './Instalar'
 import { Carrito, Datos, Revisar } from './Pasos'
 import { entrarConGoogle } from '../lib/google'
 import EntrarCodigo from './EntrarCodigo'
@@ -231,6 +232,7 @@ export default function Tienda({ slug }) {
       {cuerpo}
 
       <footer className="mt-10 flex flex-col items-center gap-1">
+        {paso === 'catalogo' && !personal && !simulado && <div className="mb-4 w-full"><Instalar /></div>}
         <button onClick={() => ir(`/t/${slug}/panel`)} className="min-h-[44px] text-base text-tinta/50 underline">Acceso del personal</button>
       </footer>
       <PiePlataforma />

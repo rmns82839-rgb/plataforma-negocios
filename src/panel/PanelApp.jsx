@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { quitarMarca } from '../lib/marca'
+import { quitarMarca, ponerManifest } from '../lib/marca'
 import { ir } from '../lib/ruta'
 import { useSesion } from '../lib/sesion'
 import { cop } from '../lib/pedido'
@@ -19,6 +19,7 @@ import Clientes from './Clientes'
 import Reportes from './Reportes'
 import Armazon from './Armazon'
 import Vitrina from './Vitrina'
+import Instalar from '../tienda/Instalar'
 
 const ROL = { dueno: 'Dueño', cajero: 'Cajero', soporte: 'Soporte · solo lectura' }
 
@@ -43,6 +44,7 @@ export default function PanelApp({ slug }) {
       // El panel usa siempre la paleta de Matriz; los colores de la tienda se ven solo en la tienda pública.
       setCtx({ userId: sesion?.user?.id ?? '', neg: m, rol: m.rol, esDueno: m.rol === 'dueno', soloLectura: m.rol === 'soporte', modulos: marca?.modulos || [], marca })
       supabase.rpc('registrar_acceso', { p_negocio_id: m.negocio_id, p_detalle: 'Panel' })
+      ponerManifest(slug, { panel: true })   // desde aquí se instala la app del PERSONAL (abre directo el panel)
       if (m.rol === 'dueno') {
         const { data: av } = await supabase.rpc('accesos_pendientes', { p_negocio_id: m.negocio_id })
         if (vivo) setAvisos(av || [])
@@ -151,6 +153,7 @@ export default function PanelApp({ slug }) {
           </button>
         ))}
       </div>
+      <div className="mt-6"><Instalar texto="Instalar el panel en mi celular" /></div>
       <PiePlataforma />
     </>
   )
