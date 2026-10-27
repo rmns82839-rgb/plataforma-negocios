@@ -15,3 +15,67 @@ body { background: #F7F4EC; color: #1B1B1F; -webkit-font-smoothing: antialiased;
    BarraFija (los totales fijos) se coloca por encima de la barra usando estas variables. */
 .armazon { --barra-inf: calc(4.5rem + env(safe-area-inset-bottom)); --lateral: 0px; --pad-fija: 0.75rem; }
 @media (min-width: 1024px) { .armazon { --barra-inf: 0px; --lateral: 16rem; --pad-fija: max(0.75rem, env(safe-area-inset-bottom)); } }
+
+/* ===== Panel (copiado de Cibus) ===== */
+input, button { font-size: 16px; }
+/* Botones principales: fondo negro con letra oro champagne (marca Matriz) */
+.bg-marca.text-white { color: #D8B978; }
+
+/* Impresión: solo sale la factura (el visor vive fuera de #root) */
+@media print {
+  @page { size: letter; margin: 12mm; }
+  #root { display: none !important; }
+  html, body { height: auto !important; background: #fff !important; }
+}
+/* Pantalla de espera de los catálogos (componente Espera) */
+.esp { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px; min-height:20rem; margin:1rem 0; border-radius:1.5rem; background:#0B0B0C; color:#D8B978; font-family:Georgia, serif; text-align:center; }
+.esp-iso { width:72px; height:72px; animation:esp-latir 1.6s ease-in-out infinite; }
+.esp-svg { width:min(72vw,280px); height:auto; overflow:visible; fill:none; stroke:#D8B978; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; }
+.esp-linea { stroke-dasharray:300; stroke-dashoffset:300; filter:drop-shadow(0 0 3px #D8B978); animation:esp-trazo 2.2s ease-out infinite; }
+.esp-icono { opacity:0; animation:esp-aparece 2.2s ease-out infinite; }
+.esp-marca { font-weight:400; letter-spacing:.5em; font-size:20px; margin-right:-.5em; }
+.esp-lema { letter-spacing:.3em; font-size:9px; opacity:.6; text-transform:uppercase; }
+@keyframes esp-trazo { 0% { stroke-dashoffset:300 } 55%,85% { stroke-dashoffset:0 } 100% { stroke-dashoffset:0; opacity:0 } }
+@keyframes esp-aparece { 0%,45% { opacity:0 } 65%,85% { opacity:1 } 100% { opacity:0 } }
+@keyframes esp-latir { 0%,100% { opacity:.45 } 50% { opacity:1 } }
+@media (prefers-reduced-motion: reduce) { .esp * { animation:none !important } .esp-linea { stroke-dashoffset:0 } .esp-icono { opacity:1 } }
+
+/* Catálogos públicos: movimiento suave (se apaga si el celular pide menos movimiento) */
+.revela { opacity: 0; transform: translateY(16px); transition: opacity .6s ease, transform .6s cubic-bezier(.2,.7,.2,1); }
+.revela.visto { opacity: 1; transform: none; }
+.brillo { position:absolute; inset:0; overflow:hidden; pointer-events:none; }
+.brillo::after { content:''; position:absolute; top:0; bottom:0; width:40%; left:-50%; transform:skewX(-20deg);
+  background:linear-gradient(90deg, transparent, rgba(255,255,255,.28), transparent); animation:brillo-pasa 3.8s ease-in-out infinite; }
+@keyframes brillo-pasa { 0%,55% { left:-50% } 100% { left:130% } }
+@keyframes oferta-entra { from { opacity:0; transform:translateY(6px) } to { opacity:1; transform:none } }
+.oferta-entra { animation: oferta-entra .45s ease both; }
+@keyframes pulso-suave { 0%,100% { box-shadow:0 0 0 0 rgba(216,185,120,.55) } 50% { box-shadow:0 0 0 8px rgba(216,185,120,0) } }
+.pulso-suave { animation: pulso-suave 2.2s ease-out infinite; }
+@keyframes flecha-mueve { 0%,100% { transform:translateX(0) } 50% { transform:translateX(4px) } }
+.flecha-mueve { display:inline-block; animation: flecha-mueve 1.4s ease-in-out infinite; }
+@keyframes lupa-entra { from { opacity:0; transform:scale(.4) } to { opacity:1; transform:none } }
+.lupa-entra { animation: lupa-entra .3s cubic-bezier(.2,.8,.3,1.3) both; }
+@keyframes barra-baja { from { transform:translateY(-100%) } to { transform:none } }
+.barra-baja { animation: barra-baja .28s ease-out both; }
+@media (prefers-reduced-motion: reduce) {
+  .revela { opacity:1; transform:none; transition:none }
+  .brillo::after, .pulso-suave, .flecha-mueve, .oferta-entra, .lupa-entra, .barra-baja { animation:none !important }
+}
+@keyframes anuncio-sube { from { opacity:0; transform:translateY(18px) scale(.96) } to { opacity:1; transform:none } }
+.anuncio-entra { animation: anuncio-sube .4s cubic-bezier(.2,.8,.3,1) both; }
+@keyframes anuncio-aparece { from { opacity:0 } to { opacity:1 } }
+.anuncio-fondo { animation: anuncio-aparece .3s ease both; }
+@media (prefers-reduced-motion: reduce) { .anuncio-entra, .anuncio-fondo { animation:none !important } }
+@keyframes anuncio-vacia { from { width:100% } to { width:0% } }
+.anuncio-barra { animation-name: anuncio-vacia; animation-timing-function: linear; animation-fill-mode: forwards; }
+
+/* Esqueletos de carga y detalles al agregar al carrito (solo con movimiento permitido) */
+@keyframes esqueleto-brilla { 0% { background-position: 200% 0 } 100% { background-position: -200% 0 } }
+.esqueleto { background: linear-gradient(100deg, rgba(120,113,108,.14) 30%, rgba(120,113,108,.26) 50%, rgba(120,113,108,.14) 70%); background-size: 200% 100%; }
+@media (prefers-reduced-motion: no-preference) { .esqueleto { animation: esqueleto-brilla 1.6s ease-in-out infinite } }
+@keyframes pop-cantidad { 0% { transform: scale(.4); opacity: 0 } 55% { transform: scale(1.25) } 100% { transform: scale(1); opacity: 1 } }
+@keyframes foto-late { 0% { transform: scale(1) } 40% { transform: scale(1.07) } 100% { transform: scale(1) } }
+@media (prefers-reduced-motion: no-preference) {
+  .pop-cantidad { animation: pop-cantidad .35s ease-out }
+  .foto-late { animation: foto-late .4s ease-out }
+}
