@@ -276,7 +276,8 @@ function Contenido() {
   const revisarPedidos = nuevos.revisar
   useEffect(() => { revisarPedidos() }, [sub, activa, revisarPedidos])   // al salir de la lista de pedidos, el aviso se actualiza
   // menú lateral del PC: completo o solo íconos (se recuerda la elección en este equipo)
-  const [rail, setRail] = useState(() => { try { return localStorage.getItem('menu-lateral') === 'rail' } catch { return false } })
+  // Sin elección guardada, en pantallas de 960 a 1199 px (p. ej. el «sitio de computadora» del celular) el menú arranca en solo íconos para dejar espacio al contenido
+  const [rail, setRail] = useState(() => { try { const g = localStorage.getItem('menu-lateral'); return g ? g === 'rail' : window.innerWidth < 1200 } catch { return false } })
   const alternarMenu = () => setRail(r => {
     const n = !r
     try { localStorage.setItem('menu-lateral', n ? 'rail' : 'completo') } catch { /* sin almacenamiento */ }

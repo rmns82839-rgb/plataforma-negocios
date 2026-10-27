@@ -6,6 +6,8 @@ export default {
   content: ['./index.html', './src/**/*.{js,jsx}'],
   theme: {
     extend: {
+      // Corte "lg" (menú lateral / diseño de PC) a 960 px: el "sitio de computadora" del celular mide ~980 px y debe verse como PC
+      screens: { lg: '960px' },
       colors: {
         principal: 'rgb(var(--c-principal) / <alpha-value>)',
         secundario: 'rgb(var(--c-secundario) / <alpha-value>)',
