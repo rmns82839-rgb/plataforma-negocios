@@ -20,3 +20,10 @@ export async function dibujarIcono({ logo, color, size, mascara = false }) {
   const marca = await sharp(Buffer.from(ISOTIPO(interior))).png().toBuffer()
   return sharp({ create: { width: size, height: size, channels: 4, background: fondo } }).composite([{ input: marca, gravity: 'center' }]).png({ compressionLevel: 9 }).toBuffer()
 }
+
+// Tarjeta 1200×630 para la vista previa del enlace: el logo de la tienda, entero y centrado, sobre blanco.
+export async function dibujarTarjeta({ logo }) {
+  const W = 1200, H = 630, m = 70
+  const dentro = await sharp(logo, { failOn: 'none' }).rotate().resize(W - m * 2, H - m * 2, { fit: 'inside', background: '#FFFFFF' }).flatten({ background: '#FFFFFF' }).png().toBuffer()
+  return sharp({ create: { width: W, height: H, channels: 3, background: '#FFFFFF' } }).composite([{ input: dentro, gravity: 'center' }]).jpeg({ quality: 86, mozjpeg: true }).toBuffer()
+}

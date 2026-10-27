@@ -1,6 +1,50 @@
 {
   "rewrites": [
     {
+      "source": "/",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*(WhatsApp|facebookexternalhit|Facebot|Twitterbot|TelegramBot|LinkedInBot|Slackbot|Discordbot|SkypeUriPreview|Pinterestbot|Applebot).*"
+        }
+      ],
+      "destination": "/api/compartir"
+    },
+    {
+      "source": "/t/:slug",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*(WhatsApp|facebookexternalhit|Facebot|Twitterbot|TelegramBot|LinkedInBot|Slackbot|Discordbot|SkypeUriPreview|Pinterestbot|Applebot).*"
+        }
+      ],
+      "destination": "/api/compartir?slug=:slug"
+    },
+    {
+      "source": "/t/:slug/",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*(WhatsApp|facebookexternalhit|Facebot|Twitterbot|TelegramBot|LinkedInBot|Slackbot|Discordbot|SkypeUriPreview|Pinterestbot|Applebot).*"
+        }
+      ],
+      "destination": "/api/compartir?slug=:slug"
+    },
+    {
+      "source": "/n/:slug",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*(WhatsApp|facebookexternalhit|Facebot|Twitterbot|TelegramBot|LinkedInBot|Slackbot|Discordbot|SkypeUriPreview|Pinterestbot|Applebot).*"
+        }
+      ],
+      "destination": "/api/compartir?slug=:slug"
+    },
+    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
