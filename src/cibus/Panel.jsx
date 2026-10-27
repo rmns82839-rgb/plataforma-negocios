@@ -414,6 +414,7 @@ function Contenido() {
         )}
         {viejo && <Legado id={viejo} onCobrar={() => irA('caja')} volver={() => irA('caja')} />}
         {activa === 'caja'      && <Caja />}
+        {activa === 'productos' && <Productos />}
         {activa === 'prestamos' && <Prestamos />}
         {activa === 'mas' && !sub && <Menu onIr={setSub} dueno={dueno} soporte={soporte} nuevos={nuevos.tienda} opiniones={nuevos.opiniones} />}
         {activa === 'mas' && sub === 'tablero'  && dueno === true && <Tablero />}

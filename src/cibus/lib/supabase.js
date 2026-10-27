@@ -88,9 +88,28 @@ const canalDeNegocio = (nombre, opc) => {
   return p
 }
 
+// Productos: Cibus guarda la DIRECCIÓN de cada foto y no tiene «imagen_url» en la base de la plataforma; aquí la base guarda la RUTA.
+const aRuta = (f) => { const m = /\/storage\/v1\/object\/public\/negocios\/(.+)$/.exec(String(f)); return m ? decodeURIComponent(m[1]) : f }
+const limpiarProducto = (fila) => {
+  if (!fila || typeof fila !== 'object') return fila
+  const { imagen_url, ...resto } = fila
+  if (Array.isArray(resto.imagenes)) resto.imagenes = resto.imagenes.map(aRuta)
+  return resto
+}
+const conRutas = (v) => (Array.isArray(v) ? v.map(limpiarProducto) : limpiarProducto(v))
+const sinImagenUrl = (cols) => (typeof cols === 'string' ? cols.split(',').map(c => c.trim()).filter(c => c !== 'imagen_url').join(',') || '*' : cols)
+const adaptarProductos = (q) => ({
+  ...q,
+  select: (cols, ...a) => q.select(sinImagenUrl(cols), ...a),
+  insert: (f, ...a) => q.insert(conRutas(f), ...a),
+  upsert: (f, ...a) => q.upsert(conRutas(f), ...a),
+  update: (f, ...a) => q.update(conRutas(f), ...a),
+})
+
 const desdeNegocio = (tabla) => {
   if (tabla === 'negocio') return negocioFalso()
-  const q = db().from(tabla)
+  const q0 = db().from(tabla)
+  const q = tabla === 'productos' ? adaptarProductos(q0) : q0
   if (!practicaActiva()) return q
   return new Proxy(q, {
     get(t, k) {

@@ -11,8 +11,14 @@ export default function ComponentesKit({ kitId, valor, onCambiar, ocupados = [] 
   // Al editar un combo existente se cargan sus componentes
   useEffect(() => {
     if (!kitId) return
-    supabase.from('producto_componentes').select('componente_id, cantidad, productos:componente_id(nombre)').eq('kit_id', kitId)
-      .then(({ data }) => onCambiar((data ?? []).map(x => ({ id: x.componente_id, nombre: x.productos?.nombre ?? '', txt: numero(x.cantidad) }))))
+    // (dos consultas: la plataforma no usa selecciones anidadas entre tablas)
+    ;(async () => {
+      const { data } = await supabase.from('producto_componentes').select('componente_id, cantidad').eq('kit_id', kitId)
+      const filas = data ?? []
+      const { data: prods } = filas.length ? await supabase.from('productos').select('id, nombre').in('id', filas.map(x => x.componente_id)) : { data: [] }
+      const nombre = new Map((prods ?? []).map(x => [x.id, x.nombre]))
+      onCambiar(filas.map(x => ({ id: x.componente_id, nombre: nombre.get(x.componente_id) ?? '', txt: numero(x.cantidad) })))
+    })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kitId])
 

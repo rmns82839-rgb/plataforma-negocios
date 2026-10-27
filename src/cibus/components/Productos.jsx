@@ -27,8 +27,11 @@ import BotonCelular from './BotonCelular'
 import QrCatalogo from './QrCatalogo'
 import { precioConMargen, gananciaPorUnidad } from '../lib/margen'
 import { confirmar } from '../lib/confirmar'
+import { usePlataforma } from '../context/plataforma'
 
 export default function Productos() {
+  const { modulos } = usePlataforma()
+  const conCompras = modulos.includes('compras')       // «Compra» y «+ Stock» registran una compra: necesitan ese módulo
   const [productos, setProductos] = useState([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
@@ -145,15 +148,17 @@ export default function Productos() {
   return (
     <div className="space-y-4">
       <BarraFija>
-      <div className="grid grid-cols-3 gap-2">
+      <div className={`grid ${conCompras ? 'grid-cols-3' : 'grid-cols-2'} gap-2`}>
         <button onClick={() => setVerEscaner(v => !v)}
           className="h-9 rounded-xl bg-white shadow-sm text-sm font-medium text-slate-600">
           {verEscaner ? 'Ocultar' : 'Escanear'}
         </button>
+        {conCompras && (
         <button onClick={() => setCompra(true)}
           className="h-9 rounded-xl bg-lima/20 text-marca text-sm font-semibold active:bg-lima/30">
           Compra
         </button>
+        )}
         <button onClick={() => setForm({})}
           className="h-9 rounded-xl bg-marca text-white text-sm font-semibold active:bg-marca-oscuro">
           + Producto
@@ -282,7 +287,7 @@ export default function Productos() {
                       bajo ? 'bg-naranja/15 text-naranja-oscuro' : 'bg-slate-100 text-slate-600'}`}>
                     {numero(p.stock)}
                   </button>
-                  {dueno === true && (
+                  {dueno === true && conCompras && (
                   <button onClick={() => setIngreso(p)}
                     className="h-9 px-3 rounded-lg bg-lima/20 text-marca text-xs font-semibold">
                     + Stock
