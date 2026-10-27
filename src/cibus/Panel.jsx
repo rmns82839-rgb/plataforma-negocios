@@ -436,6 +436,7 @@ function Contenido() {
         {activa === 'mas' && sub === 'guia'     && dueno === true && <GuiaDinero />}
         {activa === 'mas' && sub === 'practica' && (dueno === true || soporte) && <ModoPractica />}
         {activa === 'mas' && sub === 'cuenta'   && <div className="lg:max-w-2xl lg:mx-auto"><MiCuenta /></div>}
+        {activa === 'mas' && sub === 'equipo'   && dueno === true && <div className="lg:max-w-2xl lg:mx-auto"><Equipo /></div>}
         {activa === 'mas' && sub === 'auditoria' && <FiltroFechas inicial="sem">{(r) => <Auditoria rango={r} />}</FiltroFechas>}
       </main>
 

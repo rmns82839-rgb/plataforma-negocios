@@ -4,10 +4,10 @@ import { bajarArchivo } from './exportar'
 import { guardarEnCarpeta } from './carpetaRespaldo'
 
 export const TABLAS = [
-  'negocio', 'formas_pago', 'productos', 'producto_componentes', 'lotes', 'compras', 'compra_items', 'ajustes_inventario',
-  'clientes', 'fiado_movimientos', 'prepago_movimientos', 'ventas', 'venta_items', 'venta_pagos', 'venta_consumos', 'gastos',
-  'prestamos', 'prestamo_cuotas', 'prestamo_pagos', 'promociones', 'ofertas', 'prendas', 'prenda_variantes',
-  'perfiles', 'auditoria',
+  'negocio_config', 'negocio_reglas', 'formas_pago', 'productos', 'producto_componentes', 'lotes', 'compras', 'compra_items', 'ajustes_inventario',
+  'clientes', 'fiado_movimientos', 'prepago_movimientos', 'ventas', 'venta_items', 'venta_pagos', 'venta_consumos', 'caja_movimientos', 'gastos',
+  'prestamos', 'prestamo_cuotas', 'prestamo_pagos', 'promociones', 'ofertas', 'anuncios', 'prendas', 'prenda_variantes',
+  'negocio_miembros', 'auditoria',
 ]
 
 const CLAVE = 'respaldo-ultimo'

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { usePersistido, borrarBorradores, TREINTA_MIN } from '../lib/usePersistido'
-import { supabase } from '../lib/supabase'
+import { supabase, negocioActual } from '../lib/supabase'
 import { claseInput } from '../lib/estilos'
 import { fechaHora } from '../lib/formato'
 import { useDueno } from '../context/rol'
@@ -23,6 +23,9 @@ export default function Equipo() {
   const [modo, setModo] = usePersistido('equipo:modo', 'crear')           // crear = usuario nuevo con contraseña · existe = ya está en Supabase
   const [clave, setClave] = useState('')
   const [verClave, setVerClave] = useState(false)
+  const [aviso, setAviso] = useState('')
+  const [miId, setMiId] = useState(null)
+  useEffect(() => { supabase.auth.getSession().then(({ data }) => setMiId(data?.session?.user?.id ?? null)).catch(() => {}) }, [])
   const [creado, setCreado] = useState(null)         // { email, clave } para entregárselo a la persona
 
   const cargar = useCallback(async () => {
@@ -35,9 +38,10 @@ export default function Equipo() {
 
   const accion = async (rpc, args, despues) => {
     setTrabajando(true); setError('')
-    const { error: err } = await supabase.rpc(rpc, args)
+    const { data, error: err } = await supabase.rpc(rpc, args)
     setTrabajando(false)
     if (err) return setError(err.message)
+    setAviso(data === 'invitado' ? 'Esa persona aún no tiene cuenta. Quedó invitada: cuando entre con ese correo (por ejemplo con Google), entra a tu equipo.' : '')
     despues?.(); cargar()
   }
 
@@ -55,7 +59,7 @@ export default function Equipo() {
       const r = await fetch('/api/crear-usuario', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
-        body: JSON.stringify({ email: correo, password: clave, rol }),
+        body: JSON.stringify({ negocio_id: negocioActual(), email: correo, password: clave, rol }),
       })
       const j = await r.json().catch(() => ({}))
       if (!r.ok) throw new Error(j.error || 'No se pudo crear el usuario')
@@ -76,6 +80,7 @@ export default function Equipo() {
       </div>
 
       {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
+      {aviso && <p className="text-sm text-amber-900 bg-amber-50 rounded-lg px-3 py-2">{aviso}</p>}
 
       <ul className="bg-white rounded-2xl shadow-sm divide-y divide-slate-100">
         {gente.map(g => (
@@ -86,9 +91,11 @@ export default function Equipo() {
                 {ROLES[g.rol]}{g.ultimo_ingreso ? ` · último ingreso ${fechaHora(g.ultimo_ingreso)}` : ' · nunca ha entrado'}
               </p>
             </div>
-            <button disabled={trabajando}
+            {g.user_id === miId
+              ? <span className="h-9 px-3 grid place-items-center rounded-lg bg-slate-100 text-slate-500 text-xs font-semibold">Tú</span>
+              : <button disabled={trabajando}
               onClick={async () => { if (await confirmar({ titulo: `¿Quitar el acceso a ${g.email}?`, texto: 'Ya no podrá entrar a la aplicación.' })) accion('quitar_personal', { p_user_id: g.user_id }) }}
-              className="h-9 px-3 rounded-lg bg-red-50 text-red-600 text-xs font-semibold disabled:opacity-40">Quitar</button>
+              className="h-9 px-3 rounded-lg bg-red-50 text-red-600 text-xs font-semibold disabled:opacity-40">Quitar</button>}
           </li>
         ))}
       </ul>
@@ -112,12 +119,12 @@ export default function Equipo() {
       {nuevo && (
         <Modal titulo="Dar acceso" onCerrar={() => setNuevo(false)}>
           <div className="grid grid-cols-2 gap-2">
-            {[['crear', 'Crear usuario nuevo'], ['existe', 'Ya existe en Supabase']].map(([id, t]) => (
+            {[['crear', 'Crear usuario nuevo'], ['existe', 'Ya tiene cuenta']].map(([id, t]) => (
               <button key={id} onClick={() => { setModo(id); setError('') }}
                 className={`min-h-11 rounded-xl text-xs font-medium px-1 ${modo === id ? 'bg-marca text-white' : 'bg-slate-100 text-slate-600'}`}>{t}</button>
             ))}
           </div>
-          <Campo etiqueta={modo === 'crear' ? 'Correo del nuevo usuario' : 'Correo (ya creado en Supabase)'}>
+          <Campo etiqueta={modo === 'crear' ? 'Correo del nuevo usuario' : 'Correo de la persona'}>
             <input value={correo} onChange={e => setCorreo(e.target.value)} type="email" autoCapitalize="none"
                    inputMode="email" className={claseInput} />
           </Campo>

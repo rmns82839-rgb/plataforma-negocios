@@ -8,7 +8,7 @@ import BarraFija from './BarraFija'
 
 const TABLAS = {
   productos: 'Producto', clientes: 'Cliente', ventas: 'Venta', fiado_movimientos: 'Movimiento de fiado',
-  gastos: 'Gasto', caja_movimientos: 'Retiro/ingreso de caja', prestamos: 'Préstamo', prestamo_pagos: 'Pago de préstamo', perfiles: 'Acceso de personal',
+  gastos: 'Gasto', caja_movimientos: 'Retiro/ingreso de caja', prestamos: 'Préstamo', prestamo_pagos: 'Pago de préstamo', perfiles: 'Acceso de personal', negocio_miembros: 'Acceso de personal', negocio_config: 'Datos del negocio', negocio_reglas: 'Reglas del negocio', negocio_modulos: 'Módulo de la plataforma', negocios: 'Negocio',
   pedidos_tienda: 'Pedido de la tienda', pedidos_ropa: 'Pedido de ropa', negocio: 'Datos del negocio',
   formas_pago: 'Forma de pago', compras: 'Compra', ajustes_inventario: 'Ajuste de inventario',
   anuncios: 'Anuncio', ofertas: 'Oferta', promociones: 'Promoción', accesos: 'Sesión',
@@ -80,10 +80,10 @@ export default function Auditoria({ rango }) {
         <ul className="bg-white rounded-2xl shadow-sm divide-y divide-slate-100">
           {visibles.map(a => (
             <li key={a.id} className="px-4 py-3 space-y-0.5">
-              <p className={`text-sm font-medium ${a.esSoporte ? 'text-amber-800' : ''}`}>
+              <p className={`text-sm font-medium break-words [overflow-wrap:anywhere] ${a.esSoporte ? 'text-amber-800' : ''}`}>
                 {a.correo ?? 'Cliente en línea'} {ACCIONES[a.accion]}{a.accion === 'ENTRADA' ? '' : ` · ${TABLAS[a.tabla] ?? a.tabla}`}
               </p>
-              <p className="text-xs text-slate-500 break-words">{resumen(a)}</p>
+              <p className="text-xs text-slate-500 break-words [overflow-wrap:anywhere]">{resumen(a)}</p>
               <p className="text-[11px] text-slate-400">{fechaHora(a.fecha)}</p>
             </li>
           ))}

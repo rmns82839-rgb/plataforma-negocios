@@ -74,7 +74,7 @@ const RPC_DE_LECTURA = /^(es_|listar|tablero|mfa|registrar_acceso|mi_perfil|dato
 const RPC_PUBLICAS = /^(crear_pedido_|registrar_visita|guardar_mi_perfil|borrar_mi_perfil|publicar_|borrar_mis_|guardar_suscripcion_push|borrar_mi_suscripcion_push|registrar_app_instalada)/
 
 // Funciones de Cibus que en la plataforma se llaman distinto
-const ALIAS = { listar_comentarios_admin: 'listar_opiniones_admin' }
+const ALIAS = { listar_comentarios_admin: 'listar_opiniones_admin', listar_equipo: 'listar_miembros', quitar_personal: 'quitar_miembro', agregar_personal: 'invitar_miembro' }
 
 // Los avisos en tiempo real también se limitan a esta tienda
 const canalDeNegocio = (nombre, opc) => {
