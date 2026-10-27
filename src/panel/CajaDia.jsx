@@ -87,7 +87,7 @@ export default function CajaDia({ ctx }) {
           <div className="mb-5 rounded-2xl border-2 border-principal bg-principal/5 p-4 text-center">
             <p className="text-lg text-tinta/70">Efectivo que debe haber en la caja</p>
             <p className="text-4xl font-bold text-principal">{cop(c.efectivo_esperado)}</p>
-            <p className="text-base text-tinta/60">Ventas y abonos en efectivo + ingresos − retiros − gastos en efectivo</p>
+            <p className="text-base text-tinta/60">Ventas, abonos y recargas en efectivo + ingresos − retiros − gastos y saldos devueltos en efectivo</p>
           </div>
 
           <Seccion titulo="Contar la caja">
@@ -103,6 +103,8 @@ export default function CajaDia({ ctx }) {
             {c.por_pago.length === 0 && <p className="text-lg text-tinta/60">Todavía no hay ventas este día.</p>}
             <ul className="space-y-2">
               {c.por_pago.map((p) => <li key={p.metodo} className="flex items-baseline justify-between gap-3 text-lg"><span>{p.nombre} <span className="text-tinta/60">({p.ventas})</span></span><span className="font-bold">{cop(p.monto)}</span></li>)}
+              {c.recargas?.map((r) => <li key={'r' + r.metodo} className="flex items-baseline justify-between gap-3 text-lg"><span>Recargas de saldo ({r.metodo}) <span className="text-tinta/60">({r.recargas})</span></span><span className="font-bold">{cop(r.monto)}</span></li>)}
+              {c.devoluciones?.map((d) => <li key={'d' + d.metodo} className="flex items-baseline justify-between gap-3 text-lg"><span>Saldo devuelto ({d.metodo}) <span className="text-tinta/60">({d.devoluciones})</span></span><span className="font-bold text-red-700">−{cop(d.monto)}</span></li>)}
               {c.abonos.map((a) => <li key={'a' + a.metodo} className="flex items-baseline justify-between gap-3 text-lg"><span>Abonos de fiados ({a.metodo}) <span className="text-tinta/60">({a.abonos})</span></span><span className="font-bold">{cop(a.monto)}</span></li>)}
             </ul>
           </Seccion>

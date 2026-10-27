@@ -19,6 +19,7 @@ import Clientes from './Clientes'
 import Reportes from './Reportes'
 import Armazon from './Armazon'
 import Vitrina from './Vitrina'
+import ResumenSemana from './ResumenSemana'
 import Instalar from '../tienda/Instalar'
 
 const ROL = { dueno: 'Dueño', cajero: 'Cajero', soporte: 'Soporte · solo lectura' }
@@ -88,6 +89,7 @@ export default function PanelApp({ slug }) {
     productos: <Productos ctx={ctx} volver={volver} />,
     categorias: <Categorias ctx={ctx} volver={volver} />,
     vitrina: <Vitrina ctx={ctx} volver={volver} />,
+    resumen: <ResumenSemana ctx={ctx} volver={volver} />,
     tienda: <MiTienda ctx={ctx} volver={volver} />,
     equipo: <Equipo ctx={ctx} volver={volver} miId={sesion.user?.id} />,
     plan: <MiPlan ctx={ctx} volver={volver} />,
@@ -107,6 +109,7 @@ export default function PanelApp({ slug }) {
     ['productos', '📦', 'Productos', 'Crear y editar', true],
     ['categorias', '🏷️', 'Categorías', 'Ordenar la tienda', true],
     ['vitrina', '⭐', 'Opiniones y menú', 'Opiniones, menú del día, música', dueño && ['opiniones', 'menu_del_dia', 'musica_fondo'].some((x) => ctx.modulos.includes(x))],
+    ['resumen', '📈', 'Resumen semanal', 'Cómo te fue esta semana', dueño && ctx.modulos.includes('resumen_semanal')],
     ['tienda', '🏪', 'Mi tienda', 'Datos, logo, domicilio', dueño],
     ['equipo', '👥', 'Mi equipo', 'Quién puede entrar', dueño],
     ['plan', '💳', 'Mi plan', 'Precio y límites', dueño],

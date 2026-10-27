@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { datosFaltantes } from '../lib/clientes'
 import { cop } from '../lib/pedido'
 import { aNumero, BILLETES, comisionDe } from '../lib/caja'
+import { maxConSaldo } from '../lib/prepago'
 import { Btn, Volver, Aviso, Campo, clsInput } from '../tienda/ui'
 import ClienteSelector from './ClienteSelector'
 import ClienteForm from './ClienteForm'
@@ -17,6 +18,7 @@ export default function ModalPago({ ctx, forma, falta, nid, cliente, onCliente, 
   const monto = aNumero(texto)
   const efectivo = forma.tipo === 'efectivo'
   const fiado = forma.tipo === 'fiado'
+  const prepago = forma.tipo === 'prepago'
   const rec = aNumero(recibido)
   const comision = comisionDe(forma, monto)
 
@@ -32,10 +34,27 @@ export default function ModalPago({ ctx, forma, falta, nid, cliente, onCliente, 
   }, [fiado, cliId, nid])
   const faltan = fiado && datos ? datosFaltantes(datos) : []
 
+  // Con saldo prepago: se muestra cuánto tiene el cliente y se propone gastar lo que alcance
+  const [saldo, setSaldo] = useState(null)
+  useEffect(() => {
+    setSaldo(null)
+    if (!prepago || !cliId) return
+    let vivo = true
+    supabase.from('prepago_saldos').select('saldo').eq('negocio_id', nid).eq('cliente_id', cliId).maybeSingle().then(({ data }) => {
+      if (!vivo) return
+      const s = Number(data?.saldo || 0)
+      setSaldo(s); setTexto(String(maxConSaldo(s, falta)))
+    })
+    return () => { vivo = false }
+  }, [prepago, cliId, nid, falta])
+
   function confirmar() {
     if (!(monto > 0)) return setError('Escribe cuánto va a pagar con esta forma')
     if (monto > falta) return setError(`No puede ser más de lo que falta (${cop(falta)})`)
     if (fiado && !cliente) return setError('Para fiar, elige primero el cliente')
+    if (prepago && !cliente) return setError('Elige primero el cliente que paga con su saldo')
+    if (prepago && saldo == null) return setError('Espera un momento: estamos revisando su saldo')
+    if (prepago && monto > saldo) return setError(`Solo tiene ${cop(saldo)} de saldo`)
     if (fiado && !datos) return setError('Espera un momento: estamos revisando los datos del cliente')
     if (faltan.length) return setError(`Para fiarle falta: ${faltan.join(', ')}`)
     if (efectivo && rec > 0 && rec < monto) return setError('El efectivo recibido es menor que el valor a pagar')
@@ -54,7 +73,7 @@ export default function ModalPago({ ctx, forma, falta, nid, cliente, onCliente, 
 
         {error && <div className="mb-3"><Aviso tipo="error">{error}</Aviso></div>}
 
-        <Campo etiqueta={fiado ? '¿Cuánto se le fía?' : '¿Cuánto paga con esto?'} ayuda={monto > 0 && monto < falta ? `Después te preguntaremos con qué paga los ${cop(falta - monto)} que faltan.` : undefined}>
+        <Campo etiqueta={fiado ? '¿Cuánto se le fía?' : prepago ? '¿Cuánto se descuenta del saldo?' : '¿Cuánto paga con esto?'} ayuda={monto > 0 && monto < falta ? `Después te preguntaremos con qué paga los ${cop(falta - monto)} que faltan.` : undefined}>
           <input autoFocus className={clsInput} inputMode="numeric" value={texto} onChange={(e) => { setTexto(e.target.value); setError('') }} placeholder="$ 0" />
         </Campo>
         {monto > 0 && <p className="mt-1 text-xl font-bold text-principal">{cop(monto)}</p>}
@@ -72,6 +91,22 @@ export default function ModalPago({ ctx, forma, falta, nid, cliente, onCliente, 
             </div>
             <div className="mt-3"><Campo etiqueta="Otro valor"><input className={clsInput} inputMode="numeric" placeholder="$ 0" value={rec > 0 && !BILLETES.includes(rec) ? recibido : ''} onChange={(e) => setRecibido(e.target.value)} /></Campo></div>
             {rec > monto && monto > 0 && <p className="mt-3 rounded-2xl bg-green-50 p-3 text-center text-2xl font-bold text-green-900">Devuelve {cop(rec - monto)}</p>}
+          </div>
+        )}
+
+        {prepago && (
+          <div className="mt-4 space-y-4">
+            <div>
+              <p className="mb-2 text-lg font-semibold">¿De quién es el saldo?</p>
+              <ClienteSelector nid={nid} cliente={cliente} onElegir={onCliente} soloLectura={soloLectura} obligatorio />
+            </div>
+            {cliente && saldo != null && (
+              <div className={`rounded-2xl border-2 p-3 text-center ${saldo > 0 ? 'border-green-300 bg-green-50' : 'border-amber-300 bg-amber-50'}`}>
+                <p className="text-lg text-tinta/70">{cliente.nombre} tiene</p>
+                <p className="text-3xl font-bold">{cop(saldo)}</p>
+                <p className="text-base text-tinta/70">{saldo <= 0 ? 'No tiene saldo. Recárgalo en Clientes.' : saldo < falta ? 'No alcanza para todo: el resto se paga con otra forma.' : 'Alcanza para pagar todo.'}</p>
+              </div>
+            )}
           </div>
         )}
 

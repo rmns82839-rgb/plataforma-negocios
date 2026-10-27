@@ -40,7 +40,7 @@ export default function CajaVender({ ctx, irAlDia }) {
   const seq = useRef(0)
 
   const venta = estado.lista.find((v) => v.id === estado.activa) || estado.lista[0]
-  const formas = useMemo(() => formasTodas.filter((f) => f.tipo !== 'fiado' || ctx.modulos.includes('fiados')), [formasTodas, ctx.modulos])
+  const formas = useMemo(() => formasTodas.filter((f) => (f.tipo !== 'fiado' || ctx.modulos.includes('fiados')) && (f.tipo !== 'prepago' || ctx.modulos.includes('prepago'))), [formasTodas, ctx.modulos])
 
   // Guardar en el equipo cada cambio (si el navegador no deja, la caja sigue funcionando)
   useEffect(() => { try { localStorage.setItem(clave(nid, uid), JSON.stringify(estado)) } catch { /* sin almacenamiento */ } }, [estado, nid, uid])
@@ -127,6 +127,7 @@ export default function CajaVender({ ctx, irAlDia }) {
     if (!calcF || sumaPagos(venta.pagos) !== calcF.total) return setError('Los pagos no suman el total de la venta')
     const usaFiado = venta.pagos.some((p) => formas.find((f) => f.id === p.metodo)?.tipo === 'fiado')
     if (usaFiado && !venta.cliente) return setError('Para fiar debes elegir un cliente')
+    if (venta.pagos.some((p) => formas.find((f) => f.id === p.metodo)?.tipo === 'prepago') && !venta.cliente) return setError('Para cobrar con saldo debes elegir un cliente')
     const d = domicilioParaServidor(venta.dom)
     if (d.error) return setError(d.error)
     const resumen = { total: calcF.total, cambio: venta.pagos.reduce((s, p) => s + (p.recibido > p.monto ? p.recibido - p.monto : 0), 0) }

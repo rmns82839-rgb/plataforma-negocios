@@ -9,6 +9,7 @@ import { datosFaltantes, nombreTipoDoc } from '../lib/clientes'
 import { Btn, Volver, Aviso, clsInput } from '../tienda/ui'
 import { Titulo, Seccion, Insignia, Opciones, SoloLectura, fechaHora } from './piezas'
 import ClienteForm from './ClienteForm'
+import PrepagoCliente from './PrepagoCliente'
 
 const COLS = '*'
 
@@ -126,6 +127,7 @@ function Detalle({ ctx, cliente, id, verFiados, irAFiados, volver }) {
         </div>
         {!ctx.soloLectura && <div className="mt-4"><Btn variante="suave" onClick={() => { setOk(''); setEditar(true) }}>{falta.length ? 'Completar los datos' : 'Corregir los datos'}</Btn></div>}
       </Seccion>
+      {ctx.modulos.includes('prepago') && <PrepagoCliente nid={nid} cliente={c} puedeEditar={ctx.esDueno && !ctx.soloLectura} />}
       {verFiados && <div className="mb-5"><Btn variante="suave" onClick={() => irAFiados(c.id)}>Ver su cuenta de fiado</Btn></div>}
       <Seccion titulo="Sus compras">
         {!compras && <p className="text-lg text-tinta/60">Cargando…</p>}

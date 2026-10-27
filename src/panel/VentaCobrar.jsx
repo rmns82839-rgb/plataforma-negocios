@@ -37,7 +37,8 @@ export default function VentaCobrar({ ctx, nid, sim, venta, cambiar, formas, cal
   const devuelve = cambioTotal(pagos)
   const quitar = (m) => cambiar({ pagos: pagos.filter((p) => p.metodo !== m) })
   const pct = venta.descTipo === 'pct'
-  const listo = total != null && falta === 0 && !(usaFiado && !venta.cliente) && !calculando
+  const usaPrepago = pagos.some((p) => formas.find((f) => f.id === p.metodo)?.tipo === 'prepago')
+  const listo = total != null && falta === 0 && !((usaFiado || usaPrepago) && !venta.cliente) && !calculando
 
   return (
     <div className="pb-64">
@@ -113,6 +114,7 @@ export default function VentaCobrar({ ctx, nid, sim, venta, cambiar, formas, cal
         </Seccion>
       )}
       {falta === 0 && usaFiado && !venta.cliente && <Aviso tipo="error">Para fiar, elige un cliente arriba.</Aviso>}
+      {falta === 0 && usaPrepago && !venta.cliente && <Aviso tipo="error">Para cobrar con saldo, elige un cliente arriba.</Aviso>}
 
       <BarraFija>
         {calc && (calc.desc > 0 || calc.envio > 0) && <div className="flex items-baseline justify-between text-lg text-tinta/70"><span>Productos {cop(calc.base - calc.desc)}</span><span>{calc.desc > 0 ? `Desc. −${cop(calc.desc)}` : ''}{calc.desc > 0 && calc.envio > 0 ? ' · ' : ''}{calc.envio > 0 ? `Envío +${cop(calc.envio)}` : ''}</span></div>}

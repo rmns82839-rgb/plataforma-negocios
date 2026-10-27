@@ -7,7 +7,10 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "aislamiento": "cd pruebas && npm install --no-audit --no-fund && node aislamiento.mjs"
+    "aislamiento": "cd pruebas && npm install --no-audit --no-fund && node aislamiento.mjs",
+    "prepago": "cd pruebas && node prepago.mjs",
+    "pruebas:panel": "node pruebas-front/panel.mjs",
+    "pruebas:prepago": "node pruebas-front/prepago.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.3",
