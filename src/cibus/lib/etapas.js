@@ -4,6 +4,10 @@
 export const NUEVAS = {
   caja:     { modulo: 'caja' },
   retiros:  { modulo: 'caja' },
+  ventas:   { modulo: 'caja' },
+  pagos:    { modulo: 'caja' },
+  gastos:   { modulo: 'caja' },
+  exportar: { modulo: 'caja' },
   productos:{ modulo: 'productos' },
   fiados:   { modulo: 'fiados' },
   prestamos:{ modulo: 'prestamos' },

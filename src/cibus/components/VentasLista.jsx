@@ -1,3 +1,4 @@
+import Cifra from './Cifra'
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { dinero, numero, fechaHora } from '../lib/formato'
@@ -57,14 +58,14 @@ export default function VentasLista({ rango }) {
   return (
     <div className="space-y-4">
       <BarraFija nivel={3.75}>
-      <div className="bg-white rounded-2xl shadow-sm p-4 grid grid-cols-2 gap-3">
+      <div className="bg-white rounded-2xl shadow-sm p-4 grid grid-cols-[auto_1fr] gap-3">
         <div>
           <p className="text-xs text-slate-400">Ventas</p>
           <p className="text-2xl font-bold">{validas.length}</p>
         </div>
         <div className="text-right">
           <p className="text-xs text-slate-400">Total</p>
-          <p className="text-2xl font-bold text-marca">{dinero(total)}</p>
+          <Cifra className="text-2xl font-bold text-marca">{dinero(total)}</Cifra>
         </div>
       </div>
 

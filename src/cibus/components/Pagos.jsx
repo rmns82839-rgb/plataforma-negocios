@@ -1,3 +1,4 @@
+import Cifra from './Cifra'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { usePersistido, borrarBorradores, TREINTA_MIN } from '../lib/usePersistido'
 import { supabase } from '../lib/supabase'
@@ -60,7 +61,7 @@ export default function Pagos({ rango }) {
       <div className="bg-white rounded-2xl shadow-sm p-4 space-y-3">
         <div>
           <p className="text-xs text-slate-400">Recibido ({visibles.length} pagos)</p>
-          <p className="text-2xl font-bold text-marca">{dinero(total)}</p>
+          <Cifra className="text-2xl font-bold text-marca">{dinero(total)}</Cifra>
         </div>
         <div className={`grid gap-3 ${dueno ? 'grid-cols-2' : 'grid-cols-1'}`}>
           <button onClick={() => setCobrar('fiado')}
