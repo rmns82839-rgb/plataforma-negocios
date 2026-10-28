@@ -1,6 +1,7 @@
 // Tarjeta para el cliente: activar los avisos del pedido (va en camino, entregado) y del menú del día.
 import { useEffect, useState } from 'react'
 import { estadoAvisos, activarAvisos, desactivarAvisos } from '../lib/avisosPush'
+import { modoPublico } from '../lib/publico'
 
 export default function ActivarAvisos() {
   const [estado, setEstado] = useState(null)
@@ -8,6 +9,7 @@ export default function ActivarAvisos() {
   const [ocupado, setOcupado] = useState(false)
   useEffect(() => { estadoAvisos().then(setEstado) }, [])
 
+  if (modoPublico()) return null            // en la plataforma los avisos al cliente llegan en una etapa posterior
   if (!estado || estado === 'sin_llave' || estado === 'no_soportado') return null
   const accion = async (f) => {
     setOcupado(true); setError('')

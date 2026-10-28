@@ -12,7 +12,8 @@
     "panel-caja": "cd pruebas && node panel-caja.mjs",
     "panel-fiados": "cd pruebas && node panel-fiados.mjs",
     "pruebas:panel": "node pruebas-front/panel.mjs",
-    "pruebas:prepago": "node pruebas-front/prepago.mjs"
+    "pruebas:prepago": "node pruebas-front/prepago.mjs",
+    "pruebas:compartir": "node pruebas/compartir.mjs"
   },
   "dependencies": {
     "@breezystack/lamejs": "^1.2.7",
@@ -24,6 +25,7 @@
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "sharp": "^0.35.5",
+    "web-push": "^3.6.7",
     "write-excel-file": "^4.1.1"
   },
   "devDependencies": {

@@ -84,6 +84,17 @@ export function desdePublico(tabla) {
   return consulta(async () => f(await cargarPublico()))
 }
 
+/** Pedido recién creado: se le pide al servidor que avise al celular del equipo. Si falla, el pedido igual quedó guardado. */
+function avisarAlEquipo(r, tipo, args) {
+  const numero = r?.data?.numero
+  if (!r?.error && numero && slug) {
+    try {
+      fetch('/api/avisar-pedido', { method: 'POST', keepalive: true, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ slug, tipo, numero, telefono: args?.p_datos?.telefono ?? '' }) }).catch(() => {})
+    } catch { /* el aviso es un extra */ }
+  }
+  return r
+}
+
 const FALTA = { data: null, error: { message: 'could not find the function (todavía no está en la plataforma)', code: 'PGRST202' }, status: 404 }
 
 /** Funciones del catálogo: las de Cibus se traducen a las de la plataforma (que reciben la tienda por su nombre en la dirección). */
@@ -95,8 +106,8 @@ export async function rpcPublico(nombre, args = {}, opc) {
       const { n } = await cargarPublico()
       return { data: n ? { modo: n.domicilio_modo === 'km' && (n.modulos || []).includes('domicilio_km') ? 'km' : 'fijo', max_km: n.domicilio_radio_max_km ?? null } : null, error: null }
     }
-    case 'crear_pedido_ropa': return R('crear_pedido_ropa', { p_slug: c.slug, ...args })
-    case 'crear_pedido_tienda': return R('crear_pedido_tienda', { p_slug: c.slug, ...args })
+    case 'crear_pedido_ropa': return avisarAlEquipo(await R('crear_pedido_ropa', { p_slug: c.slug, ...args }), 'ropa', args)
+    case 'crear_pedido_tienda': return avisarAlEquipo(await R('crear_pedido_tienda', { p_slug: c.slug, ...args }), 'tienda', args)
     case 'registrar_visita': return R('registrar_visita', { p_slug: c.slug, ...args })
     case 'estado_pedido': return R('estado_pedido', { p_slug: c.slug, ...args })
     case 'publicar_comentario': return R('publicar_opinion', { p_slug: c.slug, ...args })

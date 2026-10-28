@@ -107,11 +107,12 @@ await t('ícono: tamaño o tienda inválidos = 400', async () => {
 })
 
 console.log('--- service worker ---')
+const avisosVistos = [], abiertas = [], ventanas = []
 function montarSW() {
   const almacenes = new Map(), oyentes = {}, pedidos = []
   const almacen = (n) => { if (!almacenes.has(n)) almacenes.set(n, new Map()); const m = almacenes.get(n); return { put: async (k, v) => { const u = typeof k === 'string' ? k : k.url; m.delete(u); m.set(u, v) }, match: async (k) => m.get(typeof k === 'string' ? k : k.url), add: async (k) => { m.set(typeof k === 'string' ? k : k.url, new Response('shell')) }, keys: async () => [...m.keys()].map((url) => ({ url })), delete: async (k) => m.delete(typeof k === 'string' ? k : k.url) } }
   const caches = { open: async (n) => almacen(n), keys: async () => [...almacenes.keys()], delete: async (n) => almacenes.delete(n), match: async (k) => { for (const m of almacenes.values()) { const v = m.get(typeof k === 'string' ? k : k.url); if (v) return v } } }
-  const ctx = { self: { location: new URL('https://app.test/'), addEventListener: (e, f) => { oyentes[e] = f }, skipWaiting: async () => {}, clients: { claim: async () => {} } }, caches, Request, Response, URL, fetch: async (r) => { pedidos.push(r.url || String(r)); return ctx.respuesta(r) }, respuesta: () => new Response('x') }
+  const ctx = { self: { location: new URL('https://app.test/'), addEventListener: (e, f) => { oyentes[e] = f }, skipWaiting: async () => {}, registration: { showNotification: async (t, o) => { avisosVistos.push({ t, o }) } }, clients: { claim: async () => {}, matchAll: async () => ventanas, openWindow: async (u) => { abiertas.push(u) } } }, caches, Request, Response, URL, fetch: async (r) => { pedidos.push(r.url || String(r)); return ctx.respuesta(r) }, respuesta: () => new Response('x') }
   vm.createContext(ctx); vm.runInContext(fs.readFileSync(new URL('../public/sw.js', import.meta.url), 'utf8'), ctx)
   const pedir = async (url, { method = 'GET', mode = 'no-cors', destination = '' } = {}) => {
     const e = { request: { url, method, mode, destination }, resp: undefined, respondWith(p) { e.resp = p }, waitUntil() {} }
@@ -175,5 +176,29 @@ await t('iPad moderno (se hace pasar por Mac) se detecta', () => assert.ok(P.esI
 await t('ya instalada: no se muestra nada', () => assert.equal(P.guiaInstalacion({ instalada: true, tienePrompt: true, ua: UA.android }).tipo, 'ninguna'))
 await t('sin aviso en Android: explica el menú del navegador', () => assert.equal(P.guiaInstalacion({ instalada: false, tienePrompt: false, ua: UA.android }).tipo, 'menu'))
 await t('direcciones del manifest e ícono Apple llevan el slug codificado', () => { assert.equal(P.urlManifest('don-pepe', true), '/api/manifest?slug=don-pepe&panel=1'); assert.equal(P.urlIconoApple('a b'), '/api/icono?slug=a%20b&size=180') })
+
+console.log('--- avisos push (pedido nuevo) ---')
+await t('push: muestra el aviso con título, texto, etiqueta y la ruta del panel', async () => {
+  const sw = montarSW(); avisosVistos.length = 0; let fin
+  sw.oyentes.push({ data: { json: () => ({ titulo: '🛒 Pedido nuevo N.º 7', cuerpo: '$85.000 · a domicilio', url: '/t/moda/panel', tag: 'pedido-moda-7' }) }, waitUntil: (p) => { fin = p } }); await fin
+  assert.equal(avisosVistos[0].t, '🛒 Pedido nuevo N.º 7'); assert.equal(avisosVistos[0].o.body, '$85.000 · a domicilio'); assert.equal(avisosVistos[0].o.tag, 'pedido-moda-7'); assert.equal(avisosVistos[0].o.data.url, '/t/moda/panel')
+})
+await t('push: una ruta externa en el aviso se ignora (va al inicio)', async () => {
+  const sw = montarSW(); avisosVistos.length = 0; let fin
+  sw.oyentes.push({ data: { json: () => ({ titulo: 'x', url: 'https://malo.com' }) }, waitUntil: (p) => { fin = p } }); await fin
+  assert.equal(avisosVistos[0].o.data.url, '/')
+})
+await t('push: sin datos igual muestra un aviso', async () => {
+  const sw = montarSW(); avisosVistos.length = 0; let fin
+  sw.oyentes.push({ data: null, waitUntil: (p) => { fin = p } }); await fin; assert.equal(avisosVistos[0].t, 'Matriz')
+})
+await t('tocar el aviso abre la ruta; si la app ya está abierta, la enfoca', async () => {
+  const sw = montarSW(); abiertas.length = 0; ventanas.length = 0; let fin, cerrada = false
+  sw.oyentes.notificationclick({ notification: { close: () => { cerrada = true }, data: { url: '/t/moda/panel' } }, waitUntil: (p) => { fin = p } }); await fin
+  assert.ok(cerrada); assert.deepEqual(abiertas, ['/t/moda/panel'])
+  let nav = null, foco = false; ventanas.push({ url: 'https://app.test/t/moda', navigate: async (u) => { nav = u }, focus: async () => { foco = true } })
+  sw.oyentes.notificationclick({ notification: { close() {}, data: { url: '/t/moda/panel' } }, waitUntil: (p) => { fin = p } }); await fin
+  assert.equal(nav, '/t/moda/panel'); assert.ok(foco); assert.equal(abiertas.length, 1)
+})
 
 console.log(`\n${ok} pruebas pasaron`)

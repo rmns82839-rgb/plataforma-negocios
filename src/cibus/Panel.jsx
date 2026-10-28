@@ -18,6 +18,7 @@ import { iniciarPresenciaPersonal, cambiarPantallaPresencia, useAvisoSoporte } f
 import Respaldo from './components/Respaldo'
 import ClientesRegistrados from './components/ClientesRegistrados'
 import PedidosTienda from './components/PedidosTienda'
+import AvisosPedidosEquipo from './components/AvisosPedidosEquipo'
 import { dinero } from './lib/formato'
 import { usePractica, desactivarPractica } from './lib/practica'
 import ModoPractica from './components/ModoPractica'
@@ -348,6 +349,7 @@ function Contenido() {
           </div>
         )}
         <AvisosPlataforma irAPublicar={() => irASub('negocio')} />
+        {!soporte && !practica.activa && (activa === 'caja' || sub === 'pedidostienda') && modulos.includes('pedidos_en_linea') && <AvisosPedidosEquipo compacto={sub === 'pedidostienda'} />}
         {practica.activa && (
           <div className="sticky top-[calc(4.5rem+env(safe-area-inset-top))] lg:top-0 z-30 rounded-2xl bg-amber-400 text-negro px-4 py-2 grid grid-cols-[1fr_auto] gap-3 items-center shadow-md ring-1 ring-amber-600/40">
             <span className="text-xs leading-snug"><b className="font-bold tracking-wide">MODO PRÁCTICA</b> · nada se guarda{practica.acciones > 0 ? ` · ${practica.acciones} simulada${practica.acciones === 1 ? '' : 's'}` : ''}</span>

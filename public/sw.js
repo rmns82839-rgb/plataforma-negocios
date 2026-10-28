@@ -3,6 +3,7 @@
 //  · /assets (archivos con huella en el nombre): se guardan para siempre.
 //  · Fotos de las tiendas: se muestran al instante y se refrescan en segundo plano. SOLO se guardan respuestas buenas
 //    (así una foto que falló una vez no queda "rota" para siempre) y nunca más de MAX_FOTOS.
+//  · Avisos push (pedido nuevo para el equipo de la tienda): se muestran aunque la app esté cerrada; al tocarlos abren el panel.
 //  · Nunca toca: /api, la base de datos, el login, la música ni nada que no sea GET.
 const V = 'v1'
 const CACHE_APP = `app-${V}`
@@ -66,4 +67,22 @@ self.addEventListener('fetch', (e) => {
     return
   }
   if (url.hostname.endsWith('.supabase.co') && url.pathname.startsWith('/storage/v1/object/public/negocios/') && req.destination === 'image') return e.respondWith(foto(e, req))
+})
+
+// ---------- Avisos push ----------
+self.addEventListener('push', (e) => {
+  let d = {}
+  try { d = e.data ? e.data.json() : {} } catch { d = { cuerpo: e.data && e.data.text() } }
+  e.waitUntil(self.registration.showNotification(d.titulo || 'Matriz', {
+    body: d.cuerpo || '', icon: '/icon-192.png', badge: '/favicon-64.png', tag: d.tag || undefined, renotify: Boolean(d.tag),
+    vibrate: [200, 100, 200], data: { url: typeof d.url === 'string' && d.url.startsWith('/') ? d.url : '/' },
+  }))
+})
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close()
+  const url = (e.notification.data && e.notification.data.url) || '/'
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((ws) => {
+    for (const w of ws) { if (new URL(w.url).origin === self.location.origin && 'focus' in w) { w.navigate(url).catch(() => {}); return w.focus() } }
+    return self.clients.openWindow(url)
+  }))
 })
