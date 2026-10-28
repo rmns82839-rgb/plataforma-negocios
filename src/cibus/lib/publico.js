@@ -3,7 +3,8 @@
 // el público lee funciones por tienda (negocio_publico, catalogo_tienda, extras_tienda). Aquí se arman las vistas con esas funciones.
 import { supabase as plataforma, urlImagen } from '../../lib/supabase'
 
-let modo = false, slug = null, cache = null
+let modo = false, slug = null, cache = null, vista = 'tienda'      // vista: qué catálogo se muestra ('tienda' = productos · 'ropa' = prendas)
+export const fijarVista = (v) => { vista = v === 'ropa' ? 'ropa' : 'tienda' }
 export const modoPublico = () => modo
 export function fijarPublico(s) { modo = Boolean(s); slug = s || null; cache = null }
 export const publicoActual = () => slug
@@ -20,11 +21,13 @@ export function cargarPublico() {
     if (en || !n) return { n: null, error: en }
     const mods = n.modulos || []
     const verCatalogo = mods.includes('catalogo_publico') && mods.includes('productos')
-    const [c, x] = await Promise.all([
+    const verRopa = mods.includes('catalogo_publico') && mods.includes('ropa')
+    const [c, x, r] = await Promise.all([
       verCatalogo ? plataforma.rpc('catalogo_tienda', { p_slug: mio }) : Promise.resolve({ data: { productos: [], categorias: [], ofertas: [], promociones: [], anuncios: [], mas_vendidos: [] } }),
       mods.includes('catalogo_publico') && ['opiniones', 'menu_del_dia', 'musica_fondo'].some((m) => mods.includes(m)) ? plataforma.rpc('extras_tienda', { p_slug: mio }) : Promise.resolve({ data: null }),
+      verRopa ? plataforma.rpc('catalogo_ropa', { p_slug: mio }) : Promise.resolve({ data: null }),
     ])
-    return { n, c: c.data, errorCatalogo: c.error, x: x.data }
+    return { n, c: c.data, errorCatalogo: c.error, x: x.data, r: r.data }
   })()
   return cache
 }
@@ -35,9 +38,15 @@ const dePublico = {
   catalogo_productos: (d) => (d.c?.productos ?? []).map((p) => ({ ...p, imagenes: (p.imagenes ?? []).map(url), quedan: undefined })),
   catalogo_stock: () => [],
   catalogo_mas_vendidos: (d) => (d.c?.mas_vendidos ?? []).map((id, i) => ({ producto_id: id, puesto: i + 1 })),
+  prendas: (d) => {        // las prendas con sus tallas dentro, como las pide la pantalla de ropa
+    const vars = new Map()
+    for (const v of d.r?.variantes ?? []) { if (!vars.has(v.prenda_id)) vars.set(v.prenda_id, []); vars.get(v.prenda_id).push(v) }
+    return (d.r?.prendas ?? []).map((p) => ({ ...p, activo: true, imagen_url: url(p.imagen_url), imagenes: (p.imagenes ?? []).map(url), prenda_variantes: vars.get(p.id) ?? [] }))
+  },
+  promos_ropa_vigentes: (d) => d.r?.promociones ?? [],
   promos_tienda_vigentes: (d) => d.c?.promociones ?? [],
-  ofertas_vigentes: (d) => (d.c?.ofertas ?? []).map((o) => ({ ...o, imagen: url(o.imagen) })),
-  anuncios_vigentes: (d) => (d.c?.anuncios ?? []).map((a) => ({ ...a, imagen: url(a.imagen) })),
+  ofertas_vigentes: (d) => ((vista === 'ropa' ? d.r : d.c)?.ofertas ?? []).map((o) => ({ ...o, imagen: url(o.imagen) })),
+  anuncios_vigentes: (d) => ((vista === 'ropa' ? d.r : d.c)?.anuncios ?? []).map((a) => ({ ...a, imagen: url(a.imagen) })),
   menu_hoy_publico: (d) => (d.x?.menu_hoy ? [{ ...d.x.menu_hoy, foto: url(d.x.menu_hoy.foto) }] : []),
   musica_fondo_publica: (d) => (d.x?.musica ? [{ url: urlMusica(d.x.musica.ruta), nombre: d.x.musica.nombre }] : []),
   comentarios_resumen: (d) => (d.x?.opiniones ? [{ promedio: d.x.opiniones.promedio, total: d.x.opiniones.total }] : []),
@@ -86,6 +95,7 @@ export async function rpcPublico(nombre, args = {}, opc) {
       const { n } = await cargarPublico()
       return { data: n ? { modo: n.domicilio_modo === 'km' && (n.modulos || []).includes('domicilio_km') ? 'km' : 'fijo', max_km: n.domicilio_radio_max_km ?? null } : null, error: null }
     }
+    case 'crear_pedido_ropa': return R('crear_pedido_ropa', { p_slug: c.slug, ...args })
     case 'crear_pedido_tienda': return R('crear_pedido_tienda', { p_slug: c.slug, ...args })
     case 'registrar_visita': return R('registrar_visita', { p_slug: c.slug, ...args })
     case 'estado_pedido': return R('estado_pedido', { p_slug: c.slug, ...args })

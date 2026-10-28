@@ -375,7 +375,7 @@ export default function CatalogoPublico() {
                   </div>
                   <div className="p-3 lg:p-4 space-y-0.5">
                     {p.categoria && <p className="text-[10px] uppercase tracking-[0.18em] text-oro break-words">{p.categoria}</p>}
-                    <p className="text-sm font-medium leading-tight line-clamp-2 min-h-[2.25rem]">{p.nombre}</p>
+                    <p className="text-sm font-medium leading-tight min-h-[2.25rem]">{p.nombre}</p>
                     <p className="text-sm font-semibold text-oro-oscuro">
                       {precioPromo != null
                         ? <>{dinero(precioPromo)} <span className="text-xs font-normal text-slate-400 line-through">{dinero(p.precio)}</span></>

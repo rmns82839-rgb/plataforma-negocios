@@ -15,7 +15,7 @@ function Casilla({ c, onElegir, className = '', ratio = 'aspect-[4/5]' }) {
       <span aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-cibus-profundo via-cibus-profundo/30 to-transparent" />
       <span aria-hidden="true" className="absolute top-2.5 right-2.5 h-7 w-7 rounded-full bg-white/20 backdrop-blur-sm text-white grid place-items-center text-sm transition group-hover:bg-champagne group-hover:text-negro">›</span>
       <span className="absolute inset-x-0 bottom-0 p-3 space-y-0.5">
-        <span className="block text-sm font-semibold leading-tight text-white capitalize line-clamp-2">{c.nombre}</span>
+        <span className="block text-sm font-semibold leading-tight text-white capitalize">{c.nombre}</span>
         <span className="block text-[11px] text-champagne/90">{c.n} {c.n === 1 ? 'producto' : 'productos'}</span>
       </span>
     </button>
