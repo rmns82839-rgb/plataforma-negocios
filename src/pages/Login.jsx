@@ -44,6 +44,10 @@ export default function Login({ titulo = 'Ingresar' }) {
         <p className="text-lg font-semibold leading-snug">¿Buscas una tienda para comprar?</p>
         <Btn variante="suave" type="button" onClick={() => ir('/tiendas')}>Ver tiendas abiertas cerca de mí</Btn>
       </div>
+      <div className="mt-5 space-y-3 rounded-2xl border-2 border-black/5 bg-white p-5">
+        <p className="text-lg font-semibold leading-snug">¿Tienes un negocio y quieres vender en línea?</p>
+        <Btn variante="suave" type="button" onClick={() => ir('/registro')}>Registrar mi negocio</Btn>
+      </div>
       <PiePlataforma />
     </main>
   )
