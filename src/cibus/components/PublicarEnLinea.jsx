@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { coincide, ordenarPorInicio } from '../lib/buscar'
 import { supabase } from '../lib/supabase'
 import { fotosDe } from '../lib/fotos'
 import Modal from './Modal'
@@ -13,8 +14,8 @@ export default function PublicarEnLinea({ productos, onCerrar, onGuardado }) {
   const [avance, setAvance] = useState(0)
 
   const visibles = useMemo(() => {
-    const q = buscar.trim().toLowerCase()
-    return q ? candidatos.filter(p => p.nombre.toLowerCase().includes(q)) : candidatos
+    const q = buscar.trim()
+    return q ? ordenarPorInicio(candidatos.filter(p => coincide([p.nombre, p.categoria], q)), q) : candidatos
   }, [candidatos, buscar])
   const elegidos = candidatos.filter(p => !fuera.has(p.id))
 

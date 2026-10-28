@@ -1,5 +1,6 @@
 // Vender ropa desde el panel (mostrador o pedido de WhatsApp). Dos pasos, con botón de volver y el total siempre a la vista:
 //  1) Prendas (talla/color y cantidad) · 2) Cliente, forma de pago y cobro.
+import { buscarEnIndice, coincide, ordenarPorInicio } from '../lib/buscar'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { leerBorrador, guardarBorrador, DOCE_HORAS } from '../lib/borrador'
 import { supabase } from '../lib/supabase'
@@ -104,7 +105,8 @@ export default function VentaRopa({ pedido = null, onCerrar, onVendido }) {
     const t = qCliente.trim()
     if (t.length < 1) { setClientes([]); return undefined }
     const h = setTimeout(async () => {
-      const { data } = await supabase.from('clientes').select('id, nombre, cupo_credito, dias_credito').ilike('nombre', `%${t}%`).order('nombre').limit(5)
+      let data = await buscarEnIndice('clientes-credito', () => supabase.from('clientes').select('id, nombre, cupo_credito, dias_credito').order('nombre').order('id'), t, { max: 6 })
+      if (!data) data = (await supabase.from('clientes').select('id, nombre, cupo_credito, dias_credito').ilike('nombre', `%${t}%`).order('nombre').limit(5)).data
       setClientes(data ?? [])
     }, 250)
     return () => clearTimeout(h)
@@ -124,9 +126,9 @@ export default function VentaRopa({ pedido = null, onCerrar, onVendido }) {
   }
 
   const coincidencias = useMemo(() => {
-    const t = q.trim().toLowerCase()
+    const t = q.trim()
     if (t.length < 1) return []
-    return prendas.filter(p => p.nombre.toLowerCase().includes(t) || (p.categoria ?? '').toLowerCase().includes(t)).slice(0, 6)
+    return ordenarPorInicio(prendas.filter(p => coincide([p.nombre, p.categoria], t)), t).slice(0, 6)
   }, [q, prendas])
 
   const cuenta = useMemo(() => {

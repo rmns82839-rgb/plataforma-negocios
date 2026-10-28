@@ -1,4 +1,5 @@
 // Editor de lo que lleva un combo: busca productos y les pone la cantidad.
+import { buscarEnIndice } from '../lib/buscar'
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { claseInput } from '../lib/estilos'
@@ -26,8 +27,8 @@ export default function ComponentesKit({ kitId, valor, onCambiar, ocupados = [] 
     const t = q.trim()
     if (t.length < 1) { setResultados([]); return undefined }
     const h = setTimeout(async () => {
-      const { data } = await supabase.from('productos').select('id, nombre').eq('activo', true).eq('es_kit', false)
-        .ilike('nombre', `%${t}%`).order('nombre').limit(5)
+      let data = await buscarEnIndice('productos-sin-kit', () => supabase.from('productos').select('id, nombre').eq('activo', true).eq('es_kit', false).order('nombre').order('id'), t, { max: 8 })
+      if (!data) data = (await supabase.from('productos').select('id, nombre').eq('activo', true).eq('es_kit', false).ilike('nombre', `%${t}%`).order('nombre').limit(5)).data
       setResultados((data ?? []).filter(p => p.id !== kitId && !ocupados.includes(p.id) && !valor.some(v => v.id === p.id)))
     }, 250)
     return () => clearTimeout(h)

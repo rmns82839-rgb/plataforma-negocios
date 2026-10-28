@@ -2,7 +2,7 @@
 import { supabase } from './supabase'
 import { traerTodo } from './traerTodo'
 import { guardarCatalogo, leerCatalogo, esErrorDeRed } from './offline'
-import { normalizar, ordenarPorInicio } from './buscar'
+import { coincide, ordenarPorInicio } from './buscar'
 
 let memoria = null
 
@@ -26,8 +26,7 @@ export const hayCatalogoLocal = async () => (await lista()).length > 0
 export const productoPorCodigo = async (codigo) => (await lista()).find(p => p.codigo === codigo) ?? null
 export const productosPorIds = async (ids) => { const s = new Set(ids); return (await lista()).filter(p => s.has(p.id)) }
 export async function buscarPorNombre(q, max = 40) {
-  const n = normalizar(q)
-  return ordenarPorInicio((await lista()).filter(p => normalizar(p.nombre).includes(n)), q).slice(0, max)
+  return ordenarPorInicio((await lista()).filter(p => coincide([p.nombre, p.codigo], q)), q).slice(0, max)
 }
 
 /** Un producto creado sin internet: queda en la copia para poder escanearlo y venderlo ya. */

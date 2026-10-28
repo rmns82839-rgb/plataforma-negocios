@@ -4,10 +4,11 @@
 import { supabase as plataforma } from '../../lib/supabase'
 import { dbDe } from '../../lib/negocioDb'
 import { practicaActiva, contarSimulada } from './practica'
+import { limpiarIndiceBusqueda } from './buscar'
 import { modoPublico, desdePublico, rpcPublico } from './publico'
 
 let negocioId = null
-export function fijarNegocio(id) { negocioId = id }
+export function fijarNegocio(id) { negocioId = id; limpiarIndiceBusqueda() }
 export const negocioActual = () => negocioId
 const db = () => { if (!negocioId) throw new Error('El panel no sabe de qué tienda es'); return dbDe(negocioId, plataforma) }
 

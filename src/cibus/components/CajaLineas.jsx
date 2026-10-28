@@ -6,7 +6,7 @@ import { useEffect } from 'react'
 import CajaPeso from './CajaPeso'
 import Miniatura from './Miniatura'
 import { usePersistido, TREINTA_MIN } from '../lib/usePersistido'
-import { normalizar } from '../lib/buscar'
+import { puntaje } from '../lib/buscar'
 import { esPesable } from '../lib/pesaje'
 import { precioLista, precioDe, precioBase, esManual, descuentoLinea, promoLinea, brutoLinea, netoLinea, tieneAjuste, minimoLinea, bajoMinimo, minimoDe } from '../lib/venta'
 
@@ -71,8 +71,8 @@ export default function CajaLineas({ lineas, ultimoId, editandoId, pesandoId, on
   }
   const unidades = lineas.reduce((s, l) => s + l.cantidad, 0)
   // Buscador: los productos cuyo nombre (o alguna palabra) empieza con lo escrito, los que empiezan de primero
-  const q = normalizar(filtro).trim()
-  const rango = (l) => { const n = normalizar(l.producto.nombre); return n.startsWith(q) ? 0 : n.split(/\s+/).some(w => w.startsWith(q)) ? 1 : 2 }
+  const q = filtro.trim()
+  const rango = (l) => puntaje([l.producto.nombre], q) ?? 9
   // sort estable: los que no coinciden siguen en su orden, abajo
   const visibles = q ? [...lineas].sort((a, b) => rango(a) - rango(b)) : lineas
   return (

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { coincide } from '../lib/buscar'
 import { supabase } from '../lib/supabase'
 import { dinero, numero } from '../lib/formato'
 import { claseInput } from '../lib/estilos'
@@ -42,8 +43,8 @@ export default function ComprasCliente({ cliente, estados }) {
   }, [cliente.id, periodo, desde, hasta])
   useEffect(() => { cargar() }, [cargar])
 
-  const q = texto.trim().toLowerCase()
-  const visibles = useMemo(() => (ventas ?? []).filter(v => !q || v.venta_items.some(i => String(i.nombre).toLowerCase().includes(q))), [ventas, q])
+  const q = texto.trim()
+  const visibles = useMemo(() => (ventas ?? []).filter(v => !q || v.venta_items.some(i => coincide([i.nombre], q))), [ventas, q])
   const validas = visibles.filter(v => !v.anulada)
   const total = validas.reduce((s, v) => s + Number(v.total), 0)
   // Qué debe y qué ya pagó de estas compras (solo si se sabe el estado de los fiados)

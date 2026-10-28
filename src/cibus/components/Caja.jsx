@@ -20,7 +20,7 @@ import { hoyTexto } from '../lib/periodo'
 import Factura from './Factura'
 import BotonCelular from './BotonCelular'
 import { confirmar } from '../lib/confirmar'
-import { ordenarPorInicio, buscarProductosPorNombre } from '../lib/buscar'
+import { ordenarPorInicio, buscarProductosPorNombre, coincide } from '../lib/buscar'
 import DialogoResto from './DialogoResto'
 import { usePractica, practicaActiva, moverPrepagoSimulado } from '../lib/practica'
 import { saldoVisible } from '../lib/prepago'
@@ -151,7 +151,7 @@ export default function Caja() {
   const qNum = qCliente.replace(/\D/g, '')
   const digitos = (t) => String(t ?? '').replace(/\D/g, '')
   const coincidencias = qCliente
-    ? clientes.filter(c => c.nombre.toLowerCase().includes(qCliente) || (qNum.length >= 3 && (digitos(c.documento).includes(qNum) || digitos(c.telefono).includes(qNum))))
+    ? clientes.filter(c => coincide([c.nombre], buscaCliente) || (qNum.length >= 3 && (digitos(c.documento).includes(qNum) || digitos(c.telefono).includes(qNum))))
         .sort((a, b) => Number(digitos(b.documento) === qNum && qNum !== '') - Number(digitos(a.documento) === qNum && qNum !== ''))
         .slice(0, 6)
     : []

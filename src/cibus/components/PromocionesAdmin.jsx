@@ -1,5 +1,6 @@
 // Promociones que cambian el precio solas al escanear (3x2, % de descuento, precio promocional).
 // Solo el dueño las crea. No confundir con "Ofertas", que son avisos para el catálogo.
+import { buscarEnIndice } from '../lib/buscar'
 import { useCallback, useEffect, useState } from 'react'
 import { usePersistido, borrarBorradores, TREINTA_MIN } from '../lib/usePersistido'
 import { supabase } from '../lib/supabase'
@@ -60,7 +61,9 @@ function Formulario({ promo, onGuardado, onCerrar }) {
     const t = q.trim()
     if (t.length < 1) { setResultados([]); return undefined }
     const h = setTimeout(async () => {
-      const { data } = await supabase.from(esRopa ? 'prendas' : 'productos').select('id, nombre').eq('activo', true).ilike('nombre', `%${t}%`).order('nombre').limit(5)
+      const tabla = esRopa ? 'prendas' : 'productos'
+      let data = await buscarEnIndice(tabla, () => supabase.from(tabla).select('id, nombre').eq('activo', true).order('nombre').order('id'), t, { max: 8 })
+      if (!data) data = (await supabase.from(tabla).select('id, nombre').eq('activo', true).ilike('nombre', `%${t}%`).order('nombre').limit(5)).data
       setResultados(data ?? [])
     }, 250)
     return () => clearTimeout(h)
