@@ -33,7 +33,7 @@ export function Avance({ etapa }) {
       {etapa.pasos.map((t, i) => (
         <li key={t} className="space-y-1 text-center">
           <span className={`block h-2 rounded-full ${i <= etapa.paso ? 'bg-emerald-500' : 'bg-slate-200'}`} />
-          <span className={`block text-sm leading-tight break-words ${i === etapa.paso ? 'font-bold text-slate-900' : 'text-slate-500'}`}>{t}</span>
+          <span className={`block text-[13px] min-[400px]:text-sm leading-tight [overflow-wrap:normal] ${i === etapa.paso ? 'font-bold text-slate-900' : 'text-slate-500'}`}>{t}</span>
         </li>
       ))}
     </ol>
