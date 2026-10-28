@@ -31,9 +31,11 @@ export default function Inicio() {
         <div className="w-32"><Btn variante="suave" onClick={() => supabase.auth.signOut()}>Salir</Btn></div>
       </div>
       {admin && (
-        <div className="mb-6">
+        <section className="mb-6 space-y-3 rounded-2xl border-2 border-principal/20 bg-principal/5 p-5">
+          <h2 className="text-2xl font-bold leading-tight">Administración de la plataforma</h2>
+          <p className="text-base leading-snug text-tinta/70">Tus tiendas están abajo. Las demás tiendas las puedes ver, solo para consultar.</p>
           <Btn onClick={() => ir('/solicitudes')}>Solicitudes de negocios{pendientes > 0 ? ` (${pendientes} por revisar)` : ''}</Btn>
-        </div>
+        </section>
       )}
       {error && <Aviso tipo="error">{error}</Aviso>}
       {!negocios && !error && <p className="py-10 text-center text-xl text-tinta/60">Cargando…</p>}

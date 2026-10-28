@@ -6,6 +6,7 @@ import { soloDigitos } from '../lib/datosCliente'
 import { slugActual } from '../lib/enlaces'
 import { resumenHorario } from '../../lib/horario'
 import LogoTienda from './LogoTienda'
+import SelectorVista from '../../tienda/SelectorVista'
 
 const Fila = ({ titulo, children }) => (
   <div className="space-y-1">
@@ -73,6 +74,7 @@ export default function PiePublico({ whatsapp, tema = 'ropa' }) {
           <p className="text-[11px] text-hueso/40">
             © {new Date().getFullYear()} {n.razon_social || n.nombre || 'Matriz'}{n.nit ? ` · NIT ${n.nit}` : ''}
           </p>
+          <SelectorVista oscuro />
         </div>
       </div>
     </footer>

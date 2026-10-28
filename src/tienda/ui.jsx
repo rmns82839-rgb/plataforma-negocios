@@ -2,6 +2,7 @@
 import { urlImagen } from '../lib/supabase'
 import { Isotipo } from './MarcaMatriz'
 import { textoEstado } from '../lib/horario'
+import SelectorVista from './SelectorVista'
 
 export const MARCA_PLATAFORMA = 'Matriz'
 
@@ -87,8 +88,9 @@ export function BarraFija({ children }) {
 
 export function PiePlataforma() {
   return (
-    <footer className="mt-12 flex items-center justify-center gap-2 pb-6 text-center text-sm text-tinta/50">
-      <Isotipo tamano={20} /> <span>Tienda creada con <b className="font-serif text-base font-medium tracking-[0.2em]">{MARCA_PLATAFORMA.toUpperCase()}</b></span>
+    <footer className="mt-12 flex flex-col items-center justify-center gap-1 pb-6 text-center text-sm text-tinta/50"><div className="flex items-center justify-center gap-2">
+      <Isotipo tamano={20} /> <span>Tienda creada con <b className="font-serif text-base font-medium tracking-[0.2em]">{MARCA_PLATAFORMA.toUpperCase()}</b></span></div>
+      <SelectorVista />
     </footer>
   )
 }

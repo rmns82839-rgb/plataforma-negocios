@@ -43,7 +43,7 @@ for (const f of ['01-plataforma.sql', '02-datos.sql', '03-seguridad.sql', '04-fu
   try { await db.exec(fs.readFileSync(path.join(sqlDir, f), 'utf8')); console.log('OK   ', f) }
   catch (e) { console.log('FALLA', f, '→', e.message); process.exit(1) }
 }
-for (const f of ['25-horarios-directorio.sql', '26-solicitudes-negocio.sql']) {
+for (const f of ['25-horarios-directorio.sql', '26-solicitudes-negocio.sql', '27-administrador-miembro.sql']) {
   try { await db.exec(fs.readFileSync(path.join(sqlDir, f), 'utf8')); console.log('OK   ', f) }
   catch (e) { console.log('FALLA', f, '→', e.message); process.exit(1) }
 }
@@ -150,6 +150,21 @@ await falla('un usuario con sesión no crea negocios', 'duenoA', () => q(`select
 await ok('la consola (sin sesión) sí', 'sistema', () => q(`select crear_negocio('desde-consola','Desde consola','tienda','c@correo.com') r`), r => r.rows[0].r.slug === 'desde-consola' && r.rows[0].r.plan === 'vitrina')
 await falla('_alta_negocio no se llama desde fuera', 'duenoA', () => q(`select _alta_negocio('x-x','X','tienda','a@b.com','vitrina')`), 'permission denied')
 await ok('al final el aislamiento sigue completo', 'sistema', () => q(`select * from verificar_aislamiento()`), r => r.rows.every(x => x.ok) || (console.log(r.rows.filter(x => !x.ok)), false))
+
+console.log('\n--- Un administrador también puede tener su propia tienda (SQL 27) ---')
+await db.exec(fs.readFileSync(path.join(sqlDir, '27-administrador-miembro.sql'), 'utf8'))     // segunda carga
+const idA = (await como('sistema', () => q(`select id from negocios where slug='tienda-a'`))).rows[0].id
+const idMiaId = (await como('sistema', () => q(`select crear_negocio('tienda-admin','Tienda del admin','tienda','admin@prueba.com','completo') r`))).rows[0].r.id
+await ok('al crear una tienda para el correo del administrador, queda de dueño (no invitado)', 'sistema', () => q(`select m.rol from negocio_miembros m where m.negocio_id=$1 and m.user_id=$2`, [idMiaId, U.admin]), r => r.rows[0]?.rol === 'dueno')
+await falla('un usuario de soporte (solo lectura) sigue sin poder ser miembro', 'sistema', () => q(`insert into negocio_miembros (negocio_id, user_id, rol) values ($1,$2,'cajero')`, [idA, U.soporte]), 'soporte de la plataforma')
+await ok('el administrador ve su tienda como dueño y las demás como soporte', 'admin', () => q(`select slug, rol from mis_negocios() order by slug`), r => r.rows.find(x => x.slug === 'tienda-admin')?.rol === 'dueno' && r.rows.find(x => x.slug === 'tienda-a')?.rol === 'soporte')
+await ok('el administrador escribe en su propia tienda', 'admin', () => q(`update negocio_config set eslogan = 'Hola' where negocio_id=$1`, [idMiaId]), r => r.affectedRows === 1)
+await falla('…pero no en la de otro negocio (solo lectura)', 'admin', () => q(`update negocio_config set eslogan = 'Hack' where negocio_id=$1`, [idA]), 'cero|soporte de la plataforma')
+await ok('…y sí puede leer la de otro negocio', 'admin', () => q(`select count(*)::int n from negocio_config where negocio_id=$1`, [idA]), r => r.rows[0].n === 1)
+await como('anon', () => enviar({ email: 'admin@prueba.com', nombre_negocio: 'Otra del admin', telefono: '3165550000' }))
+const idSolAdmin = (await como('sistema', () => q(`select id from solicitudes_negocio where nombre_negocio='Otra del admin'`))).rows[0].id
+await ok('aprobar: el administrador queda dueño de la nueva tienda', 'admin', () => q(`select aprobar_solicitud_negocio($1,'otra-del-admin') r`, [idSolAdmin]), r => r.rows[0].r.invitacion_pendiente === false)
+await ok('verificar_aislamiento sigue completo', 'sistema', () => q(`select * from verificar_aislamiento()`), r => r.rows.every(x => x.ok) || (console.log(r.rows.filter(x => !x.ok)), false))
 
 console.log(`\n  ${pruebas - fallas} de ${pruebas} pruebas correctas`)
 process.exit(fallas ? 1 : 0)

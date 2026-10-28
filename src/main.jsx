@@ -4,8 +4,11 @@ import './index.css'
 import App from './App.jsx'
 import { iniciarPwa } from './lib/pwa'
 import { supabase } from './lib/supabase'
+import { aplicarVista, hacenFaltaMarco } from './lib/vistaPantalla'
+import VistaMarco from './tienda/VistaMarco'
 
-createRoot(document.getElementById('root')).render(<StrictMode><App /></StrictMode>)
+aplicarVista()
+createRoot(document.getElementById('root')).render(<StrictMode>{hacenFaltaMarco() ? <VistaMarco /> : <App />}</StrictMode>)
 
 // App instalable: se guarda el aviso de instalación del navegador y se registra el service worker.
 iniciarPwa(() => {

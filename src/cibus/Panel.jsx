@@ -43,6 +43,7 @@ import GuiaDinero from './components/GuiaDinero'
 import PromocionesAdmin from './components/PromocionesAdmin'
 import Domicilios from './components/Domicilios'
 import MiCuenta from './components/MiCuenta'
+import SelectorVista from '../tienda/SelectorVista'
 import PuertaMfa from './components/PuertaMfa'
 import { useDosPasos } from './lib/useDosPasos'
 import FiltroFechas from './components/FiltroFechas'
@@ -185,6 +186,7 @@ function Menu({ onIr, dueno, soporte = false, nuevos = 0, opiniones = 0 }) {
         <span className="text-slate-400 text-lg" aria-hidden="true">›</span>
       </button>
     ))}
+    <SelectorVista />
     </div>
   )
 }
