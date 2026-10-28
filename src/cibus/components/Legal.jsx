@@ -1,6 +1,7 @@
 // Páginas legales públicas: /privacidad (tratamiento de datos, Ley 1581 de 2012) y /terminos.
 // Texto base armado con los datos de "Mi negocio". Debe revisarlo un abogado antes de darlo por definitivo.
 import Marca from './Marca'
+import { slugActual } from '../lib/enlaces'
 import { useNegocioPublico } from '../lib/useNegocioPublico'
 
 const Sec = ({ t, children }) => (
@@ -67,7 +68,7 @@ function Terminos({ n }) {
         <p>En ropa, aceptamos cambios por talla o defecto de fábrica dentro del plazo que te informemos al momento de la compra, con la prenda sin uso y con sus etiquetas. Por su naturaleza, los productos perecederos solo se cambian si llegan en mal estado. Tus derechos como consumidor (Ley 1480 de 2011) se mantienen en todo caso.</p>
       </Sec>
       <Sec t="6. Datos personales">
-        <p>El tratamiento de tus datos se rige por nuestra <a href="/privacidad" className="underline text-oro-oscuro">política de tratamiento de datos</a>.</p>
+        <p>El tratamiento de tus datos se rige por nuestra <a href={`/t/${slugActual()}/privacidad`} className="underline text-oro-oscuro">política de tratamiento de datos</a>.</p>
       </Sec>
       <Sec t="7. Contacto">
         <p>{[n.telefono, n.email].filter(Boolean).join(' · ') || 'Escríbenos por WhatsApp.'}</p>
@@ -85,7 +86,7 @@ export default function Legal({ tipo }) {
         <Marca tam="sm" />
       </header>
       <main className="max-w-2xl mx-auto p-5 lg:py-10 space-y-6">
-        <button onClick={() => (window.history.length > 1 ? window.history.back() : (window.location.href = '/tienda'))}
+        <button onClick={() => (window.history.length > 1 ? window.history.back() : (window.location.href = `/t/${slugActual() ?? ''}`))}
           className="h-10 px-4 rounded-xl bg-slate-100 text-sm text-slate-600 active:bg-slate-200">← Volver</button>
         <h1 className="font-display text-3xl font-semibold text-negro">
           {privacidad ? 'Política de tratamiento de datos personales' : 'Términos y condiciones'}

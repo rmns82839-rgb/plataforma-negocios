@@ -55,7 +55,7 @@ function Destacado({ d, grande, onVer }) {
       <div className="p-3 grid gap-2 content-between">
         <div className="space-y-0.5">
           {d.categoria && <p className="text-[10px] uppercase tracking-[0.18em] text-oro break-words">{d.categoria}</p>}
-          <h3 className={`font-display font-semibold leading-tight text-negro ${grande ? 'text-xl' : 'text-base'} line-clamp-2`}>{d.nombre}</h3>
+          <h3 className={`font-display font-semibold leading-tight text-negro ${grande ? 'text-xl' : 'text-base'}`}>{d.nombre}</h3>
           <p className="text-sm font-semibold text-oro-oscuro">
             {d.precio != null ? <>{dinero(d.precio)} <span className="text-xs font-normal text-slate-400 line-through">{dinero(d.antes)}</span></> : (d.nota || '')}
           </p>

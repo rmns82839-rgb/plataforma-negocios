@@ -15,6 +15,7 @@ export function useRuta() {
   }, [])
   const partes = path.split('/').filter(Boolean)
   if ((partes[0] === 't' || partes[0] === 'n') && partes[1]) {
+    if (partes[2] === 'privacidad' || partes[2] === 'terminos') return { vista: 'legal', slug: partes[1].toLowerCase(), legal: partes[2] }
     const v = partes[2] === 'panel' ? 'panel' : partes[2] === 'mis-pedidos' ? 'mis-pedidos' : partes[2] === 'pistola' ? 'pistola' : 'publico'
     return { vista: v, slug: partes[1].toLowerCase() }
   }

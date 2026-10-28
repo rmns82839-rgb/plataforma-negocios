@@ -5,15 +5,15 @@ import { useSesion } from './lib/sesion'
 import { Pagina, Tarjeta, Cargando } from './pages/Piezas'
 import Login from './pages/Login'
 import Inicio from './pages/Inicio'
-import Tienda from './tienda/Tienda'
 import PanelApp from './panel/PanelApp'
 import PaginaMisPedidos from './tienda/PaginaMisPedidos'
 import Directorio from './tienda/Directorio'
+import TiendaCibus, { LegalCibus } from './cibus/TiendaCibus'
 import { lazy, Suspense } from 'react'
 const PistolaPagina = lazy(() => import('./cibus/PistolaPagina'))
 
 export default function App() {
-  const { vista, slug } = useRuta()
+  const { vista, slug, legal } = useRuta()
   const sesion = useSesion()
 
   // Quien entra con un correo que tiene una invitación pendiente (cajero, p. ej.) queda agregado a esa tienda
@@ -35,7 +35,8 @@ export default function App() {
     )
   }
   if (vista === 'directorio') return <Directorio />
-  if (vista === 'publico') return <Tienda slug={slug} />
+  if (vista === 'legal') return <LegalCibus slug={slug} tipo={legal} />
+  if (vista === 'publico') return <TiendaCibus slug={slug} />
   if (vista === 'panel') return <PanelApp slug={slug} />
   if (vista === 'pistola') return <Suspense fallback={<Cargando />}><PistolaPagina slug={slug} /></Suspense>
   if (vista === 'mis-pedidos') return <PaginaMisPedidos slug={slug} />

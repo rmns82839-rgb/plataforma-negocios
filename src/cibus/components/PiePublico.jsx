@@ -3,6 +3,9 @@
 import Marca from './Marca'
 import { useNegocioPublico, urlRed } from '../lib/useNegocioPublico'
 import { soloDigitos } from '../lib/datosCliente'
+import { slugActual } from '../lib/enlaces'
+import { resumenHorario } from '../../lib/horario'
+import LogoTienda from './LogoTienda'
 
 const Fila = ({ titulo, children }) => (
   <div className="space-y-1">
@@ -34,7 +37,7 @@ export default function PiePublico({ whatsapp, tema = 'ropa' }) {
       <p>{dir}</p>
       {mapa && <a href={mapa} target="_blank" rel="noopener noreferrer" className="text-champagne underline underline-offset-4 text-xs">Cómo llegar</a>}
     </Fila>,
-    n.horario && <Fila key="h" titulo="Horario"><p className="whitespace-pre-line">{n.horario}</p></Fila>,
+    (n.horario_semana || n.horario) && <Fila key="h" titulo="Horario"><p className="whitespace-pre-line">{n.horario_semana ? resumenHorario(n.horario_semana).split(' · ').join('\n') : n.horario}</p></Fila>,
     (n.telefono || n.email || wa) && <Fila key="c" titulo="Contacto">
       {n.telefono && <p><a href={`tel:${soloDigitos(n.telefono)}`}>{n.telefono}</a></p>}
       {n.email && <p className="break-words"><a href={`mailto:${n.email}`}>{n.email}</a></p>}
@@ -42,11 +45,12 @@ export default function PiePublico({ whatsapp, tema = 'ropa' }) {
   ].filter(Boolean)
 
   return (
-    <footer id="contacto" className={`${tema === 'tienda' ? 'bg-[#2A0B47]' : 'bg-negro'} mt-12 px-4 pt-10 pb-32 text-center scroll-mt-4`}>
+    <footer id="contacto" className={`${tema === 'tienda' ? 'bg-cibus-profundo' : 'bg-negro'} mt-12 px-4 pt-10 pb-32 text-center scroll-mt-4`}>
       <div className="max-w-md sm:max-w-3xl lg:max-w-6xl mx-auto space-y-8">
-        {tema === 'tienda' && <img src="/cibus-logo.webp" alt="Cibus" width="900" height="507" loading="lazy" className="mx-auto w-56 h-auto" />}
-        <Marca tam="sm" />
-        {n.nombre && <p className="font-display text-lg text-champagne tracking-wide">{n.nombre}</p>}
+        {tema === 'tienda' && n.nombre && <LogoTienda n={n} tam={72} />}
+        {n.nombre && <p className="font-display text-xl text-champagne tracking-wide break-words">{n.nombre}</p>}
+        <Marca tam="sm" eslogan={false} />
+        <p className="text-[10px] uppercase tracking-[0.28em] text-champagne/50">Tienda creada con Matriz</p>
 
         {bloques.length > 0 && (
           <div className={`grid gap-6 text-center ${bloques.length === 1 ? 'grid-cols-1' : bloques.length === 2 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1 sm:grid-cols-3'}`}>
@@ -63,8 +67,8 @@ export default function PiePublico({ whatsapp, tema = 'ropa' }) {
 
         <div className="border-t border-champagne/15 pt-5 space-y-2">
           <p className="text-xs text-hueso/60 space-x-3">
-            <a href="/privacidad" className="underline underline-offset-4">Política de datos</a>
-            <a href="/terminos" className="underline underline-offset-4">Términos y condiciones</a>
+            <a href={`/t/${slugActual()}/privacidad`} className="underline underline-offset-4">Política de datos</a>
+            <a href={`/t/${slugActual()}/terminos`} className="underline underline-offset-4">Términos y condiciones</a>
           </p>
           <p className="text-[11px] text-hueso/40">
             © {new Date().getFullYear()} {n.razon_social || n.nombre || 'Matriz'}{n.nit ? ` · NIT ${n.nit}` : ''}

@@ -3,11 +3,16 @@ import { urlManifest, urlIconoApple } from './pwa'
 
 const HEX = /^#[0-9A-Fa-f]{6}$/
 const triple = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(' ')
+// Mezcla un color con negro: f = 0.6 deja el 60 % del color (más oscuro)
+const oscurecer = (hex, f) => [1, 3, 5].map((i) => Math.round(parseInt(hex.slice(i, i + 2), 16) * f)).join(' ')
 
 // Aplica la marca de un negocio a toda la página: colores, título e ícono.
 export function aplicarMarca(m) {
   const raiz = document.documentElement.style
-  if (HEX.test(m?.color_principal || '')) raiz.setProperty('--c-principal', triple(m.color_principal))
+  if (HEX.test(m?.color_principal || '')) {
+    raiz.setProperty('--c-principal', triple(m.color_principal))
+    raiz.setProperty('--c-cibus', triple(m.color_principal)); raiz.setProperty('--c-cibus-oscuro', oscurecer(m.color_principal, 0.6)); raiz.setProperty('--c-cibus-profundo', oscurecer(m.color_principal, 0.3))
+  }
   if (HEX.test(m?.color_secundario || '')) raiz.setProperty('--c-secundario', triple(m.color_secundario))
   if (HEX.test(m?.color_acento || '')) raiz.setProperty('--c-acento', triple(m.color_acento))
   if (m?.slug) ponerManifest(m.slug, { color: m.color_principal })
@@ -44,6 +49,6 @@ export function quitarManifest() {
 export function quitarMarca() {
   quitarManifest()
   const raiz = document.documentElement.style
-  ;['--c-principal', '--c-secundario', '--c-acento'].forEach((v) => raiz.removeProperty(v))
+  ;['--c-principal', '--c-secundario', '--c-acento', '--c-cibus', '--c-cibus-oscuro', '--c-cibus-profundo'].forEach((v) => raiz.removeProperty(v))
   document.title = 'Matriz'
 }

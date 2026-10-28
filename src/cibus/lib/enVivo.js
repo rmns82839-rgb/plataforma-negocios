@@ -6,6 +6,7 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { supabase, negocioActual } from './supabase'
 import { slugActual } from './enlaces'
+import { modoPublico } from './publico'
 
 // Cada tienda tiene sus propios canales: visitas:{tienda} (las visitas del catálogo, sin datos personales)
 // y envivo:{tienda}:personal (privado: la base solo deja entrar al personal de ESA tienda).
@@ -60,6 +61,7 @@ export function useVisitante(catalogo, negocioId = negocioActual()) {
       try { const { data } = await supabase.auth.getSession(); if (data?.session) return } catch { /* sigue como visitante */ }
       if (!vivo) return
       contarVisita(catalogo)
+      if (modoPublico()) return      // el público no abre el canal de «quién está mirando» (solo cuenta la visita)
       try {
         limpiar(canalVisitas(negocioId))
         canal = supabase.channel(canalVisitas(negocioId), { config: { presence: { key: idAzar() } } })

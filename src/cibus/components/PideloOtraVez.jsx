@@ -16,7 +16,7 @@ export default function PideloOtraVez({ productos, lineas, onAgregar, onCambiar,
               <button onClick={() => onVer(p)} className="text-left active:opacity-80">
                 <div className="aspect-square bg-white">{p.imagenes?.[0] ? <img src={p.imagenes[0]} alt={p.nombre} loading="lazy" className="w-full h-full object-contain" /> : <SinFoto />}</div>
                 <div className="p-2 space-y-0.5">
-                  <p className="text-xs font-medium leading-tight line-clamp-2 min-h-[2rem]">{p.nombre}</p>
+                  <p className="text-xs font-medium leading-tight min-h-[2rem]">{p.nombre}</p>
                   <p className="text-xs font-semibold text-oro-oscuro">{dinero(p.precio_venta)}</p>
                 </div>
               </button>

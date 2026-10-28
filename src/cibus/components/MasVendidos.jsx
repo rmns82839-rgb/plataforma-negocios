@@ -17,7 +17,7 @@ export default function MasVendidos({ productos, onVer }) {
                 <span className="absolute top-2 left-2 h-6 min-w-6 px-1.5 grid place-items-center rounded-full bg-champagne text-negro text-xs font-bold">{i + 1}</span>
               </div>
               <div className="p-2.5 space-y-0.5">
-                <p className="text-sm font-medium leading-tight line-clamp-2 min-h-[2.25rem]">{p.nombre}</p>
+                <p className="text-sm font-medium leading-tight min-h-[2.25rem]">{p.nombre}</p>
                 <p className="text-sm font-semibold text-oro-oscuro">{dinero(p.precio_venta)}</p>
               </div>
             </button>

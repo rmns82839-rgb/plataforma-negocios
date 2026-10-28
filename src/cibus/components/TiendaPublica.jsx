@@ -1,4 +1,4 @@
-// Catálogo público de productos de la tienda (ruta /tienda). No requiere sesión.
+// Catálogo público de productos de la tienda (ruta /t/{tienda}). No requiere sesión.
 // El cliente arma su pedido y se envía por WhatsApp. Solo se ven los productos
 // marcados "Mostrar en la tienda en línea" (vista catalogo_productos).
 import { useVisitante } from '../lib/enVivo'
@@ -11,6 +11,7 @@ import { dinero, numero } from '../lib/formato'
 import { claseInput } from '../lib/estilos'
 import { coincide } from '../lib/buscar'
 import { rutaProducto, idDeLaDireccion } from '../lib/tiendaUrl'
+import { slugActual } from '../lib/enlaces'
 import Modal from './Modal'
 import Carrusel from './Carrusel'
 import SinFoto from './SinFoto'
@@ -33,7 +34,7 @@ import Revelar from './Revelar'
 import AnuncioPublico from './AnuncioPublico'
 import BarraCatalogo, { AvisoAgregado, Sugeridos } from './BarraCatalogo'
 import DatosPedido from './DatosPedido'
-import DomicilioDistancia from './DomicilioDistancia'
+import DomicilioPlataforma from './DomicilioPlataforma'
 import CuentaCliente from './CuentaCliente'
 import { useCuentaCliente, volvioDeIngreso, datosDePerfil } from '../lib/cuentaCliente'
 import { useNegocioPublico } from '../lib/useNegocioPublico'
@@ -274,7 +275,7 @@ export default function TiendaPublica() {
   const verTodasOfertas = () => { setSoloOfertas(true); setCategoria('todas'); setTexto(''); window.scrollTo({ top: 0, behavior: 'smooth' }) }
 
   const abrir = (p) => { setDetalle(p); window.history.replaceState(null, '', rutaProducto(p)) }
-  const cerrar = () => { setDetalle(null); window.history.replaceState(null, '', '/tienda') }
+  const cerrar = () => { setDetalle(null); window.history.replaceState(null, '', `/t/${slugActual()}`) }
 
   const cuenta = useMemo(() => {
     let b = 0, d = 0
@@ -386,7 +387,7 @@ export default function TiendaPublica() {
     setErrorPedido(''); setEnviando(true)
     const ventana = window.open('', '_blank')        // se abre ya, para que el navegador no la bloquee
     const items = pedido.map(l => ({ producto_id: l.producto.id, cantidad: l.cantidad }))
-    const { data, error: err } = await supabase.rpc('crear_pedido_tienda', { p_datos: { ...datosParaServidor(datosPedido, recoge), ...(modoKm && !recoge && domVigente?.estado === 'ok' ? { km: domVigente.km } : {}) }, p_items: items })
+    const { data, error: err } = await supabase.rpc('crear_pedido_tienda', { p_datos: { ...datosParaServidor(datosPedido, recoge), ...(modoKm && !recoge && domVigente?.estado === 'ok' ? (domVigente.calculo_id ? { calculo_id: domVigente.calculo_id } : { sin_calculo: 'true' }) : {}) }, p_items: items })
     let t, numeroPedido = null
     if (!err && data?.numero) {
       numeroPedido = data.numero
@@ -516,7 +517,7 @@ export default function TiendaPublica() {
                 </div>
                 <div className="p-3 lg:p-4 space-y-0.5">
                   {p.categoria && <p className="text-[10px] uppercase tracking-[0.18em] text-oro break-words">{p.categoria}</p>}
-                  <p className="text-sm font-medium leading-tight line-clamp-2 min-h-[2.25rem]">{p.nombre}</p>
+                  <p className="text-sm font-medium leading-tight min-h-[2.25rem]">{p.nombre}</p>
                   {(() => {
                     const d = enOferta.find(x => x.id === p.id)
                     return d?.precio != null ? (
@@ -599,8 +600,8 @@ export default function TiendaPublica() {
                 </button>
               )}
               {cta.error && cta.sesion && <p className="text-base text-red-600 bg-red-50 rounded-lg px-3 py-2 break-words">{cta.error}</p>}
-              {modoKm && !recoge && (
-                <DomicilioDistancia direccion={datosPedido.direccion} subtotal={total} maxKm={domCfg?.max_km} resultado={domRes} onResultado={(r) => { setDomRes(r); setErrorPedido('') }} />
+              {modoKm && !recoge && negocio && (
+                <DomicilioPlataforma n={negocio} direccion={datosPedido.direccion} subtotal={total} onRecoger={() => setRecoge(true)} onResultado={(r) => { setDomRes(r); setErrorPedido('') }} />
               )}
             </>
           )}

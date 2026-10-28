@@ -33,13 +33,13 @@ export default function BarraCatalogo({ tema = 'ropa', secciones = [], ofertas =
   return (
     <>
       <nav aria-label="Navegación del catálogo" className="fixed inset-x-0 bottom-0 z-40 px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pointer-events-none flex justify-center">
-        <div className={`pointer-events-auto grid ${items.length === 5 ? 'grid-cols-5' : 'grid-cols-4'} w-full max-w-md rounded-2xl shadow-2xl ring-1 ${verde ? 'bg-[#2A0B47] ring-white/15' : 'bg-negro ring-champagne/25'}`}>
+        <div className={`pointer-events-auto grid ${items.length === 5 ? 'grid-cols-5' : 'grid-cols-4'} w-full max-w-md rounded-2xl shadow-2xl ring-1 ${verde ? 'bg-cibus-profundo ring-white/15' : 'bg-negro ring-champagne/25'}`}>
           {items.map(it => (
             <button key={it.id} onClick={it.on} className="relative h-16 grid place-items-center content-center gap-0.5 text-champagne active:opacity-70">
               <span className="relative">
                 {ICONOS[it.id]}
                 {it.n > 0 && <span className="absolute -top-1.5 -right-2.5 min-w-[1.1rem] h-[1.1rem] px-1 grid place-items-center rounded-full bg-champagne text-negro text-[10px] font-bold">{it.n}</span>}
-                {it.marca && <span className="absolute -top-0.5 -right-1 h-2 w-2 rounded-full bg-champagne ring-2 ring-[#2A0B47]" />}
+                {it.marca && <span className="absolute -top-0.5 -right-1 h-2 w-2 rounded-full bg-champagne ring-2 ring-cibus-profundo" />}
               </span>
               <span className="text-[10px] tracking-wide">{it.texto}</span>
             </button>

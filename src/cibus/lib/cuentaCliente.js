@@ -45,7 +45,7 @@ export function useCuentaCliente() {
     try { sessionStorage.setItem(VOLVER, '1') } catch { /* sin almacenamiento */ }
     // Se pide la dirección de Google SIN salir todavía: si Supabase la rechaza, se avisa aquí en vez de mostrar una pantalla técnica
     const { data, error: err } = await supabase.auth.signInWithOAuth({
-      provider: 'google', options: { redirectTo: `${window.location.origin}/tienda`, queryParams: { prompt: 'select_account' }, skipBrowserRedirect: true } })
+      provider: 'google', options: { redirectTo: window.location.href.split('#')[0], queryParams: { prompt: 'select_account' }, skipBrowserRedirect: true } })
     if (err || !data?.url) { setError(/provider.*not enabled|unsupported provider/i.test(err?.message ?? '') ? noDisponible : (err?.message || noDisponible)); return }
     try {
       const r = await fetch(data.url, { redirect: 'manual' })

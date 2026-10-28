@@ -4,6 +4,7 @@
 import { supabase as plataforma } from '../../lib/supabase'
 import { dbDe } from '../../lib/negocioDb'
 import { practicaActiva, contarSimulada } from './practica'
+import { modoPublico, desdePublico, rpcPublico } from './publico'
 
 let negocioId = null
 export function fijarNegocio(id) { negocioId = id }
@@ -157,9 +158,10 @@ const almacen = (bucket) => {
 
 export const supabase = new Proxy(plataforma, {
   get(t, k) {
-    if (k === 'from') return desdeNegocio
+    if (k === 'from') return (tabla) => (modoPublico() ? desdePublico(tabla) : desdeNegocio(tabla))
     if (k === 'rpc') {
       return (nombre, args, opc) => {
+        if (modoPublico()) return rpcPublico(nombre, args, opc)
         if (nombre === 'listar_instalaciones_app') return Promise.resolve({ data: null, error: { message: 'could not find the function listar_instalaciones_app' } })      // se enciende en la etapa de instalaciones
         nombre = ALIAS[nombre] ?? nombre
         if (!practicaActiva() || RPC_DE_LECTURA.test(nombre) || RPC_PUBLICAS.test(nombre)) return db().rpc(nombre, args, opc)

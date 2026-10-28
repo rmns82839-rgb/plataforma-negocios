@@ -20,6 +20,8 @@ export default {
         champagne: { DEFAULT: '#D8B978', claro: '#E8D3A2' },
         oro: { DEFAULT: '#A8803A', oscuro: '#8A6A2E' },
         esmeralda: '#0B6B4A',
+        // Catálogo público (aspecto Cibus): el color de CADA tienda, en tres tonos que salen de su color principal (src/lib/marca.js)
+        cibus: { DEFAULT: 'rgb(var(--c-cibus, 30 58 95) / <alpha-value>)', oscuro: 'rgb(var(--c-cibus-oscuro, 18 35 57) / <alpha-value>)', profundo: 'rgb(var(--c-cibus-profundo, 10 19 31) / <alpha-value>)' },
         hueso: '#F7F4EC',
         marca: { DEFAULT: '#0B0B0C', oscuro: '#000000', claro: '#3A3A3D' },
         lima: { DEFAULT: '#D8B978', oscuro: '#A8803A' },
