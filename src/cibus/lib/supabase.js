@@ -11,11 +11,12 @@ export const negocioActual = () => negocioId
 const db = () => { if (!negocioId) throw new Error('El panel no sabe de qué tienda es'); return dbDe(negocioId, plataforma) }
 
 // ---------- La tabla «negocio» de Cibus (una fila) vive en la plataforma en negocio_config + negocio_reglas ----------
-const CONFIG = { nombre: 'nombre_comercial', logo: 'logo_path', nit: 'nit', direccion: 'direccion', ciudad: 'ciudad', telefono: 'telefono', email: 'email', web: 'web', titulo_factura: 'titulo_factura', nota_pie: 'nota_pie', ver_logo: 'ver_logo', actualizado_en: 'actualizado_en' }
+const CONFIG = { nombre: 'nombre_comercial', logo: 'logo_path', nit: 'nit', direccion: 'direccion', ciudad: 'ciudad', telefono: 'telefono', email: 'email', web: 'web', titulo_factura: 'titulo_factura', nota_pie: 'nota_pie', ver_logo: 'ver_logo', whatsapp: 'whatsapp', instagram: 'instagram', facebook: 'facebook', tiktok: 'tiktok', horario: 'horario', maps_url: 'maps_url', razon_social: 'razon_social', correo_datos: 'correo_datos', actualizado_en: 'actualizado_en' }
 const REGLAS = ['prefijo_factura', 'comision_datafono', 'margen_minimo', 'mora_mensual', 'descuento_mayorista', 'bloquear_credito_mora', 'domicilio_costo', 'envio_gratis_desde', 'zona_domicilio', 'formas_pago_tienda']
 const unir = (c, r) => {
   const o = { id: 1 }
   if (c) for (const [antes, ahora] of Object.entries(CONFIG)) o[antes] = c[ahora]
+  if (o.logo && !/^(data:|https?:)/.test(o.logo)) o.logo = plataforma.storage.from('negocios').getPublicUrl(o.logo).data.publicUrl
   if (r) for (const k of REGLAS) o[k] = r[k]
   return o
 }
@@ -35,6 +36,14 @@ function negocioFalso() {
   const escribir = async () => {
     const d = db(), v = q.valores
     const cfg = {}, reg = {}
+    if (typeof v.logo === 'string' && v.logo.startsWith('data:')) {      // logo nuevo: se sube a la carpeta de marca de la tienda
+      const blob = await (await fetch(v.logo)).blob()
+      const ruta = `${negocioId}/marca/logo-${Date.now()}.${blob.type === 'image/png' ? 'png' : 'jpg'}`
+      const s = await plataforma.storage.from('negocios').upload(ruta, blob, { contentType: blob.type })
+      if (s.error) return { data: null, error: s.error, count: null, status: 400 }
+      v.logo = ruta; cfg.icono_path = ruta
+    } else if (typeof v.logo === 'string' && /^https?:/.test(v.logo)) delete v.logo      // sin cambios (ya es la dirección pública)
+    else if (v.logo === null) cfg.icono_path = null
     for (const [k, val] of Object.entries(v)) { if (CONFIG[k] && k !== 'actualizado_en') cfg[CONFIG[k]] = val; else if (REGLAS.includes(k)) reg[k] = val }
     for (const [tabla, vals] of [['negocio_config', cfg], ['negocio_reglas', reg]]) {
       if (Object.keys(vals).length === 0) continue
@@ -74,7 +83,7 @@ const RPC_DE_LECTURA = /^(es_|listar|tablero|mfa|registrar_acceso|mi_perfil|dato
 const RPC_PUBLICAS = /^(crear_pedido_|registrar_visita|guardar_mi_perfil|borrar_mi_perfil|publicar_|borrar_mis_|guardar_suscripcion_push|borrar_mi_suscripcion_push|registrar_app_instalada)/
 
 // Funciones de Cibus que en la plataforma se llaman distinto
-const ALIAS = { listar_comentarios_admin: 'listar_opiniones_admin', listar_equipo: 'listar_miembros', quitar_personal: 'quitar_miembro', agregar_personal: 'invitar_miembro', moderar_comentario: 'moderar_opinion' }
+const ALIAS = { listar_resumen_semanal: 'resumen_semanal', listar_comentarios_admin: 'listar_opiniones_admin', listar_equipo: 'listar_miembros', quitar_personal: 'quitar_miembro', agregar_personal: 'invitar_miembro', moderar_comentario: 'moderar_opinion' }
 
 // Los avisos en tiempo real también se limitan a esta tienda
 const canalDeNegocio = (nombre, opc) => {
@@ -151,6 +160,7 @@ export const supabase = new Proxy(plataforma, {
     if (k === 'from') return desdeNegocio
     if (k === 'rpc') {
       return (nombre, args, opc) => {
+        if (nombre === 'listar_instalaciones_app') return Promise.resolve({ data: null, error: { message: 'could not find the function listar_instalaciones_app' } })      // se enciende en la etapa de instalaciones
         nombre = ALIAS[nombre] ?? nombre
         if (!practicaActiva() || RPC_DE_LECTURA.test(nombre) || RPC_PUBLICAS.test(nombre)) return db().rpc(nombre, args, opc)
         contarSimulada()

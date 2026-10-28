@@ -83,6 +83,7 @@ const MAS = [
   { id: 'auditoria', texto: 'Auditoría',          nota: 'Quién hizo qué',       icono: 'buscar', soloDueno: true },
   { id: 'guia',     texto: 'Guía del dinero',     nota: 'Cómo manejar cada entrada', icono: 'nota', soloDueno: true },
   { id: 'categorias', texto: 'Categorías',        nota: 'Ordenar la tienda',    icono: 'etiqueta' },
+  { id: 'tienda',   texto: 'Mi tienda en línea',  nota: 'Colores y domicilio por km', icono: 'negocio', soloDueno: true },
   { id: 'plan',     texto: 'Mi plan',             nota: 'Precio y límites',     icono: 'pagos', soloDueno: true },
 ]
 
@@ -423,6 +424,9 @@ function Contenido() {
         {activa === 'mas' && sub === 'envivo'   && dueno === true && <EnVivo />}
         {activa === 'mas' && sub === 'reportes' && <Reportes />}
         {activa === 'mas' && sub === 'respaldo' && dueno === true && <Respaldo />}
+        {activa === 'mas' && sub === 'formas'   && <FormasPago />}
+        {activa === 'mas' && sub === 'negocio'  && <div className="lg:max-w-2xl lg:mx-auto"><Negocio /></div>}
+        {activa === 'mas' && sub === 'resumen'  && dueno === true && <div className="lg:max-w-2xl lg:mx-auto"><ResumenSemana /></div>}
         {activa === 'mas' && sub === 'avisos' && dueno === true && <AvisosClientes />}
         {activa === 'mas' && sub === 'sonidos' && <SonidosAvisos />}
         {activa === 'mas' && sub === 'ventas'   && <FiltroFechas>{(r) => <VentasLista rango={r} />}</FiltroFechas>}

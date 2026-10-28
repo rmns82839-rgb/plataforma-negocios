@@ -25,16 +25,17 @@ export const NUEVAS = {
   tablero:  { modulo: 'reportes' },
   envivo:   { modulo: 'caja' },
   practica: { modulo: null },
+  formas:   { modulo: 'caja' },
+  negocio:  { modulo: null },
+  resumen:  { modulo: 'resumen_semanal' },
 }
 // Pantallas de Cibus que aún usan la versión anterior de la plataforma: id de Cibus → [id de la pantalla anterior, módulo]
 export const LEGADO = {
-  formas: ['formas', 'caja'],
   plan: ['plan', null],
+  tienda: ['tienda', null],
   categorias: ['categorias', 'productos'],
-  negocio: ['tienda', null],
   menudia: ['vitrina', 'menu_del_dia'],
   musica: ['vitrina', 'musica_fondo'],
-  resumen: ['resumen', 'resumen_semanal'],
 }
 // Funciones sueltas que dependen de SQL que todavía no está en la plataforma (se encienden en su etapa)
 export const FUNCIONES = { prestamoRapido: true }
