@@ -10,6 +10,7 @@ import { confirmar } from '../lib/confirmar'
 import { leerBorrador, guardarBorrador, DOCE_HORAS } from '../lib/borrador'
 import AvisoBorrador from './AvisoBorrador'
 import DomicilioKmConfig from './DomicilioKmConfig'
+import HorarioAtencion from './HorarioAtencion'
 import { validarDomicilioKm } from '../lib/domicilioKm'
 
 const CLAVE_BORRADOR = 'bd:negocio:cambios'      // lo editado y sin guardar sobrevive a recargar la página
@@ -106,7 +107,7 @@ export default function Negocio() {
       ...(hayV9 ? { mora_mensual: porcentaje(f.mora_mensual) ?? 0, descuento_mayorista: porcentaje(f.descuento_mayorista) ?? 0, bloquear_credito_mora: Boolean(f.bloquear_credito_mora) } : {}),
       ...(hayV12 ? {
         instagram: limpio(f.instagram), facebook: limpio(f.facebook), tiktok: limpio(f.tiktok),
-        whatsapp: limpio(String(f.whatsapp ?? '').replace(/\D/g, '')), horario: limpio(f.horario), maps_url: limpio(f.maps_url),
+        whatsapp: limpio(String(f.whatsapp ?? '').replace(/\D/g, '')), maps_url: limpio(f.maps_url),
         razon_social: limpio(f.razon_social), correo_datos: limpio(f.correo_datos),
       } : {}),
       ...(hayV20 ? {
@@ -172,6 +173,8 @@ export default function Negocio() {
         </Campo>
       </div>
 
+      <HorarioAtencion />
+
       {hayV12 && (
         <div className="bg-white rounded-2xl shadow-sm p-4 space-y-4">
           <div>
@@ -186,10 +189,6 @@ export default function Negocio() {
           </Campo>
           <Campo etiqueta="WhatsApp del negocio (con 57, solo números)">
             <input value={f.whatsapp} onChange={poner('whatsapp')} maxLength={30} inputMode="tel" placeholder="573001234567" className={claseInput} />
-          </Campo>
-          <Campo etiqueta="Horario de atención">
-            <textarea value={f.horario} onChange={poner('horario')} maxLength={200} rows={2} placeholder={'Lunes a sábado 8 am – 8 pm\nDomingos 9 am – 2 pm'}
-              className="w-full px-4 py-3 rounded-xl border border-slate-300 bg-white focus:border-marca focus:ring-2 focus:ring-marca/20 outline-none resize-none" />
           </Campo>
           <Campo etiqueta="Enlace de Google Maps (opcional)">
             <input value={f.maps_url} onChange={poner('maps_url')} maxLength={300} inputMode="url" placeholder="https://maps.app.goo.gl/…" className={claseInput} />

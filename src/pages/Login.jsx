@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { Btn, Aviso, Campo, clsInput, PiePlataforma } from '../tienda/ui'
 import { entrarConGoogle } from '../lib/google'
 import MarcaMatriz from '../tienda/MarcaMatriz'
+import { ir } from '../lib/ruta'
 
 export default function Login({ titulo = 'Ingresar' }) {
   const [correo, setCorreo] = useState('')
@@ -38,6 +39,10 @@ export default function Login({ titulo = 'Ingresar' }) {
       <div className="mt-5 space-y-3 rounded-2xl border-2 border-black/5 bg-white p-5">
         <p className="text-lg font-semibold leading-snug">¿Te invitaron a una tienda con tu correo de Google?</p>
         <Btn variante="suave" type="button" onClick={async () => { const e = await entrarConGoogle(); if (e) setError(e) }}>Entrar con Google</Btn>
+      </div>
+      <div className="mt-5 space-y-3 rounded-2xl border-2 border-black/5 bg-white p-5">
+        <p className="text-lg font-semibold leading-snug">¿Buscas una tienda para comprar?</p>
+        <Btn variante="suave" type="button" onClick={() => ir('/tiendas')}>Ver tiendas abiertas cerca de mí</Btn>
       </div>
       <PiePlataforma />
     </main>

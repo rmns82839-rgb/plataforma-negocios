@@ -4,7 +4,8 @@ import { aplicarMarca, quitarMarca } from '../lib/marca'
 import { ir } from '../lib/ruta'
 import { useSesion } from '../lib/sesion'
 import { totales, costoDomicilioCalculado, mensajePedido, urlWhatsapp, cop } from '../lib/pedido'
-import { Btn, Volver, Aviso, Logo, BarraFija, PiePlataforma } from './ui'
+import { Btn, Volver, Aviso, Logo, BarraFija, PiePlataforma, InsigniaHorario } from './ui'
+import { resumenHorario } from '../lib/horario'
 import Catalogo from './Catalogo'
 import { MenuDelDia, MusicaFondo, Opiniones, SeguirPedido } from './Extras'
 import Instalar from './Instalar'
@@ -199,7 +200,8 @@ export default function Tienda({ slug }) {
             {n.eslogan && <p className="text-xl text-tinta/70">{n.eslogan}</p>}
             <div className="h-1 w-20 rounded bg-secundario" />
             <div className="space-y-1 text-lg text-tinta/80">
-              {n.horario && <p>🕒 {n.horario}</p>}
+              <InsigniaHorario estado={n.estado_horario} />
+              {(n.horario_semana ? resumenHorario(n.horario_semana) : n.horario) && <p>🕒 {n.horario_semana ? resumenHorario(n.horario_semana) : n.horario}</p>}
               {(n.direccion || n.ciudad) && <p>📍 {[n.direccion, n.ciudad].filter(Boolean).join(', ')}</p>}
               {n.zona_domicilio && <p>🛵 {n.zona_domicilio}</p>}
               {n.envio_gratis_desde > 0 && <p>Domicilio sin costo desde {cop(n.envio_gratis_desde)}</p>}

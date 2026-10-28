@@ -1,6 +1,7 @@
 // Piezas de la tienda pública: letra grande, botones grandes y fondos claros (clientes de 50 a 70 años).
 import { urlImagen } from '../lib/supabase'
 import { Isotipo } from './MarcaMatriz'
+import { textoEstado } from '../lib/horario'
 
 export const MARCA_PLATAFORMA = 'Matriz'
 
@@ -49,6 +50,18 @@ export function Logo({ n, tamano = 80 }) {
       className="flex items-center justify-center rounded-full bg-principal font-bold text-white shadow-sm">
       {n.logo_auto?.inicial || (n.nombre || '?').charAt(0).toUpperCase()}
     </div>
+  )
+}
+
+// «Abierto ahora · cierra 8:00 p. m.» / «Cerrado · abre mañana 7:00 a. m.» (no sale nada si la tienda no cargó su horario)
+export function InsigniaHorario({ estado, className = '' }) {
+  const t = textoEstado(estado)
+  if (!t) return null
+  return (
+    <span className={`inline-flex max-w-full items-center gap-2 rounded-full px-4 py-2 text-lg font-semibold ${t.abierto ? 'bg-emerald-100 text-emerald-900' : 'bg-red-100 text-red-900'} ${className}`}>
+      <span aria-hidden="true" className={`h-3 w-3 shrink-0 rounded-full ${t.abierto ? 'bg-emerald-600' : 'bg-red-600'}`} />
+      <span className="break-words text-left">{t.texto}</span>
+    </span>
   )
 }
 
