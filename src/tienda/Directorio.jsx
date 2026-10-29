@@ -13,7 +13,9 @@ function Tarjeta({ t }) {
   return (
     <article className="flex flex-col gap-3 rounded-2xl border-2 border-black/5 bg-white p-4 shadow-sm">
       <div className="grid grid-cols-[auto_1fr] items-center gap-4">
-        <div className="flex h-16 w-16 items-center justify-center"><Logo n={t} tamano={56} /></div>
+        {t.externa && t.logo_url
+          ? <div className="flex h-16 w-24 items-center justify-center"><img src={t.logo_url} alt={t.nombre} className="max-h-16 w-full object-contain" /></div>
+          : <div className="flex h-16 w-16 items-center justify-center"><Logo n={t} tamano={56} /></div>}
         <div className="min-w-0">
           <h2 className="break-words text-xl font-bold leading-tight">{t.nombre}</h2>
           {t.eslogan && <p className="break-words text-base text-tinta/70">{t.eslogan}</p>}
@@ -25,7 +27,7 @@ function Tarjeta({ t }) {
         {(t.direccion || t.ciudad) && <li className="grid grid-cols-[auto_1fr] gap-2 items-start break-words"><Icono nombre="negocio" className="h-5 w-5 mt-0.5" /><span>{[t.direccion, t.ciudad].filter(Boolean).join(', ')}</span></li>}
         <li className="grid grid-cols-[auto_1fr] gap-2 items-start">{t.domicilio ? <Icono nombre="moto" className="h-5 w-5 mt-0.5" /> : <span />}<span>{NOMBRE_TIPO[t.tipo] || 'Tienda'}{t.domicilio ? ' · Hace domicilios' : ''}</span></li>
       </ul>
-      <Btn onClick={() => ir(`/t/${t.slug}`)}>Ver la tienda</Btn>
+      <Btn onClick={() => (t.externa && /^https:\/\//.test(t.url || '') ? window.location.assign(t.url) : ir(`/t/${t.slug}`))}>Ver la tienda</Btn>
     </article>
   )
 }

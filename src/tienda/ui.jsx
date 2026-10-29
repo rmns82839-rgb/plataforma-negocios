@@ -44,7 +44,7 @@ export const clsInput = 'min-h-[56px] w-full rounded-2xl border-2 border-black/1
 
 // Logo de la tienda: el suyo si lo subió; si no, la inicial sobre el color de la tienda
 export function Logo({ n, tamano = 80 }) {
-  const url = urlImagen(n.logo)
+  const url = urlImagen(n.logo) || (typeof n.logo_url === 'string' && n.logo_url.startsWith('/') ? n.logo_url : null)   // logo_url: tienda externa, imagen propia de la plataforma
   if (url) return <img src={url} alt={n.nombre} style={{ height: tamano }} className="w-auto max-w-[70%] object-contain" />
   return (
     <div aria-hidden="true" style={{ width: tamano, height: tamano, fontSize: tamano * 0.5, backgroundColor: n.logo_auto?.color || undefined }}
