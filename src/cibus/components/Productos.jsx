@@ -84,9 +84,10 @@ export default function Productos() {
   }, [])
   useEffect(() => { cargar() }, [cargar])
 
+  // Escanear (cámara, pistola o celular-pistola) llena el buscador: la lista queda solo con ese producto.
+  // Si el código no existe, abajo aparece «Crear producto con este código».
   const alEscanear = useCallback((codigo) => {
-    const p = listaRef.current.find(x => x.codigo === codigo)
-    setForm(p ?? { codigo })
+    setTexto(String(codigo ?? '').trim()); setFiltro('todos'); setCategoria('todas')
   }, [])
 
   const agotados = useMemo(() => productos.filter(p => Number(p.stock) <= 0), [productos])
@@ -168,8 +169,12 @@ export default function Productos() {
         </button>
       </div>
 
-      <input value={texto} onChange={e => setTexto(e.target.value)}
-             placeholder="Buscar por nombre o código" className={`${claseInput} !h-10`} />
+      <div className="grid grid-cols-[1fr_auto] gap-2">
+        <input value={texto} onChange={e => setTexto(e.target.value)} inputMode="search" enterKeyHint="search"
+               placeholder="Buscar por nombre o código" className={`${claseInput} !h-10`} />
+        {texto && <button onClick={() => setTexto('')} aria-label="Borrar la búsqueda" className="h-10 w-10 rounded-xl bg-slate-100 text-slate-500 active:bg-slate-200">✕</button>}
+      </div>
+      {verEscaner && <p className="text-xs text-slate-500">Apunta la cámara al código de barras: el producto aparece en la lista.</p>}
 
       <div className="grid grid-cols-2 gap-2">
         <button onClick={() => setFiltro('todos')}
@@ -260,7 +265,14 @@ export default function Productos() {
       {cargando ? (
         <p className="text-center text-sm text-slate-400 py-8">Cargando…</p>
       ) : visibles.length === 0 ? (
-        <p className="text-center text-sm text-slate-400 py-8">No hay productos</p>
+        <div className="py-8 space-y-3 text-center">
+          <p className="text-sm text-slate-400">{texto.trim() ? `No hay productos con «${texto.trim()}»` : 'No hay productos'}</p>
+          {/^\d{6,14}$/.test(texto.trim()) && (
+            <button onClick={() => setForm({ codigo: texto.trim() })} className="h-11 px-5 rounded-xl bg-marca text-white text-sm font-semibold active:bg-marca-oscuro">
+              Crear producto con el código {texto.trim()}
+            </button>
+          )}
+        </div>
       ) : (
         <ul className="bg-white rounded-2xl shadow-sm divide-y divide-slate-100 lg:bg-transparent lg:shadow-none lg:divide-y-0 lg:grid lg:grid-cols-2 lg:gap-3 [&>li]:lg:bg-white [&>li]:lg:rounded-2xl [&>li]:lg:shadow-sm lg:[&>li:last-child:nth-child(odd)]:col-span-2">
           {visibles.map(p => {

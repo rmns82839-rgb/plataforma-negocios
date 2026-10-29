@@ -1,0 +1,22 @@
+GOOGLE MAPS — QUÉ HACER (una sola vez, ~20 minutos)
+Todo sigue funcionando como hoy hasta que pongas las claves. Si Google falla, la tienda vuelve sola a OpenStreetMap.
+
+1) console.cloud.google.com → crea un proyecto ("plataforma-negocios").
+2) Facturación: asocia una tarjeta (Google lo exige aunque el uso quede dentro de lo gratis).
+   Cupos gratis al mes (aprox.): mapa 10.000 cargas · direcciones 10.000 · rutas 10.000.
+3) APIs y servicios → Biblioteca → habilita: "Maps JavaScript API", "Geocoding API", "Routes API".
+4) Credenciales → Crear clave de API (dos claves):
+   A) CLAVE DE NAVEGADOR: restricción "Sitios web (referentes HTTP)" con
+        https://plataforma-negocios-seven.vercel.app/*   (y tu dominio propio cuando lo tengas)
+        https://matriz-cibus.vercel.app/*
+      Restricción de API: solo "Maps JavaScript API".
+   B) CLAVE DE SERVIDOR: restricción de API: solo "Geocoding API" y "Routes API". (Sin restricción de sitio.)
+5) Presupuesto y alertas: Facturación → Presupuestos → crea uno de USD 10 con alertas al 50% y 90%.
+   Además, en APIs → Cuotas, deja un tope diario por API (por ejemplo 500 en Geocoding y Routes).
+6) Vercel → Settings → Environment Variables (en CADA proyecto: plataforma y Matriz):
+     VITE_GOOGLE_MAPS_KEY      = clave A (navegador)
+     GOOGLE_MAPS_SERVER_KEY    = clave B (servidor)
+     MAPA_PROVEEDOR            = google
+   Luego Redeploy (las VITE_ se incorporan al construir).
+7) Revisión: abre  https://TU-SITIO/api/domicilio  → debe decir proveedor "google", servicio_de_mapas true y mapas_estado 200.
+Para volver al mapa anterior: borra MAPA_PROVEEDOR (o ponlo en ors) y la VITE_GOOGLE_MAPS_KEY, y redeploy.
