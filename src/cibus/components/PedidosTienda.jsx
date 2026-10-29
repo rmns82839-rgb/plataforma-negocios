@@ -11,6 +11,7 @@ import { alCambiarCola, listarCola } from '../lib/sincronizar'
 import { leerBorrador, guardarBorrador, DOCE_HORAS } from '../lib/borrador'
 import { usePersistido, TREINTA_MIN } from '../lib/usePersistido'
 import PedidoDetalle from './PedidoDetalle'
+import { ESTADO_PAGO, textoMedio, confirmarPago } from '../lib/pagoDigital'
 
 const CLAVE_CAJA = 'borrador-caja'
 
@@ -128,6 +129,9 @@ export default function PedidosTienda({ onCobrar }) {
                         {p.entrega === 'recoger' ? 'Recoge en tienda' : 'A domicilio'}
                       </span>
                     </p>
+                    {p.pago_estado && (
+                      <p className="pt-1.5"><span className={`inline-block text-xs font-bold px-3 py-1 rounded-full break-words ${ESTADO_PAGO[p.pago_estado]?.clase ?? ''}`}>{textoMedio(p.pago_medio)} · {ESTADO_PAGO[p.pago_estado]?.texto}{p.pago_referencia ? ` · ref. ${p.pago_referencia}` : ''}</span></p>
+                    )}
                     {p.estado === 'pendiente' && p.entrega !== 'recoger' && p.dom_por_confirmar && (
                       <p className="pt-1.5"><span className="inline-block text-xs font-bold px-3 py-1 rounded-full bg-red-600 text-white">⚠ Domicilio por confirmar</span></p>
                     )}
@@ -154,6 +158,12 @@ export default function PedidosTienda({ onCobrar }) {
                   )}
                   <p className="grid grid-cols-[1fr_auto] text-sm font-bold text-slate-800"><span>Total</span><span>{dinero(p.total)}</span></p>
                 </div>
+                {p.pago_estado && p.pago_estado !== 'confirmado' && p.estado !== 'cancelado' && (
+                  <div className="grid grid-cols-2 gap-2">
+                    <button onClick={async () => { const e = await confirmarPago(p.id, true); setError(e); if (!e) cargar() }} className="min-h-12 rounded-xl bg-green-600 text-white text-sm font-semibold">Pago recibido</button>
+                    <button onClick={async () => { const e = await confirmarPago(p.id, false); setError(e); if (!e) cargar() }} disabled={p.pago_estado === 'no_recibido'} className="min-h-12 rounded-xl bg-red-50 text-red-600 text-sm font-semibold disabled:opacity-40">No me llegó</button>
+                  </div>
+                )}
                 {p.estado === 'atendido' && (
                   <div className="space-y-2 rounded-xl bg-slate-50 p-3">
                     <p className="text-sm text-slate-600">El cliente ve: <b className="text-slate-800">{etapaDe(p).texto}</b></p>

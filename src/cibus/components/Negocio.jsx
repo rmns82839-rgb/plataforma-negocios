@@ -10,6 +10,7 @@ import { confirmar } from '../lib/confirmar'
 import { leerBorrador, guardarBorrador, DOCE_HORAS } from '../lib/borrador'
 import AvisoBorrador from './AvisoBorrador'
 import DomicilioKmConfig from './DomicilioKmConfig'
+import PagoDigitalConfig from './PagoDigitalConfig'
 import HorarioAtencion from './HorarioAtencion'
 import { validarDomicilioKm } from '../lib/domicilioKm'
 
@@ -330,6 +331,8 @@ export default function Negocio() {
           </Campo>
         </div>
       )}
+
+      {dueno && <PagoDigitalConfig />}
 
       {hayV20 && hayV37 && <DomicilioKmConfig f={f} setF={setF} poner={poner} conIncluidos={hayV42} guardadoKm={guardado.current !== null && JSON.parse(guardado.current).dom_modo === 'km'} />}
 

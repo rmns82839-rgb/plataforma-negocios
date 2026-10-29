@@ -109,6 +109,8 @@ export async function rpcPublico(nombre, args = {}, opc) {
     case 'crear_pedido_ropa': return avisarAlEquipo(await R('crear_pedido_ropa', { p_slug: c.slug, ...args }), 'ropa', args)
     case 'crear_pedido_tienda': return avisarAlEquipo(await R('crear_pedido_tienda', { p_slug: c.slug, ...args }), 'tienda', args)
     case 'registrar_visita': return R('registrar_visita', { p_slug: c.slug, ...args })
+    case 'datos_pago_digital': return R('datos_pago_digital', { p_slug: c.slug })
+    case 'registrar_pago_digital': return R('registrar_pago_digital', { p_slug: c.slug, ...args })
     case 'estado_pedido': return R('estado_pedido', { p_slug: c.slug, ...args })
     case 'publicar_comentario': return R('publicar_opinion', { p_slug: c.slug, ...args })
     case 'borrar_mis_comentarios': return R('borrar_mis_opiniones', { p_slug: c.slug })

@@ -39,6 +39,8 @@ import { BarraCuenta, InvitacionRegistro, EntregaGuardada } from './BarraCuenta'
 import RegistroCliente from './RegistroCliente'
 import MiCuentaCliente from './MiCuentaCliente'
 import UbicacionCliente from './UbicacionCliente'
+import { ElegirPago, TarjetaPagoDigital } from './PagoDigital'
+import { cargarPagoDigital, registrarPago, textoMedio, numeroBonito } from '../lib/pagoDigital'
 import Icono from './Iconos'
 import { useCuentaCliente, volvioDeIngreso, volvioParaRegistrarse, datosDePerfil } from '../lib/cuentaCliente'
 import { perfilSirvePara, tieneUbicacion, payloadPerfil } from '../lib/cuentaVista'
@@ -229,7 +231,10 @@ export default function TiendaPublica() {
   const temporizador = useRef(null)
   const [enviando, setEnviando] = useState(false)
   const [errorPedido, setErrorPedido] = useState('')
-  const [enviado, setEnviado] = useState(null)         // { numero, url }
+  const [enviado, setEnviado] = useState(null)         // { numero, url, id, total, medioPago }
+  const [pagoCfg, setPagoCfg] = useState(null)         // { numero, medios, titular } si la tienda recibe Nequi/Llave/Daviplata
+  const [pagoMedio, setPagoMedio] = useState('')       // '' = pagar al recibir
+  useEffect(() => { cargarPagoDigital().then(setPagoCfg) }, [])
 
   useEffect(() => {
     supabase.rpc('datos_domicilio').then(({ data, error: err }) => { if (!err && data) setDomCfg(data) })   // sin migracion-v37: sigue el costo fijo
@@ -395,12 +400,16 @@ export default function TiendaPublica() {
     const ventana = window.open('', '_blank')        // se abre ya, para que el navegador no la bloquee
     const items = pedido.map(l => ({ producto_id: l.producto.id, cantidad: l.cantidad }))
     const { data, error: err } = await supabase.rpc('crear_pedido_tienda', { p_datos: { ...datosParaServidor(datosPedido, recoge), ...(modoKm && !recoge && domVigente?.estado === 'ok' ? (domVigente.calculo_id ? { calculo_id: domVigente.calculo_id } : { sin_calculo: 'true' }) : {}) }, p_items: items })
-    let t, numeroPedido = null
+    let t, numeroPedido = null, medioPago = ''
     if (!err && data?.numero) {
       numeroPedido = data.numero
+      if (pagoCfg && pagoMedio && (pagoCfg.medios ?? []).includes(pagoMedio) && data.id) {
+        const rp = await registrarPago(data.id, pagoMedio, false)
+        if (rp.ok) medioPago = pagoMedio
+      }
       const lineas = data.lineas.map(l =>
         `• ${numero(l.cantidad)}${l.unidad === 'und' ? '×' : ' ' + l.unidad} ${l.nombre} — ${dinero(l.subtotal)}${l.promo ? ` [${l.promo}]` : ''}`)
-      t = `Hola, quiero hacer el pedido N.º ${numeroPedido}:\n\n${lineas.join('\n')}\n\nTotal: ${dinero(data.subtotal ?? data.total)}${recoge ? '' : data.por_confirmar ? '\nDomicilio: lo confirma la tienda' : textoDomicilio(data.domicilio == null ? domicilio : (costoDom == null && !modoKm && Number(data.domicilio) === 0 ? null : Number(data.domicilio)), data.domicilio != null ? Number(data.subtotal) : Number(data.total))}${!recoge && data.km ? `\nDistancia aprox.: ${numero(data.km)} km` : ''}\n\n${lineaDatos(datosPedido, recoge)}`
+      t = `Hola, quiero hacer el pedido N.º ${numeroPedido}:\n\n${lineas.join('\n')}\n\nTotal: ${dinero(data.subtotal ?? data.total)}${recoge ? '' : data.por_confirmar ? '\nDomicilio: lo confirma la tienda' : textoDomicilio(data.domicilio == null ? domicilio : (costoDom == null && !modoKm && Number(data.domicilio) === 0 ? null : Number(data.domicilio)), data.domicilio != null ? Number(data.subtotal) : Number(data.total))}${!recoge && data.km ? `\nDistancia aprox.: ${numero(data.km)} km` : ''}\n${medioPago ? `Pago: ${textoMedio(medioPago)} al ${numeroBonito(pagoCfg.numero)} (te aviso cuando pague)` : 'Pago: al recibir'}\n\n${lineaDatos(datosPedido, recoge)}`
     } else if (err && !/could not find the function|schema cache|PGRST202/i.test(`${err.message} ${err.code}`)) {
       if (ventana) ventana.close()
       setEnviando(false)
@@ -418,7 +427,8 @@ export default function TiendaPublica() {
     else window.open(url, '_blank', 'noopener,noreferrer')
     setEnviando(false); setVerPedido(false); setPaso('pedido'); setPedido([])
     setDatos(d => ({ ...d, acepta_datos: false, nota: '' }))
-    setEnviado({ numero: numeroPedido, url, telefono: datosPedido.telefono })
+    setEnviado({ numero: numeroPedido, url, telefono: datosPedido.telefono, id: data?.id ?? null, total: data?.total ?? null, medioPago, porConfirmar: Boolean(data?.por_confirmar) })
+    setPagoMedio('')
     mis.recargar()
     if (cta.perfil) cta.cargarResumen()
   }
@@ -478,6 +488,7 @@ export default function TiendaPublica() {
           <a href={enviado.url} target="_blank" rel="noopener noreferrer" className="text-champagne text-xs font-semibold underline">Abrir WhatsApp</a>
         </div>
       )}
+      {enviado?.medioPago && enviado.id && <TarjetaPagoDigital config={pagoCfg} pedidoId={enviado.id} medio={enviado.medioPago} total={enviado.total} porConfirmar={enviado.porConfirmar} />}
       {soloOfertas && (
         <div className="rounded-2xl bg-negro px-4 py-3 grid grid-cols-[1fr_auto] gap-3 items-center ring-1 ring-champagne/30">
           <span className="text-sm font-semibold text-champagne">Mostrando solo ofertas</span>
@@ -658,6 +669,7 @@ export default function TiendaPublica() {
             <span className="text-lg text-slate-600">{domicilio != null ? 'Total con domicilio' : 'Total'}</span>
             <span className="text-2xl font-bold text-marca">{dinero(total + (domicilio ?? 0))}</span>
           </div>
+          {paso === 'datos' && <ElegirPago config={pagoCfg} valor={pagoMedio} onCambio={setPagoMedio} />}
           {errorPedido && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{errorPedido}</p>}
 
           {!WHATSAPP ? (
