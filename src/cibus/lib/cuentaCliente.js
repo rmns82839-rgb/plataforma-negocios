@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase } from './supabase'
 
 const VOLVER = 'matriz-volver-al-pedido'
+const REGISTRO = 'matriz-volver-registro'
 
 export function useCuentaCliente() {
   const [sesion, setSesion] = useState(null)
@@ -11,6 +12,7 @@ export function useCuentaCliente() {
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
   const [googleActivo, setGoogleActivo] = useState(null)   // null = averiguando · true/false
+  const [resumen, setResumen] = useState(null)             // compras de esta tienda: últimas 5, favoritos, totales
 
   // Antes de ofrecer "Continuar con Google" se pregunta a Supabase si ese ingreso está activado:
   // así nadie ve un botón que lleva a una pantalla de error.
@@ -24,8 +26,13 @@ export function useCuentaCliente() {
     return () => { vivo = false }
   }, [])
 
+  const cargarResumen = useCallback(async () => {
+    const { data, error: err } = await supabase.rpc('mi_resumen')
+    setResumen(!err && data ? data : null)           // sin el SQL 29: no hay resumen y todo sigue igual
+  }, [])
+
   const cargarPerfil = useCallback(async (ses) => {
-    if (!ses) { setPerfil(null); setCargando(false); return }
+    if (!ses) { setPerfil(null); setResumen(null); setCargando(false); return }
     const { data, error: err } = await supabase.rpc('mi_perfil')
     setPerfil(!err && data ? data : null)            // sin migracion-v38: no hay perfil y se compra como siempre
     setCargando(false)
@@ -38,11 +45,17 @@ export function useCuentaCliente() {
     return () => { vivo = false; sub?.subscription?.unsubscribe?.() }
   }, [cargarPerfil])
 
-  const entrarConGoogle = async () => {
+  // opc: { registro: true } abre el registro al volver · { alPedido: false } no reabre el carrito al volver.
+  // Sirve también como onClick (recibe el evento): sin opciones vuelve al pedido, como siempre.
+  const entrarConGoogle = async (opc) => {
+    const registro = opc?.registro === true, alPedido = opc?.alPedido !== false
     setError('')
     if (googleActivo === false) { setError('El ingreso con Google todavía no está disponible. Puedes comprar sin cuenta.'); return }
     const noDisponible = 'El ingreso con Google todavía no está activado en la tienda. Puedes comprar sin cuenta.'
-    try { sessionStorage.setItem(VOLVER, '1') } catch { /* sin almacenamiento */ }
+    try {
+      if (alPedido) sessionStorage.setItem(VOLVER, '1')
+      if (registro) sessionStorage.setItem(REGISTRO, '1')
+    } catch { /* sin almacenamiento */ }
     // Se pide la dirección de Google SIN salir todavía: si Supabase la rechaza, se avisa aquí en vez de mostrar una pantalla técnica
     const { data, error: err } = await supabase.auth.signInWithOAuth({
       provider: 'google', options: { redirectTo: window.location.href.split('#')[0], queryParams: { prompt: 'select_account' }, skipBrowserRedirect: true } })
@@ -53,7 +66,7 @@ export function useCuentaCliente() {
     } catch { /* sin permiso de lectura (CORS): se intenta entrar igual */ }
     window.location.assign(data.url)
   }
-  const salir = async () => { await supabase.auth.signOut(); setPerfil(null) }
+  const salir = async () => { await supabase.auth.signOut(); setPerfil(null); setResumen(null) }
 
   const guardar = async (datos) => {
     const { data, error: err } = await supabase.rpc('guardar_mi_perfil', { p_datos: datos })
@@ -63,14 +76,19 @@ export function useCuentaCliente() {
   const borrar = async () => {
     const { error: err } = await supabase.rpc('borrar_mi_perfil')
     if (err) { setError(err.message); return false }
-    setPerfil(null); return true
+    setPerfil(null); setResumen(null); return true
   }
-  return { sesion, perfil, cargando, error, googleActivo, setError, entrarConGoogle, salir, guardar, borrar }
+  return { sesion, perfil, cargando, error, googleActivo, resumen, cargarResumen, setError, entrarConGoogle, salir, guardar, borrar }
 }
 
 /** ¿Venía de iniciar sesión con Google para terminar un pedido? (se consulta una sola vez) */
 export const volvioDeIngreso = () => {
   try { const v = sessionStorage.getItem(VOLVER) === '1'; if (v) sessionStorage.removeItem(VOLVER); return v } catch { return false }
+}
+
+/** ¿Venía de «Registrarme» con Google? (se consulta una sola vez) */
+export const volvioParaRegistrarse = () => {
+  try { const v = sessionStorage.getItem(REGISTRO) === '1'; if (v) sessionStorage.removeItem(REGISTRO); return v } catch { return false }
 }
 
 /** Datos del perfil con la forma de los datos del pedido. */

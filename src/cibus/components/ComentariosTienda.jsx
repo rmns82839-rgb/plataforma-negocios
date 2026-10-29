@@ -1,6 +1,7 @@
 // Opiniones de los clientes en el catálogo: estrellas + comentario. Entran con Google (una sola vez) y el dueño aprueba antes de publicar.
 // En público solo se ve el nombre corto ("María P."), nunca correo ni teléfono.
 import { useEffect, useState } from 'react'
+import Icono from './Iconos'
 import { supabase } from '../lib/supabase'
 import { usePersistido } from '../lib/usePersistido'
 import { claseInput } from '../lib/estilos'
@@ -117,7 +118,7 @@ function FormularioOpinion({ cuenta, onCerrar, onEnviado }) {
     <Modal titulo="Tu opinión" onCerrar={onCerrar}>
       {hecho ? (
         <div className="space-y-4 text-center py-2">
-          <p className="text-5xl" aria-hidden="true">{hecho === 'borrado' ? '✓' : '🙏'}</p>
+          <span className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-cibus-profundo text-champagne ring-2 ring-champagne/70" aria-hidden="true"><Icono nombre="check" className="h-9 w-9" /></span>
           <p className="text-xl font-semibold text-slate-800">{hecho === 'borrado' ? 'Listo, borramos tus opiniones' : '¡Gracias por tu opinión!'}</p>
           {hecho !== 'borrado' && <p className="text-base text-slate-600">La tienda la revisa y en poco tiempo la verás publicada.</p>}
           <button onClick={onCerrar} className="w-full h-14 rounded-xl bg-negro text-champagne text-lg font-semibold active:opacity-90">Cerrar</button>

@@ -16,6 +16,8 @@ import VentaRopa from './VentaRopa'
 import { useBorradorForm } from '../lib/useBorradorForm'
 import AvisoBorrador from './AvisoBorrador'
 import { confirmar } from '../lib/confirmar'
+import { enlaceTienda } from '../lib/enlaces'
+import QrCatalogo from './QrCatalogo'
 
 const TALLAS = ['XS', 'S', 'M', 'L', 'XL', 'Única']
 
@@ -276,8 +278,10 @@ export default function RopaAdmin() {
   }, [])
   useEffect(() => { cargar() }, [cargar])
 
-  const enlace = `${window.location.origin}/ropa`
+  const enlace = enlaceTienda()
   const [copiado, copiar] = useCopiado()
+  const [verQr, setVerQr] = useState(false)
+  const textoWa = `Mira mi catálogo de ropa y haz tu pedido 👉 ${enlace}`
 
   return (
     <div className="space-y-4">
@@ -314,19 +318,27 @@ export default function RopaAdmin() {
         )}
       </BarraFija>
 
-      <Desplegable titulo="Enlace del catálogo" nota="Copiar o ver como lo ve el cliente">
-        <div className="grid grid-cols-[1fr_auto] gap-2 items-center">
-          <span className="text-sm text-slate-700 break-words">{enlace}</span>
+      <Desplegable titulo="Enlace del catálogo" nota="Ver, copiar y compartir por WhatsApp o QR">
+        <p className="text-sm text-slate-700 break-words">{enlace}</p>
+        <div className="grid grid-cols-2 gap-2 mt-2">
+          <a href={enlace} target="_blank" rel="noopener noreferrer"
+             className="min-h-12 rounded-xl bg-slate-100 text-slate-700 text-sm font-semibold grid place-items-center text-center px-2">
+            Ver como lo ve el cliente
+          </a>
           <button onClick={() => copiar(enlace)}
-            className="h-10 px-4 rounded-lg bg-lima/20 text-marca text-xs font-semibold min-w-[8.5rem]">
+            className="min-h-12 rounded-xl bg-lima/20 text-marca text-sm font-semibold px-2">
             {textoCopiar(copiado, 'Copiar enlace')}
           </button>
+          <a href={`https://wa.me/?text=${encodeURIComponent(textoWa)}`} target="_blank" rel="noopener noreferrer"
+             className="min-h-12 rounded-xl bg-esmeralda text-white text-sm font-semibold grid place-items-center text-center px-2">
+            Compartir por WhatsApp
+          </a>
+          <button onClick={() => setVerQr(true)}
+            className="min-h-12 rounded-xl bg-negro text-champagne text-sm font-semibold px-2">
+            Código QR
+          </button>
         </div>
-        <a href="/ropa" target="_blank" rel="noopener noreferrer"
-           className="h-10 rounded-lg bg-slate-100 text-slate-700 text-xs font-semibold grid place-items-center">
-          Ver el catálogo como lo ve el cliente
-        </a>
-      
+        {verQr && <QrCatalogo enlace={enlace} subtitulo="Catálogo de ropa · Pide por WhatsApp" onCerrar={() => setVerQr(false)} />}
       </Desplegable>
 
       {vista === 'pedidos' && <PedidosRopa onCambio={setPendientes} />}

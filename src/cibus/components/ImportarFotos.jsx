@@ -22,13 +22,16 @@ export default function ImportarFotos({ productos, onCerrar, onGuardado }) {
   const [avance, setAvance] = useState({ hechas: 0, total: 0 })
   const [resultado, setResultado] = useState(null)
   const [error, setError] = useState('')
+  const [leyendo, setLeyendo] = useState(false)
+  const [cambiarTodas, setCambiarTodas] = useState(false)
+  const resumenRef = useRef(null)
   const [hechosIds, setHechosIds] = useState(() => new Set())
   const cancelar = useRef(false)
 
   const plan = useMemo(() => {
     if (!csv) return null
-    try { return planImportacion(leerCsv(csv), productos) } catch { return { listos: [], yaTienen: 0, sinCoincidencia: [], sinEnlaces: 0, error: 'No se pudo leer el archivo' } }
-  }, [csv, productos])
+    try { return planImportacion(leerCsv(csv), productos, { cambiarTodas }) } catch { return { listos: [], yaTienen: 0, sinCoincidencia: [], sinEnlaces: 0, error: 'No se pudo leer el archivo' } }
+  }, [csv, productos, cambiarTodas])
   const pendientes = useMemo(() => (plan?.listos ?? []).filter(l => !hechosIds.has(l.producto.id) && (l.reemplaza || sinFoto(l.producto))), [plan, hechosIds])
   const sinFotoTotal = useMemo(() => productos.filter(sinFoto).length, [productos])
   const sinNada = useMemo(() => productos.filter(p => sinFoto(p) && !hechosIds.has(p.id)), [productos, hechosIds])
@@ -41,8 +44,13 @@ export default function ImportarFotos({ productos, onCerrar, onGuardado }) {
     const f = e.target.files?.[0]; e.target.value = ''
     if (!f) return
     if (f.size > 5_000_000) return setError('El archivo es muy grande (máx. 5 MB)')
-    setError(''); setHechosIds(new Set())
-    setCsv(await f.text()); setNombre(f.name)
+    setError(''); setHechosIds(new Set()); setLeyendo(true)
+    try {
+      await new Promise(r => setTimeout(r, 60))                 // deja pintar «Leyendo el archivo…» antes de trabajar
+      setCsv(await f.text()); setNombre(f.name)
+      setTimeout(() => resumenRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 250)   // el resultado sale más abajo: se lleva la vista hasta él
+    } catch { setError('No se pudo leer el archivo. Pruébalo de nuevo o guárdalo otra vez como CSV.') }
+    setLeyendo(false)
   }
 
   const usarTextoPegado = () => {
@@ -178,11 +186,11 @@ export default function ImportarFotos({ productos, onCerrar, onGuardado }) {
     onCerrar()
   }
 
-  const Barra = ({ texto }) => (
+  const Barra = ({ texto, indeterminada = false }) => (
     <div className="space-y-2 py-2">
       <p className="text-sm font-medium text-slate-700 text-center">{texto}</p>
       <div className="h-2.5 rounded-full bg-slate-100 overflow-hidden" role="progressbar" aria-valuemin={0} aria-valuemax={avance.total} aria-valuenow={avance.hechas}>
-        <div className="h-full bg-marca transition-all" style={{ width: `${Math.max(6, Math.round(100 * avance.hechas / Math.max(1, avance.total)))}%` }} />
+        <div className={`h-full bg-marca transition-all ${indeterminada ? 'animate-pulse' : ''}`} style={{ width: indeterminada ? '60%' : `${Math.max(6, Math.round(100 * avance.hechas / Math.max(1, avance.total)))}%` }} />
       </div>
     </div>
   )
@@ -223,17 +231,40 @@ export default function ImportarFotos({ productos, onCerrar, onGuardado }) {
             <p className="text-[11px] text-slate-400">Se quitan solos los ``` y las líneas sobrantes.</p>
           </div>
 
-          {plan && (
-            <div className="rounded-2xl bg-slate-50 p-3 space-y-2">
+          {csv && (
+            <label className="grid grid-cols-[auto_1fr] gap-3 items-start rounded-2xl bg-slate-50 p-3 cursor-pointer">
+              <input type="checkbox" checked={cambiarTodas} onChange={e => setCambiarTodas(e.target.checked)} className="h-6 w-6 mt-0.5 accent-[#1f6f4a]" />
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold break-words">Cambiar también las fotos que ya tienen</span>
+                <span className="block text-xs text-slate-500 break-words">Úsalo si las fotos actuales son tarjetas con letras. En la revisión verás la foto actual junto a la nueva y decides producto por producto; solo se cambia donde la foto actual es una sola.</span>
+              </span>
+            </label>
+          )}
+          {leyendo && <Barra texto="Leyendo el archivo…" indeterminada />}
+          {plan && !leyendo && (
+            <div ref={resumenRef} className="rounded-2xl bg-slate-50 p-3 space-y-2">
               <p className="text-xs text-slate-500 break-words">Archivo: {nombre || 'sin nombre'}</p>
-              {plan.error ? <p className="text-sm text-red-600">{plan.error}</p> : (
+              {plan.error ? <p className="text-sm text-red-600">{plan.error}</p> : (<>
+                <p className={`text-sm font-semibold break-words rounded-xl px-3 py-2 ${pendientes.length > 0 ? 'bg-lima/20 text-marca' : 'bg-amber-50 text-amber-900'}`}>
+                  {pendientes.length > 0
+                    ? `Listo: leí ${plan.total} productos y hay ${pendientes.length} con foto nueva para traer${pendientes.some(l => l.reemplaza) ? ` (${pendientes.filter(l => l.reemplaza).length} reemplazan una imagen genérica o tarjeta)` : ''}. Toca el botón de abajo.`
+                    : `Leí ${plan.total} productos, pero no hay fotos nuevas para traer.`}
+                </p>
+                {pendientes.length === 0 && (
+                  <ul className="text-xs text-slate-600 space-y-1 list-disc pl-5">
+                    {plan.conEnlace === 0 && <li>El archivo no trae ningún enlace de foto (las columnas foto_1_url… están vacías).</li>}
+                    {plan.yaTienen > 0 && <li>{plan.yaTienen} producto(s) del archivo ya tienen foto en la app (no se cambian). Si en realidad son tarjetas con letras que no creó esta pantalla, el archivo necesita la columna <code>foto_actual</code> con el enlace de cada tarjeta para poder reemplazarlas.</li>}
+                    {plan.sinEnlaces > 0 && <li>{plan.sinEnlaces} producto(s) del archivo no traen enlace de foto.</li>}
+                    {plan.sinCoincidencia.length > 0 && <li>{plan.sinCoincidencia.length} no se encontraron en tu tienda (el código o el nombre es distinto).</li>}
+                  </ul>
+                )}
                 <div className="grid grid-cols-2 gap-2 text-center">
                   <div className="rounded-xl bg-white py-2"><p className="text-lg font-bold text-marca">{pendientes.length}</p><p className="text-[11px] text-slate-500">listos para traer</p></div>
                   <div className="rounded-xl bg-white py-2"><p className="text-lg font-bold text-slate-600">{plan.yaTienen}</p><p className="text-[11px] text-slate-500">ya tenían foto</p></div>
                   <div className="rounded-xl bg-white py-2"><p className="text-lg font-bold text-slate-600">{plan.sinEnlaces}</p><p className="text-[11px] text-slate-500">sin enlace</p></div>
                   <div className="rounded-xl bg-white py-2"><p className="text-lg font-bold text-slate-600">{plan.sinCoincidencia.length}</p><p className="text-[11px] text-slate-500">no encontrados</p></div>
                 </div>
-              )}
+              </>)}
               {plan.sinCoincidencia.length > 0 && (
                 <p className="text-[11px] text-slate-400 break-words">No encontrados: {plan.sinCoincidencia.slice(0, 6).join(', ')}{plan.sinCoincidencia.length > 6 ? '…' : ''}</p>
               )}
@@ -270,6 +301,15 @@ export default function ImportarFotos({ productos, onCerrar, onGuardado }) {
       {fase === 'revisar' && (
         <div className="space-y-3">
           <p className="text-sm text-slate-600">Revisa que cada foto sea del producto correcto. Toca una foto para quitarla, o desmarca el producto.</p>
+          {(() => {
+            const todas = items.flatMap(it => it.fotos).filter(f => f.url)
+            const malas = todas.filter(f => f.error)
+            if (todas.length === 0) return null
+            const motivos = [...new Set(malas.map(f => f.error))].slice(0, 3).join(' · ')
+            return malas.length === 0
+              ? <p className="text-sm font-semibold rounded-xl px-3 py-2 bg-lima/20 text-marca">Se trajeron las {todas.length} fotos.</p>
+              : <p className="text-sm font-semibold break-words rounded-xl px-3 py-2 bg-amber-50 text-amber-900">Se trajeron {todas.length - malas.length} de {todas.length} fotos. No se pudieron traer {malas.length}: {motivos}. Esas quedan marcadas en rojo.</p>
+          })()}
           <div className="rounded-2xl bg-slate-50 p-3 grid grid-cols-[1fr_auto_auto] gap-2 items-center">
             <span className="min-w-0"><span className="block text-sm font-semibold">Mostrar en la tienda en línea</span>
               <span className="block text-[11px] text-slate-400">{nEnLinea} de {aGuardar.length} marcados</span></span>
@@ -285,6 +325,12 @@ export default function ImportarFotos({ productos, onCerrar, onGuardado }) {
                     <span className="block text-[11px] text-slate-400 break-words">{it.producto.codigo || 'sin código'}</span></span>
                 </label>
                 {it.origen && <p className="text-[11px] text-slate-500 break-words">{it.origen}</p>}
+                {it.reemplaza && it.fotoActual && (
+                  <div className="grid grid-cols-[4rem_1fr] gap-2 items-center rounded-xl bg-amber-50 p-2">
+                    <img src={it.fotoActual} alt="Foto actual" className="h-16 w-16 rounded-lg object-cover bg-white" />
+                    <p className="text-xs text-amber-900 break-words">Foto que tiene hoy. Si marcas el producto, será reemplazada por la nueva.</p>
+                  </div>
+                )}
                 <label className="grid grid-cols-[auto_1fr] gap-2 items-center text-xs text-slate-600">
                   <input type="checkbox" checked={it.enLinea} onChange={() => alternarLinea(i)} className="h-5 w-5 accent-[#1f6f4a]" />
                   Mostrar en la tienda en línea

@@ -1,6 +1,7 @@
 // Canción de fondo del catálogo: suena bajito en bucle después de que la persona toca la pantalla (los navegadores no dejan antes).
 // Siempre hay un botón para silenciarla y se recuerda la decisión en ese celular.
 import { useEffect, useRef, useState } from 'react'
+import Icono from './Iconos'
 import { supabase } from '../lib/supabase'
 
 const CLAVE = 'cibus:musica'
@@ -38,6 +39,6 @@ export default function MusicaFondo() {
   }
   return (
     <button onClick={alternar} aria-label={suena ? 'Silenciar la música' : 'Poner la música'} aria-pressed={suena}
-      className="h-9 w-9 shrink-0 rounded-full bg-cibus-profundo ring-1 ring-oro/40 text-sm grid place-items-center active:scale-95">{suena ? '🔊' : '🔇'}</button>
+      className="h-9 w-9 shrink-0 rounded-full bg-cibus-profundo ring-1 ring-oro/40 text-sm grid place-items-center active:scale-95"><Icono nombre={suena ? 'sonido' : 'silencio'} className="h-5 w-5 text-champagne" /></button>
   )
 }

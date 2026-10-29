@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import Icono from './Iconos'
 
 // Video corto de la publicidad: arranca solo, sin sonido, en bucle. Si el cliente ahorra datos, solo ve la foto.
 function VideoAnuncio({ src, poster }) {
@@ -8,7 +9,7 @@ function VideoAnuncio({ src, poster }) {
     <div className="relative bg-black">
       <video src={src} poster={poster || undefined} autoPlay muted={!sonido} loop playsInline preload="auto" className="w-full max-h-72 object-contain" />
       <button onClick={() => setSonido(s => !s)} aria-label={sonido ? 'Quitar el sonido' : 'Poner el sonido'}
-        className="absolute left-3 bottom-3 h-11 px-4 rounded-full bg-black/60 text-white text-base backdrop-blur active:bg-black/80">{sonido ? '🔊 Sonido' : '🔇 Sin sonido'}</button>
+        className="absolute left-3 bottom-3 h-11 px-4 rounded-full bg-black/60 text-white text-base backdrop-blur active:bg-black/80 inline-flex items-center gap-2"><Icono nombre={sonido ? 'sonido' : 'silencio'} className="h-5 w-5" />{sonido ? 'Sonido' : 'Sin sonido'}</button>
     </div>
   )
 }

@@ -114,6 +114,7 @@ export async function rpcPublico(nombre, args = {}, opc) {
     case 'borrar_mis_comentarios': return R('borrar_mis_opiniones', { p_slug: c.slug })
     case 'mi_perfil': return R('mi_perfil_cliente', {})
     case 'guardar_mi_perfil': return R('guardar_perfil_cliente', args)
+    case 'mi_resumen': return R('mi_resumen_cliente', { p_slug: c.slug })
     case 'mis_pedidos': {         // la plataforma da los de todas las tiendas: aquí solo los de esta, y cada línea se liga a su producto por nombre
       const r = await R('mis_pedidos', {})
       if (r.error || !Array.isArray(r.data)) return r

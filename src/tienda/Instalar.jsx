@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import Icono from '../cibus/components/Iconos'
 import { estaInstalada, guiaInstalacion, hayAviso, pedirInstalacion, suscribirPwa } from '../lib/pwa'
 import { Btn } from './ui'
 
@@ -10,8 +11,8 @@ export default function Instalar({ texto = 'Instalar la app en mi celular' }) {
 
   const g = guiaInstalacion({ instalada: estaInstalada(), tienePrompt: hayAviso(), ua: navigator.userAgent, maxTouch: navigator.maxTouchPoints })
   if (g.tipo === 'ninguna') return null
-  if (g.tipo === 'boton') return <Btn variante="suave" onClick={() => pedirInstalacion()}>📲 {texto}</Btn>
-  if (!abierto) return <Btn variante="suave" onClick={() => setAbierto(true)}>📲 {texto}</Btn>
+  if (g.tipo === 'boton') return <Btn variante="suave" onClick={() => pedirInstalacion()}><span className="inline-flex items-center justify-center gap-2"><Icono nombre="instalarApp" className="h-5 w-5" />{texto}</span></Btn>
+  if (!abierto) return <Btn variante="suave" onClick={() => setAbierto(true)}><span className="inline-flex items-center justify-center gap-2"><Icono nombre="instalarApp" className="h-5 w-5" />{texto}</span></Btn>
 
   const pasos = g.tipo === 'ios'
     ? ['Toca el botón Compartir (el cuadro con una flecha hacia arriba), abajo en Safari.', 'Baja y toca «Añadir a pantalla de inicio».', 'Toca «Añadir». ¡Listo! Verás el ícono junto a tus otras apps.']

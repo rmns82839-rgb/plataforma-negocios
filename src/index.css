@@ -79,3 +79,26 @@ input, button { font-size: 16px; }
   .pop-cantidad { animation: pop-cantidad .35s ease-out }
   .foto-late { animation: foto-late .4s ease-out }
 }
+
+/* Carrito que cruza la pantalla (registro y cuenta del cliente). Sin movimiento queda quieto en el centro. */
+.carro-pista { position:relative; overflow:hidden; }
+.carro-ruta { position:absolute; left:0; right:0; bottom:7px; height:2px; opacity:.5;
+  background-image:repeating-linear-gradient(90deg, currentColor 0 10px, transparent 10px 22px); }
+.carro { position:absolute; bottom:9px; left:50%; }
+.carro-rueda, .carro-prod { transform-box:fill-box; transform-origin:center; }
+@keyframes carro-corre { from { left:-72px } to { left:100% } }
+@keyframes carro-llega { from { left:-72px } to { left:50% } }
+@keyframes carro-bota { 0%,100% { transform:translateY(0) } 50% { transform:translateY(-2.5px) } }
+@keyframes rueda-gira { to { transform:rotate(360deg) } }
+@keyframes ruta-corre { to { background-position:-22px 0 } }
+@keyframes prod-salta { 0%,100% { transform:translateY(0) rotate(0deg) } 40% { transform:translateY(-4px) rotate(-8deg) } }
+@keyframes viento { 0% { opacity:0; transform:translateX(6px) } 40% { opacity:.9 } 100% { opacity:0; transform:translateX(-10px) } }
+@media (prefers-reduced-motion: no-preference) {
+  .carro-corre { animation:carro-corre 5.5s linear infinite }
+  .carro-llega { animation:carro-llega 1.6s cubic-bezier(.2,.7,.2,1) both }
+  .carro-cuerpo { animation:carro-bota .5s ease-in-out infinite }
+  .carro-rueda { animation:rueda-gira .55s linear infinite }
+  .carro-prod { animation:prod-salta 1.1s ease-in-out infinite }
+  .carro-viento { animation:viento .9s ease-out infinite }
+  .carro-ruta { animation:ruta-corre .5s linear infinite }
+}

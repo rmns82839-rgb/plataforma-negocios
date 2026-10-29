@@ -27,6 +27,15 @@ const TRAZOS = {
   campana: <><path d="M6 8a6 6 0 1 1 12 0c0 6 2.5 7.5 2.5 7.5h-17S6 14 6 8Z" /><path d="M10 19a2 2 0 0 0 4 0" /></>,
   nota: <><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" /><path d="M14 3v6h6" /><path d="M8 13h8M8 17h5" /></>,
   moto: <><circle cx="5.5" cy="17" r="3" /><circle cx="18.5" cy="17" r="3" /><path d="M8.5 17h5l3-7h-4" /><path d="M13.5 17L10 9H7" /><path d="M16.5 10l-1-3h2.5" /></>,
+  pin: <><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z" /><circle cx="12" cy="9.5" r="2.5" /></>,
+  usuario: <><circle cx="12" cy="8" r="4" /><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1" /></>,
+  sonido: <><path d="M11 5L6 9H3v6h3l5 4V5z" /><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13" /></>,
+  silencio: <><path d="M11 5L6 9H3v6h3l5 4V5z" /><path d="M22 9l-6 6M16 9l6 6" /></>,
+  check: <path d="M5 12.5l4.5 4.5L19 7.5" />,
+  favorito: <path d="M12 21s-8-5.2-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 5.8-8 11-8 11z" />,
+  rapido: <path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z" />,
+  casa: <><path d="M3 11l9-8 9 8" /><path d="M5 10v10h14V10" /><path d="M10 20v-6h4v6" /></>,
+  instalarApp: <><path d="M12 3v12" /><path d="M7 11l5 5 5-5" /><path d="M5 20h14" /></>,
   calendario: <><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></>,
 }
 

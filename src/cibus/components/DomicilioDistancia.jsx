@@ -112,7 +112,7 @@ export default function DomicilioDistancia({ direccion, subtotal, maxKm, resulta
           {navigator.geolocation && (
             <button onClick={usarUbicacion} disabled={cargando}
               className="w-full min-h-14 rounded-xl bg-cibus text-white text-base font-semibold px-2 leading-tight disabled:opacity-40 active:opacity-80">
-              {proboGPS ? '📍 Probar de nuevo con mi ubicación' : '📍 Usar mi ubicación'}
+              {proboGPS ? 'Probar de nuevo con mi ubicación' : 'Usar mi ubicación'}
             </button>
           )}
         </div>

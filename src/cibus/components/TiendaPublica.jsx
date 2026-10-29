@@ -35,8 +35,13 @@ import AnuncioPublico from './AnuncioPublico'
 import BarraCatalogo, { AvisoAgregado, Sugeridos } from './BarraCatalogo'
 import DatosPedido from './DatosPedido'
 import DomicilioPlataforma from './DomicilioPlataforma'
-import CuentaCliente from './CuentaCliente'
-import { useCuentaCliente, volvioDeIngreso, datosDePerfil } from '../lib/cuentaCliente'
+import { BarraCuenta, InvitacionRegistro, EntregaGuardada } from './BarraCuenta'
+import RegistroCliente from './RegistroCliente'
+import MiCuentaCliente from './MiCuentaCliente'
+import UbicacionCliente from './UbicacionCliente'
+import Icono from './Iconos'
+import { useCuentaCliente, volvioDeIngreso, volvioParaRegistrarse, datosDePerfil } from '../lib/cuentaCliente'
+import { perfilSirvePara, tieneUbicacion, payloadPerfil } from '../lib/cuentaVista'
 import { useNegocioPublico } from '../lib/useNegocioPublico'
 import { soloDigitos, datosGuardados, validarDatos, datosParaServidor, recordarDatos, lineaDatos } from '../lib/datosCliente'
 import { mejorPromo, promoVisible } from '../lib/promos'
@@ -213,8 +218,9 @@ export default function TiendaPublica() {
   const mis = useMisPedidos(cta.sesion)
   const [verMis, setVerMis] = useState(false)
   const [seguir, setSeguir] = useState(null)             // { numero, telefono } para quien compró sin cuenta
-  const [editandoPerfil, setEditandoPerfil] = useState(false)
-  const [guardarPerfil, setGuardarPerfil] = useState(true)   // guardar los datos al enviar el pedido (si entró con Google)
+  const [registro, setRegistro] = useState(null)         // null o { paso }: el registro del cliente en pasos
+  const [verCuenta, setVerCuenta] = useState(false)       // «Mi cuenta»
+  const [guardandoUbic, setGuardandoUbic] = useState(false)
   const [domCfg, setDomCfg] = useState(null)             // { modo: 'fijo' | 'km', max_km } (datos públicos del domicilio)
   const [domRes, setDomRes] = useState(null)             // resultado del cálculo por distancia
   const [recoge, setRecoge] = useState(false)           // true = recoge en la tienda (sin dirección ni domicilio)
@@ -294,10 +300,22 @@ export default function TiendaPublica() {
   const faltaGratis = gratisDesde && !recoge ? Math.max(0, gratisDesde - total) : 0
   const modoKm = domCfg?.modo === 'km'
   // Con cuenta y datos guardados el cliente solo confirma; si no, llena el formulario de siempre
-  const perfilSirve = Boolean(cta.perfil) && (recoge || String(cta.perfil.direccion ?? '').trim().length >= 6)
-  const usandoPerfil = perfilSirve && !editandoPerfil
+  const perfilSirve = perfilSirvePara(cta.perfil, { recoge })
+  const usandoPerfil = perfilSirve
+  const faltaUbicacion = Boolean(cta.perfil) && !perfilSirve    // tiene cuenta pero falta su dirección o el punto del mapa: se pide UNA sola vez
   const datosPedido = usandoPerfil ? datosDePerfil(cta.perfil, datos) : datos
-  useEffect(() => { if (cta.perfil && !perfilSirve) setDatos(d => (d.nombre && d.telefono ? d : datosDePerfil(cta.perfil, d))) }, [cta.perfil, perfilSirve])   // perfil sin dirección: se completa el formulario con lo guardado
+  useEffect(() => { if (cta.perfil && !perfilSirve) setDatos(d => (d.nombre && d.telefono ? d : datosDePerfil(cta.perfil, d))) }, [cta.perfil, perfilSirve])
+  // Su preferencia guardada (domicilio o recoger) se aplica una sola vez al entrar
+  const prefAplicada = useRef(false)
+  useEffect(() => { if (cta.perfil && !prefAplicada.current) { prefAplicada.current = true; setRecoge(cta.perfil.entrega_preferida === 'recoger') } }, [cta.perfil])
+  // Si volvió de Google para registrarse, el registro sigue en el paso de sus datos
+  const regRevisado = useRef(false)
+  useEffect(() => {
+    if (regRevisado.current || cta.cargando) return
+    regRevisado.current = true
+    const vuelve = volvioParaRegistrarse()
+    if (vuelve && cta.sesion && !cta.perfil) setRegistro({ paso: 1 })
+  }, [cta.cargando, cta.sesion, cta.perfil])   // perfil sin dirección: se completa el formulario con lo guardado
   const domVigente = modoKm && !recoge && domRes && domRes.clave === String(datosPedido.direccion ?? '').trim() ? domRes : null
   const domicilio = recoge ? null
     : modoKm ? (domVigente?.estado === 'ok' ? domVigente.costo : null)
@@ -358,17 +376,6 @@ export default function TiendaPublica() {
       })
       .filter(l => l.cantidad > 0))
 
-  // Guardar los datos de una vez (sin tener que enviar un pedido): la próxima compra solo se confirman
-  const [guardandoPerfil, setGuardandoPerfil] = useState(false)
-  const guardarSolo = async () => {
-    const falla = validarDatos(datosPedido, recoge)
-    if (falla) return setErrorPedido(falla)
-    setGuardandoPerfil(true)
-    const r = await cta.guardar({ nombre: datosPedido.nombre, telefono: datosPedido.telefono, email: datosPedido.email, referencia: datosPedido.nota,
-      direccion: recoge ? (cta.perfil?.direccion ?? '') : datosPedido.direccion, acepta_datos: true, acepta_promos: datosPedido.acepta_promos })
-    setGuardandoPerfil(false)
-    if (r) { setEditandoPerfil(false); setErrorPedido('') }
-  }
   // Entró con Google y aún no tiene datos guardados: se adelanta su nombre y correo para que escriba menos
   useEffect(() => {
     const u = cta.sesion?.user
@@ -405,11 +412,6 @@ export default function TiendaPublica() {
       t = `Hola, quiero hacer este pedido:\n\n${lineas.join('\n')}\n\nTotal: ${dinero(total)}${textoDomicilio(domicilio, total)}\n\n${lineaDatos(datosPedido, recoge)}`
     }
     recordarDatos(recoge ? { ...datosPedido, direccion: datosGuardados().direccion } : datosPedido)
-    if (cta.sesion && !usandoPerfil && guardarPerfil && datosPedido.acepta_datos) {      // los datos quedan para la próxima compra
-      await cta.guardar({ nombre: datosPedido.nombre, telefono: datosPedido.telefono, email: datosPedido.email, referencia: datosPedido.nota,
-        direccion: recoge ? (cta.perfil?.direccion ?? '') : datosPedido.direccion, acepta_datos: true, acepta_promos: datosPedido.acepta_promos })
-      setEditandoPerfil(false)
-    }
     if (REPETIR_PEDIDO) { const u = pedido.map(l => ({ id: l.producto.id, cantidad: l.cantidad, ...(l.valor ? { valor: l.valor } : {}) })); guardarUltimo(u); setUltimo(u) }
     const url = `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(t)}`
     if (ventana && !ventana.closed) ventana.location.href = url
@@ -418,13 +420,14 @@ export default function TiendaPublica() {
     setDatos(d => ({ ...d, acepta_datos: false, nota: '' }))
     setEnviado({ numero: numeroPedido, url, telefono: datosPedido.telefono })
     mis.recargar()
+    if (cta.perfil) cta.cargarResumen()
   }
 
   return (
     <>
     <CabeceraPublica tema="tienda" subtitulo="Tienda en línea · pide por WhatsApp" />
     <div className="max-w-md sm:max-w-3xl lg:max-w-6xl mx-auto p-4 lg:px-8 lg:pt-8 space-y-4 lg:space-y-6">
-      {cta.perfil?.nombre && !texto.trim() && <p className="max-w-2xl mx-auto w-full"><span className="inline-block rounded-full bg-cibus-profundo ring-1 ring-oro/40 px-4 py-2 text-sm text-champagne">Hola, <b className="font-semibold">{String(cta.perfil.nombre).trim().split(/\s+/)[0]}</b> 👋 ¿Qué se te antoja hoy?</span></p>}
+      {!texto.trim() && <BarraCuenta cuenta={cta} onRegistrar={() => setRegistro({ paso: 0 })} onAbrir={() => setVerCuenta(true)} onTerminar={() => setRegistro({ paso: 1 })} />}
       <div ref={refBuscador} className="max-w-2xl mx-auto w-full">
         <input value={texto} onChange={e => setTexto(e.target.value)} placeholder="Buscar un producto" aria-label="Buscar un producto" className={claseInput} />
       </div>
@@ -504,7 +507,7 @@ export default function TiendaPublica() {
                 <div className={`aspect-square bg-white relative overflow-hidden ${lineasPorId.has(p.id) ? 'ring-2 ring-inset ring-cibus/60' : ''}`}>
                   {p.imagenes?.[0] ? <img key={lineasPorId.get(p.id)?.cantidad ?? 0} src={p.imagenes[0]} alt={p.nombre} loading="lazy" className={`w-full h-full object-contain transition duration-300 group-hover:scale-105 ${lineasPorId.has(p.id) ? 'foto-late' : ''}`} /> : <SinFoto />}
                   {lineasPorId.has(p.id) && (
-                    <span key={lineasPorId.get(p.id).cantidad} aria-label={`${textoCantidad(lineasPorId.get(p.id))} en tu pedido`} className="pop-cantidad absolute bottom-2 left-2 min-w-7 h-7 px-2 rounded-full bg-cibus text-white text-xs font-bold grid place-items-center shadow-md ring-2 ring-white">🛒 {textoCantidad(lineasPorId.get(p.id))}</span>
+                    <span key={lineasPorId.get(p.id).cantidad} aria-label={`${textoCantidad(lineasPorId.get(p.id))} en tu pedido`} className="pop-cantidad absolute bottom-2 left-2 min-w-7 h-7 px-2 rounded-full bg-cibus text-white text-xs font-bold grid place-items-center shadow-md ring-2 ring-white"><span className="inline-flex items-center gap-1"><Icono nombre="caja" className="h-3.5 w-3.5" />{textoCantidad(lineasPorId.get(p.id))}</span></span>
                   )}
                   {p.disponible && idsOferta.has(p.id) && (
                     <span className="absolute top-2 right-2 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-cibus text-white ring-1 ring-white/40">
@@ -579,29 +582,33 @@ export default function TiendaPublica() {
               </ul>
               {quitados > 0 && <p className="text-base rounded-lg px-3 py-2 bg-champagne/30 text-negro">{quitados === 1 ? 'Un producto de tu lista ya no está disponible y lo quitamos.' : `${quitados} productos de tu lista ya no están disponibles y los quitamos.`}</p>}
               {pedido.length === 0 && <p className="text-center text-base text-slate-500 py-6">Tu pedido está vacío</p>}
-              {!cta.sesion && pedido.length > 0 && <CuentaCliente cuenta={cta} recoge={recoge} editando={false} onEditar={() => {}} onUsar={() => {}} />}
             </>
           ) : (
             <>
-              <CuentaCliente cuenta={cta} recoge={recoge} editando={editandoPerfil || (Boolean(cta.perfil) && !perfilSirve)}
-                onEditar={(v) => { if (v && cta.perfil) setDatos(d => datosDePerfil(cta.perfil, { ...d, nota: '' })); setEditandoPerfil(v) }}
-                onUsar={() => setEditandoPerfil(false)} />
-              {!usandoPerfil && <DatosPedido datos={datos} onCambio={(d) => { setDatos(d); setErrorPedido('') }} recoge={recoge} direccionTienda={negocio?.direccion ?? ''} />}
-              {!usandoPerfil && cta.sesion && (
-                <label className="grid grid-cols-[1.5rem_1fr] gap-3 items-center text-base text-slate-700">
-                  <input type="checkbox" checked={guardarPerfil} onChange={e => setGuardarPerfil(e.target.checked)} className="h-6 w-6 accent-[#0b0b0b]" />
-                  <span>Guardar estos datos para mi próxima compra</span>
-                </label>
+              {!cta.perfil && <InvitacionRegistro cuenta={cta} onRegistrar={() => setRegistro({ paso: cta.sesion ? 1 : 0 })} />}
+              {cta.perfil && (
+                <EntregaGuardada cuenta={cta} recoge={recoge} direccionTienda={negocio?.direccion ?? ''}
+                  onEntrega={(v) => { setRecoge(v); setErrorPedido('') }} onAbrirCuenta={() => setVerCuenta(true)} />
               )}
-              {!usandoPerfil && cta.sesion && (
-                <button onClick={guardarSolo} disabled={guardandoPerfil}
-                  className="w-full min-h-12 rounded-xl bg-white ring-1 ring-slate-300 text-slate-700 text-base font-semibold px-3 leading-tight active:bg-slate-100 disabled:opacity-50">
-                  {guardandoPerfil ? 'Guardando…' : 'Guardar mis datos ahora'}
-                </button>
+              {faltaUbicacion && (
+                <div className="space-y-3 rounded-2xl bg-slate-50 p-3">
+                  <p className="text-base font-semibold break-words">Marca tu puerta una sola vez</p>
+                  <p className="text-sm text-slate-600">Queda guardada en tu cuenta: en la próxima compra no te la volvemos a pedir.</p>
+                  <UbicacionCliente slug={slugActual()} inicial={{ direccion: cta.perfil.direccion }} etiquetaBoton="Guardar mi ubicación" ocupadoFuera={guardandoUbic}
+                    onConfirmar={async (u) => {
+                      setGuardandoUbic(true)
+                      const r = await cta.guardar(payloadPerfil(cta.perfil, { direccion: u.direccion, lat: u.lat, lng: u.lng, entrega_preferida: 'domicilio' }))
+                      setGuardandoUbic(false)
+                      if (r) setErrorPedido('')
+                    }} />
+                </div>
               )}
+              {!cta.perfil && <DatosPedido datos={datos} onCambio={(d) => { setDatos(d); setErrorPedido('') }} recoge={recoge} direccionTienda={negocio?.direccion ?? ''} />}
               {cta.error && cta.sesion && <p className="text-base text-red-600 bg-red-50 rounded-lg px-3 py-2 break-words">{cta.error}</p>}
-              {modoKm && !recoge && negocio && (
-                <DomicilioPlataforma n={negocio} direccion={datosPedido.direccion} subtotal={total} onRecoger={() => setRecoge(true)} onResultado={(r) => { setDomRes(r); setErrorPedido('') }} />
+              {modoKm && !recoge && negocio && (usandoPerfil || !cta.perfil) && (
+                <DomicilioPlataforma n={negocio} direccion={datosPedido.direccion} subtotal={total} vigente={domRes}
+                  punto={usandoPerfil && tieneUbicacion(cta.perfil) ? { lat: Number(cta.perfil.lat), lng: Number(cta.perfil.lng) } : null}
+                  onRecoger={() => setRecoge(true)} onResultado={(r) => { setDomRes(r); setErrorPedido('') }} />
               )}
             </>
           )}
@@ -695,6 +702,14 @@ export default function TiendaPublica() {
     {verMis && <VentanaMisPedidos lista={mis.lista} productos={productos} recargar={mis.recargar} onCerrar={() => setVerMis(false)}
       onRepetir={(lineas, faltan) => { setVerMis(false); if (lineas.length) { setPedido(lineas); setPaso('pedido'); setVerPedido(true) } setQuitados(faltan) }} />}
     {seguir && <SeguirPedido numero={seguir.numero} telefono={seguir.telefono} onCerrar={() => setSeguir(null)} />}
+    {registro && (
+      <RegistroCliente cuenta={cta} n={negocio} pasoInicial={registro.paso} onCerrar={() => setRegistro(null)}
+        onTerminado={() => { setRegistro(null); mis.recargar(); if (pedido.length > 0) { setPaso('datos'); setVerPedido(true) } }} />
+    )}
+    {verCuenta && cta.perfil && (
+      <MiCuentaCliente cuenta={cta} productos={productos} onCerrar={() => setVerCuenta(false)} onAgregar={agregarRapido}
+        onRepetir={(lineas, faltan) => { setVerCuenta(false); if (lineas.length) { setPedido(lineas); setPaso('pedido'); setVerPedido(true) } setQuitados(faltan) }} />
+    )}
     <ComentariosTienda cuenta={cta} />
     <PiePublico tema="tienda" whatsapp={WHATSAPP} />
     </>

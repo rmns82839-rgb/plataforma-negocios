@@ -1,6 +1,7 @@
 // Importar fotos en bloque: lee el CSV, lo empareja con los productos y trae las fotos. Archivo .js aparte (Fast Refresh).
 import { normalizar } from './buscar'
 import { fotosDe } from './fotos'
+import { esGenerica } from './imagenGenerica'
 
 /** Lee un CSV (coma o punto y coma, comillas, BOM). Devuelve filas como listas de texto. */
 export function leerCsv(texto) {
@@ -35,7 +36,7 @@ const MAX_POR_PRODUCTO = 3
  * Empareja las filas del CSV con los productos (primero por código de barras, luego por nombre exacto).
  * Solo cuenta lo que tiene foto nueva y al producto aún no tiene foto: nunca se pisan fotos ya puestas.
  */
-export function planImportacion(filasCsv, productos) {
+export function planImportacion(filasCsv, productos, { cambiarTodas = false } = {}) {
   if (filasCsv.length < 2) return { listos: [], yaTienen: 0, sinCoincidencia: [], sinEnlaces: 0, error: 'El archivo está vacío' }
   const cab = filasCsv[0].map(h => normalizar(h).replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, ''))
   const iCod = cab.findIndex(h => ['codigo', 'codigo_barras', 'codigo_de_barras', 'barras', 'ean'].includes(h))
@@ -66,12 +67,14 @@ export function planImportacion(filasCsv, productos) {
     const actual = fotosDe(p)
     const tarjeta = iActual >= 0 ? String(f[iActual] ?? '').trim() : ''
     // Solo se reemplaza si la foto que tiene hoy es EXACTAMENTE la tarjeta indicada en el archivo: una foto puesta a mano nunca se pisa
-    const reemplaza = actual.length > 0 && tarjeta !== '' && actual[0] === tarjeta
+    // Las imágenes genéricas que dibujó la propia app (ícono + nombre) tampoco son fotos reales: se reemplazan sin necesidad de la columna foto_actual
+    // Con «cambiar también las que ya tienen foto» (lo elige la persona): se reemplaza la foto única actual por la del archivo; en la revisión se ve la actual junto a la nueva
+    const reemplaza = actual.length > 0 && ((tarjeta !== '' && actual[0] === tarjeta) || (actual.length === 1 && (esGenerica(actual[0]) || (cambiarTodas && urls.length > 0 && !urls.includes(actual[0])))))
     if (actual.length > 0 && !reemplaza) { yaTienen++; continue }
     if (urls.length === 0) { sinEnlaces++; continue }
-    listos.push({ producto: p, urls, ...(reemplaza ? { reemplaza: true, tarjeta } : {}) })
+    listos.push({ producto: p, urls, ...(reemplaza ? { reemplaza: true, tarjeta: actual[0] } : {}) })
   }
-  return { listos, yaTienen, sinCoincidencia, sinEnlaces, error: '' }
+  return { listos, yaTienen, sinCoincidencia, sinEnlaces, error: '', total: filasCsv.length - 1, conEnlace: filasCsv.slice(1).filter(f => iFotos.some(i => esEnlace(f[i]))).length }
 }
 
 const celda = (v) => {

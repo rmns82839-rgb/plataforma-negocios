@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import Icono from '../cibus/components/Iconos'
 import { supabase } from '../lib/supabase'
 import { ir } from '../lib/ruta'
 import { textoDistancia } from '../lib/horario'
@@ -20,9 +21,9 @@ function Tarjeta({ t }) {
       </div>
       <InsigniaHorario estado={t.estado_horario} className="self-start" />
       <ul className="space-y-1 text-base text-tinta/80">
-        {t.distancia_km != null && <li>📍 <b>{textoDistancia(t.distancia_km)}</b> de ti</li>}
-        {(t.direccion || t.ciudad) && <li className="break-words">🏪 {[t.direccion, t.ciudad].filter(Boolean).join(', ')}</li>}
-        <li>{NOMBRE_TIPO[t.tipo] || 'Tienda'}{t.domicilio ? ' · 🛵 Hace domicilios' : ''}</li>
+        {t.distancia_km != null && <li className="grid grid-cols-[auto_1fr] gap-2 items-start"><Icono nombre="pin" className="h-5 w-5 mt-0.5" /><span><b>{textoDistancia(t.distancia_km)}</b> de ti</span></li>}
+        {(t.direccion || t.ciudad) && <li className="grid grid-cols-[auto_1fr] gap-2 items-start break-words"><Icono nombre="negocio" className="h-5 w-5 mt-0.5" /><span>{[t.direccion, t.ciudad].filter(Boolean).join(', ')}</span></li>}
+        <li className="grid grid-cols-[auto_1fr] gap-2 items-start">{t.domicilio ? <Icono nombre="moto" className="h-5 w-5 mt-0.5" /> : <span />}<span>{NOMBRE_TIPO[t.tipo] || 'Tienda'}{t.domicilio ? ' · Hace domicilios' : ''}</span></li>
       </ul>
       <Btn onClick={() => ir(`/t/${t.slug}`)}>Ver la tienda</Btn>
     </article>
@@ -78,8 +79,8 @@ export default function Directorio() {
 
       <section className="mb-5 grid gap-3 rounded-2xl border-2 border-black/5 bg-white p-4 shadow-sm">
         {pos
-          ? <div className="grid grid-cols-[1fr_auto] items-center gap-3 rounded-2xl bg-emerald-50 p-3 text-emerald-900"><span>📍 Ordenadas de la más cercana a la más lejana.</span><button onClick={() => setPos(null)} className="min-h-12 rounded-xl border-2 border-emerald-700/30 px-4 font-semibold">Quitar</button></div>
-          : <Btn onClick={buscarCerca} disabled={ubicando}>{ubicando ? 'Buscando dónde estás…' : '📍 Mostrar las más cercanas a mí'}</Btn>}
+          ? <div className="grid grid-cols-[1fr_auto] items-center gap-3 rounded-2xl bg-emerald-50 p-3 text-emerald-900"><span className="grid grid-cols-[auto_1fr] gap-2 items-center"><Icono nombre="pin" className="h-5 w-5" />Ordenadas de la más cercana a la más lejana.</span><button onClick={() => setPos(null)} className="min-h-12 rounded-xl border-2 border-emerald-700/30 px-4 font-semibold">Quitar</button></div>
+          : <Btn onClick={buscarCerca} disabled={ubicando}>{ubicando ? 'Buscando dónde estás…' : 'Mostrar las más cercanas a mí'}</Btn>}
         {avisoUbic && <Aviso tipo="info">{avisoUbic}</Aviso>}
         <input className={clsInput} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por nombre" aria-label="Buscar tienda por nombre" maxLength={60} />
         {ciudades.length > 1 && (

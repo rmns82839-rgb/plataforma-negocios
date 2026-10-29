@@ -4,14 +4,14 @@ import Modal from './Modal'
 import { armarCartel } from '../lib/cartelQr'
 import { enlaceTienda } from '../lib/enlaces'
 
-export default function QrCatalogo({ enlace = enlaceTienda(), onCerrar }) {
+export default function QrCatalogo({ enlace = enlaceTienda(), onCerrar, subtitulo = 'Tienda en línea · Pide por WhatsApp' }) {
   const [cartel, setCartel] = useState(null)
   const [aviso, setAviso] = useState('')
   useEffect(() => {
     let vivo = true, u = null
-    armarCartel({ enlace }).then(c => { u = c.url; if (vivo) setCartel(c) }).catch(() => vivo && setAviso('No se pudo armar el código. Intenta de nuevo'))
+    armarCartel({ enlace, subtitulo }).then(c => { u = c.url; if (vivo) setCartel(c) }).catch(() => vivo && setAviso('No se pudo armar el código. Intenta de nuevo'))
     return () => { vivo = false; if (u) URL.revokeObjectURL(u) }
-  }, [enlace])
+  }, [enlace, subtitulo])
 
   const descargar = () => {
     if (!cartel) return
