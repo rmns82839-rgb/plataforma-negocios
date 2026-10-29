@@ -309,6 +309,10 @@ export default function TiendaPublica() {
   const usandoPerfil = perfilSirve
   const faltaUbicacion = Boolean(cta.perfil) && !perfilSirve    // tiene cuenta pero falta su dirección o el punto del mapa: se pide UNA sola vez
   const datosPedido = usandoPerfil ? datosDePerfil(cta.perfil, datos) : datos
+  // Con cuenta registrada todo va en UNA pantalla (productos, domicilio o recoger, cómo paga y enviar): no se piden los datos otra vez
+  const unPaso = Boolean(cta.perfil)
+  const mostrarItems = paso === 'pedido' || unPaso
+  const mostrarDatos = paso === 'datos' || unPaso
   useEffect(() => { if (cta.perfil && !perfilSirve) setDatos(d => (d.nombre && d.telefono ? d : datosDePerfil(cta.perfil, d))) }, [cta.perfil, perfilSirve])
   // Su preferencia guardada (domicilio o recoger) se aplica una sola vez al entrar
   const prefAplicada = useRef(false)
@@ -488,7 +492,7 @@ export default function TiendaPublica() {
           <a href={enviado.url} target="_blank" rel="noopener noreferrer" className="text-champagne text-xs font-semibold underline">Abrir WhatsApp</a>
         </div>
       )}
-      {enviado?.medioPago && enviado.id && <TarjetaPagoDigital config={pagoCfg} pedidoId={enviado.id} medio={enviado.medioPago} total={enviado.total} porConfirmar={enviado.porConfirmar} />}
+      {enviado?.medioPago && enviado.id && <TarjetaPagoDigital config={pagoCfg} pedidoId={enviado.id} medio={enviado.medioPago} total={enviado.total} porConfirmar={enviado.porConfirmar} whatsapp={WHATSAPP} numeroPedido={enviado.numero} />}
       {soloOfertas && (
         <div className="rounded-2xl bg-negro px-4 py-3 grid grid-cols-[1fr_auto] gap-3 items-center ring-1 ring-champagne/30">
           <span className="text-sm font-semibold text-champagne">Mostrando solo ofertas</span>
@@ -572,8 +576,8 @@ export default function TiendaPublica() {
         sugeridos={sugeridosDe(productos, detalle)} onVerOtro={(id) => { const x = productos.find(q => q.id === id); if (x) abrir(x) }} />}
 
       {verPedido && (
-        <Modal titulo={paso === 'pedido' ? 'Paso 1 de 2 · Tu pedido' : 'Paso 2 de 2 · Tus datos'} onCerrar={() => setVerPedido(false)}>
-          {paso === 'pedido' ? (
+        <Modal titulo={unPaso ? 'Tu pedido' : paso === 'pedido' ? 'Paso 1 de 2 · Tu pedido' : 'Paso 2 de 2 · Tus datos'} onCerrar={() => setVerPedido(false)}>
+          {mostrarItems && (
             <>
               <ul className="divide-y divide-slate-100">
                 {cuenta.detalle.map(l => (
@@ -594,7 +598,8 @@ export default function TiendaPublica() {
               {quitados > 0 && <p className="text-base rounded-lg px-3 py-2 bg-champagne/30 text-negro">{quitados === 1 ? 'Un producto de tu lista ya no está disponible y lo quitamos.' : `${quitados} productos de tu lista ya no están disponibles y los quitamos.`}</p>}
               {pedido.length === 0 && <p className="text-center text-base text-slate-500 py-6">Tu pedido está vacío</p>}
             </>
-          ) : (
+          )}
+          {mostrarDatos && (
             <>
               {!cta.perfil && <InvitacionRegistro cuenta={cta} onRegistrar={() => setRegistro({ paso: cta.sesion ? 1 : 0 })} />}
               {cta.perfil && (
@@ -634,7 +639,7 @@ export default function TiendaPublica() {
               ))}
             </div>
           )}
-          {paso === 'pedido' && (
+          {paso === 'pedido' && !unPaso && (
             <div className="grid grid-cols-2 gap-2 p-1 rounded-xl bg-slate-100" role="group" aria-label="Cómo recibes tu pedido">
               {[[false, 'Domicilio'], [true, 'Recoger en tienda']].map(([v, t]) => (
                 <button key={t} onClick={() => setRecoge(v)}
@@ -669,20 +674,20 @@ export default function TiendaPublica() {
             <span className="text-lg text-slate-600">{domicilio != null ? 'Total con domicilio' : 'Total'}</span>
             <span className="text-2xl font-bold text-marca">{dinero(total + (domicilio ?? 0))}</span>
           </div>
-          {paso === 'datos' && <ElegirPago config={pagoCfg} valor={pagoMedio} onCambio={setPagoMedio} />}
+          {mostrarDatos && <ElegirPago config={pagoCfg} valor={pagoMedio} onCambio={setPagoMedio} />}
           {errorPedido && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{errorPedido}</p>}
 
           {!WHATSAPP ? (
             <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">Falta configurar el número de WhatsApp de la tienda.</p>
-          ) : paso === 'pedido' ? (
+          ) : paso === 'pedido' && !unPaso ? (
             <button onClick={() => setPaso('datos')} disabled={pedido.length === 0}
               className="w-full h-14 rounded-xl bg-cibus text-white text-lg font-semibold active:opacity-90 disabled:opacity-40">
               Siguiente: mis datos
             </button>
           ) : (
-            <div className="grid grid-cols-[auto_1fr] gap-3">
-              <button onClick={() => { setPaso('pedido'); setErrorPedido('') }}
-                className="h-14 px-5 rounded-xl bg-slate-100 text-slate-600 font-medium active:bg-slate-200">← Volver</button>
+            <div className={`grid gap-3 ${unPaso ? 'grid-cols-1' : 'grid-cols-[auto_1fr]'}`}>
+              {!unPaso && <button onClick={() => { setPaso('pedido'); setErrorPedido('') }}
+                className="h-14 px-5 rounded-xl bg-slate-100 text-slate-600 font-medium active:bg-slate-200">← Volver</button>}
               <button onClick={enviar} disabled={enviando}
                 className="h-14 rounded-xl bg-[#25D366] text-white text-lg font-semibold active:opacity-80 disabled:opacity-60">
                 {enviando ? 'Enviando…' : 'Enviar por WhatsApp'}

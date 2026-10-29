@@ -27,7 +27,7 @@ export function ElegirPago({ config, valor, onCambio }) {
 }
 
 /** Tarjeta que aparece después de enviar el pedido: número, valor, copiar y «Ya pagué». */
-export function TarjetaPagoDigital({ config, pedidoId, medio, total, porConfirmar = false }) {
+export function TarjetaPagoDigital({ config, pedidoId, medio, total, porConfirmar = false, whatsapp = '', numeroPedido = null }) {
   const [copiado, copiar] = useCopiado()
   const [ref, setRef] = useState('')
   const [estado, setEstado] = useState('pendiente')       // pendiente | enviando | avisado
@@ -44,6 +44,9 @@ export function TarjetaPagoDigital({ config, pedidoId, medio, total, porConfirma
     else { setEstado('pendiente'); setError('No pudimos avisar. Escríbenos por WhatsApp con tu comprobante.') }
   }
 
+  const aComprobante = whatsapp
+    ? `https://wa.me/${String(whatsapp).replace(/\D/g, '')}?text=${encodeURIComponent(`Hola, ya pagué el pedido${numeroPedido ? ` N.º ${numeroPedido}` : ''} por ${textoMedio(medio)} (${dinero(total)}). Te envío el comprobante.`)}`
+    : ''
   return (
     <div ref={caja} className="rounded-2xl bg-white text-slate-800 px-4 py-4 space-y-3 shadow-sm" aria-live="polite">
       <p className="text-base font-bold break-words">Paga por {textoMedio(medio)}</p>
@@ -69,6 +72,11 @@ export function TarjetaPagoDigital({ config, pedidoId, medio, total, porConfirma
             {estado === 'enviando' ? 'Avisando…' : 'Ya pagué'}
           </button>
         </>
+      )}
+      {aComprobante && (
+        <a href={aComprobante} target="_blank" rel="noopener noreferrer" className="w-full min-h-12 rounded-xl bg-[#25D366] text-white text-base font-semibold grid place-items-center px-3 text-center">
+          Enviar comprobante por WhatsApp
+        </a>
       )}
     </div>
   )
