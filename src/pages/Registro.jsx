@@ -23,13 +23,14 @@ function OpcionTipo({ t, activo, onClick }) {
   )
 }
 
-function TarjetaPlan({ p, activo, onClick }) {
+function TarjetaPlan({ p, activo, onClick, recomendado = false }) {
   const pr = precioTexto(p)
   return (
     <button type="button" role="radio" aria-checked={activo} onClick={onClick}
       className={`w-full rounded-2xl border-2 p-4 text-left transition active:scale-[0.99] ${activo ? 'border-principal bg-principal/5 ring-2 ring-principal' : 'border-black/10 bg-white'}`}>
       <span className="grid grid-cols-[1fr_auto] items-start gap-3">
         <span className="min-w-0">
+          {recomendado && <span className="mb-1 inline-block rounded-full bg-champagne px-3 py-0.5 text-sm font-bold text-negro">Recomendado</span>}
           <span className="block break-words text-2xl font-bold leading-tight">{p.nombre}</span>
           {p.descripcion && <span className="mt-1 block break-words text-base leading-snug text-tinta/70">{p.descripcion}</span>}
         </span>
@@ -64,7 +65,7 @@ export default function Registro() {
     supabase.rpc('planes_publicos').then(({ data, error: e }) => {
       if (e || !Array.isArray(data) || data.length === 0) { setErrorPlanes('No pudimos cargar los planes. Revisa tu conexión e intenta de nuevo.'); return }
       setPlanes(data)
-      setF((x) => (x.plan ? x : { ...x, plan: data[0].clave }))
+      setF((x) => (x.plan ? x : { ...x, plan: (data.find((p) => p.clave === 'gestion') || data.find((p) => p.clave !== 'vitrina') || data[0]).clave }))
     })
   }, [])
   useEffect(() => { window.scrollTo(0, 0) }, [paso, listo])
@@ -129,8 +130,14 @@ export default function Registro() {
         <div role="radiogroup" aria-label="Plan" className="space-y-3">
           {errorPlanes && <Aviso tipo="error">{errorPlanes}</Aviso>}
           {!planes && !errorPlanes && <p className="py-10 text-center text-xl text-tinta/60">Cargando planes…</p>}
-          {planes?.map((p) => <TarjetaPlan key={p.clave} p={p} activo={f.plan === p.clave} onClick={() => set('plan', p.clave)} />)}
-          {planes && <p className="text-base leading-snug text-tinta/60">El plan se puede cambiar después. Los precios del piloto son por tiempo limitado.</p>}
+          {planes?.filter((p) => p.clave !== 'vitrina').map((p) => <TarjetaPlan key={p.clave} p={p} activo={f.plan === p.clave} onClick={() => set('plan', p.clave)} recomendado={p.clave === 'gestion'} />)}
+          {planes?.filter((p) => p.clave === 'vitrina').map((p) => (
+            <button key={p.clave} type="button" role="radio" aria-checked={f.plan === p.clave} onClick={() => set('plan', p.clave)}
+              className={`w-full rounded-xl border px-4 py-3 text-left text-base leading-snug ${f.plan === p.clave ? 'border-principal bg-principal/5 font-semibold text-principal' : 'border-black/10 text-tinta/60'}`}>
+              {f.plan === p.clave ? '✓ ' : ''}¿Solo quieres probar? Empieza con una <b>vitrina gratis</b>: tu catálogo y pedidos por WhatsApp, hasta {p.max_productos?.toLocaleString('es-CO') || 200} productos.
+            </button>
+          ))}
+          {planes && <p className="text-base leading-snug text-tinta/60">El plan se puede cambiar después. Los precios de lanzamiento son por tiempo limitado.</p>}
         </div>
       )}
 
