@@ -17,12 +17,12 @@ const PASOS = [
   ['3', 'Vende por WhatsApp y en línea', 'Tus clientes piden desde el celular, pagan por Nequi, Llave o Daviplata y tú los atiendes desde tu panel.'],
 ]
 const BENEFICIOS = [
-  ['🛍️', 'Tu tienda en línea', 'Un enlace propio con tu catálogo, tus fotos y tu horario. Se comparte por WhatsApp.'],
-  ['🛵', 'Domicilios con mapa', 'El cliente marca su dirección y el sistema calcula el domicilio por kilómetros.'],
-  ['💸', 'Pagos Nequi, Llave y Daviplata', 'El cliente te avisa que pagó y tú confirmas en un toque. Sin comisiones.'],
-  ['📦', 'Inventario y caja', 'Productos, existencias, ventas, fiados, compras y reportes, desde el celular o el computador.'],
-  ['📷', 'Escáner de código de barras', 'Usa la cámara del celular como pistola para vender y buscar productos al instante.'],
-  ['📣', 'Ofertas y publicidad', 'Publica promociones y anuncios en tu tienda para vender más.'],
+  ['/iconos/tienda-linea.webp', 'Tu tienda en línea', 'Un enlace propio con tu catálogo, tus fotos y tu horario. Se comparte por WhatsApp.'],
+  ['/iconos/domicilios.webp', 'Domicilios con mapa', 'El cliente marca su dirección y el sistema calcula el domicilio por kilómetros.'],
+  ['/iconos/pagos.webp', 'Pagos Nequi, Llave y Daviplata', 'El cliente te avisa que pagó y tú confirmas en un toque. Sin comisiones.'],
+  ['/iconos/inventario.webp', 'Inventario y caja', 'Productos, existencias, ventas, fiados, compras y reportes, desde el celular o el computador.'],
+  ['/iconos/escaner.webp', 'Escáner de código de barras', 'Usa la cámara del celular como pistola para vender y buscar productos al instante.'],
+  ['/iconos/ofertas.webp', 'Ofertas y publicidad', 'Publica promociones y anuncios en tu tienda para vender más.'],
 ]
 
 function Boton({ children, onClick, variante = 'oro', className = '' }) {
@@ -102,7 +102,7 @@ export default function Portada() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {BENEFICIOS.map(([i, t, d]) => (
             <div key={t} className="rounded-2xl border-2 border-black/5 bg-papel p-5">
-              <p className="text-3xl" aria-hidden="true">{i}</p>
+              <img src={i} alt="" width="72" height="72" loading="lazy" className="h-[72px] w-[72px] object-contain" />
               <h3 className="mt-2 text-xl font-bold leading-tight">{t}</h3>
               <p className="mt-1 text-base leading-snug text-tinta/70">{d}</p>
             </div>
