@@ -5,7 +5,7 @@
 -- ============================================================
 update planes set activo = false where clave = 'tienda';
 -- el precio de lanzamiento de Gestión queda en 39.900 por 6 meses (por si alguien lo cambió)
-update planes set precio_fundador = 39900, meses_fundador = 6 where clave = 'gestion';
+update planes set precio_fundador = 39900 where clave = 'gestion';
 
 notify pgrst, 'reload schema';
 

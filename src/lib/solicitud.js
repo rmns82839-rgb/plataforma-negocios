@@ -54,7 +54,7 @@ export function precioTexto(p) {
     const meses = Number(p.meses_fundador ?? 0)
     return {
       principal: `${dinero(fundador)}/mes`,
-      detalle: meses > 0 ? `Precio de lanzamiento los primeros ${meses} meses; después ${dinero(mensual)}/mes` : `Después ${dinero(mensual)}/mes`,
+      detalle: meses > 0 ? `Precio de lanzamiento los primeros ${meses} meses; después ${dinero(mensual)}/mes` : `Precio de fundador: se mantiene mientras sigas con nosotros. Los clientes nuevos pagarán ${dinero(mensual)}/mes.`,
     }
   }
   return { principal: `${dinero(mensual)}/mes`, detalle: '' }

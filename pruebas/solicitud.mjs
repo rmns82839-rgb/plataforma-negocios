@@ -22,6 +22,7 @@ prueba('soloCelular quita el 57', () => { assert.equal(soloCelular('+57 300 123 
 prueba('mensaje de más de 300 letras', () => assert.ok(validarSolicitud({ ...BUENA, mensaje: 'x'.repeat(301) }, 'datos').mensaje))
 prueba('precio gratis', () => assert.deepEqual(precioTexto({ precio_mensual: 0 }), { principal: 'Gratis', detalle: '' }))
 prueba('precio con lanzamiento', () => { const p = precioTexto({ precio_mensual: 29900, precio_fundador: 19900, meses_fundador: 6 }); assert.match(p.principal, /19\.900\/mes/); assert.match(p.detalle, /primeros 6 meses.*29\.900/) })
+prueba('precio de fundador que se mantiene (0 meses)', () => { const p = precioTexto({ precio_mensual: 59900, precio_fundador: 39900, meses_fundador: 0 }); assert.match(p.principal, /39\.900\/mes/); assert.match(p.detalle, /se mantiene mientras sigas/); assert.match(p.detalle, /59\.900/) })
 prueba('precio sin lanzamiento', () => assert.deepEqual(precioTexto({ precio_mensual: 59900, precio_fundador: null }), { principal: '$59.900/mes', detalle: '' }))
 prueba('precio de lanzamiento igual al normal no se anuncia', () => assert.deepEqual(precioTexto({ precio_mensual: 59900, precio_fundador: 59900, meses_fundador: 6 }), { principal: '$59.900/mes', detalle: '' }))
 prueba('dirección sugerida: tildes, símbolos y espacios', () => { assert.equal(slugSugerido('Moda Luna & Cía'), 'moda-luna-cia'); assert.equal(slugSugerido('  ¡Ñandú Fresco!  '), 'nandu-fresco'); assert.equal(slugSugerido('Ab'), '') })

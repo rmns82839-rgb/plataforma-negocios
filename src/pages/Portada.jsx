@@ -25,7 +25,7 @@ const PASOS = [
   ['3', 'Vende por WhatsApp y en línea', 'Tus clientes piden desde el celular, pagan por Nequi, Llave o Daviplata y tú los atiendes desde tu panel.'],
 ]
 const PREGUNTAS = [
-  ['¿Cuánto cuesta?', 'El plan Gestión tiene precio de lanzamiento de $39.900 al mes durante los primeros 6 meses. También hay una vitrina gratis para probar, con tu catálogo y pedidos por WhatsApp.'],
+  ['¿Cuánto cuesta?', 'El plan Gestión cuesta $39.900 al mes para los primeros clientes, y ese precio se mantiene mientras sigas con nosotros. También hay una vitrina gratis para probar, con tu catálogo y pedidos por WhatsApp.'],
   ['¿Cobran comisión por cada venta?', 'No. Pagas solo tu plan mensual. Los pagos por Nequi, Llave o Daviplata llegan directo a tu número.'],
   ['¿Necesito saber de computadores?', 'No. Te ayudamos a cargar tus productos y todo está pensado para usarse desde el celular, con letra y botones grandes.'],
   ['¿Cómo recibo el dinero de mis clientes?', 'El cliente paga a tu Nequi, Llave o Daviplata, o en efectivo al recibir. Te avisa en la app y tú confirmas cuando el dinero te llega.'],
