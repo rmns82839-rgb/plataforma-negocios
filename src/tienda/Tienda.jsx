@@ -13,6 +13,7 @@ import { Carrito, Datos, Revisar } from './Pasos'
 import { entrarConGoogle } from '../lib/google'
 import EntrarCodigo from './EntrarCodigo'
 import { listar, textoDireccion } from '../lib/direcciones'
+import { guardarCopia, leerCopia, fechaCopia } from '../lib/sinConexion'
 
 const guardar = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)) } catch { /* sin almacenamiento: la tienda funciona igual */ } }
 const leer = (k, def) => { try { const t = localStorage.getItem(k); return t ? JSON.parse(t) : def } catch { return def } }
@@ -41,14 +42,20 @@ export default function Tienda({ slug }) {
   const [errPedido, setErrPedido] = useState('')
   const [resultado, setResultado] = useState(null)
   const avisoCarrito = useRef(false)
+  const [copia, setCopia] = useState(null)       // fecha de la copia guardada, cuando se muestra el catálogo sin internet
+  const [recarga, setRecarga] = useState(0)
+  useEffect(() => { const f = () => setRecarga((x) => x + 1); window.addEventListener('online', f); return () => window.removeEventListener('online', f) }, [])
 
   // Tienda + catálogo
   useEffect(() => {
     let vivo = true
-    setN(undefined); setCatalogo(null); setExtras(null); setError('')
+    setN(undefined); setCatalogo(null); setExtras(null); setError(''); setCopia(null)
     ;(async () => {
       const { data: t, error: et } = await supabase.rpc('negocio_publico', { p_slug: slug })
       if (!vivo) return
+      // Sin internet: se muestra la última copia guardada de esta tienda (si la hay)
+      const guardada = (et || !navigator.onLine) && !t ? leerCopia(slug) : null
+      if (guardada) { setN(guardada.n); setCatalogo(guardada.c); setCopia(guardada.ts); aplicarMarca(guardada.n); return }
       if (et) setDetalle(`${et.code || ''} ${et.message || ''}`.trim())
       setN(t ?? null)
       if (!t) return
@@ -59,12 +66,14 @@ export default function Tienda({ slug }) {
       if (!t.modulos.includes('catalogo_publico') || !t.modulos.includes('productos')) { setCatalogo({ productos: [], categorias: [], ofertas: [], promociones: [] }); return }
       const { data: c, error: e } = await supabase.rpc('catalogo_tienda', { p_slug: slug })
       if (!vivo) return
-      if (e || !c) setError('No pudimos cargar los productos. Intenta de nuevo en un momento.')
-      else setCatalogo(c)
+      if (e || !c) {
+        const g = leerCopia(slug)
+        if (g) { setCatalogo(g.c); setCopia(g.ts) } else setError('No pudimos cargar los productos. Intenta de nuevo en un momento.')
+      } else { setCatalogo(c); if (!t.vista_previa) guardarCopia(slug, t, c) }
       if (!t.vista_previa) supabase.rpc('registrar_visita', { p_slug: slug, p_catalogo: 'tienda', p_visitante: idVisitante() }).then(() => {}, () => {})
     })()
     return () => { vivo = false; quitarMarca() }
-  }, [slug])
+  }, [slug, recarga])
 
   // Rol de quien mira: soporte (solo lectura) o personal de la tienda
   useEffect(() => {
@@ -211,6 +220,7 @@ export default function Tienda({ slug }) {
           <MusicaFondo musica={extras?.musica} />
           <MenuDelDia menu={extras?.menu_hoy} />
 
+          {copia && <div className="mb-4"><Aviso tipo="previa"><b>Sin conexión.</b> Estás viendo el catálogo guardado el {fechaCopia(copia)}. Los precios pueden haber cambiado; para hacer el pedido necesitas internet.</Aviso></div>}
           {error && <Aviso tipo="error">{error}</Aviso>}
           {!catalogo && !error && <p className="py-10 text-center text-xl text-tinta/60">Cargando productos…</p>}
           {catalogo && <div className={cuenta > 0 ? 'pb-36' : ''}><Catalogo catalogo={catalogo} carrito={carrito} cambiar={cambiar} /></div>}

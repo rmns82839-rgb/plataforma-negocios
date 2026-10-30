@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { avisarCambioEstado } from '../lib/avisosCliente'
 import { cop, numeroWhatsapp } from '../lib/pedido'
 import { mensajeError } from '../lib/errores'
 import { Btn, Volver, Aviso, Campo, clsInput } from '../tienda/ui'
@@ -124,6 +125,7 @@ function Detalle({ ctx, pedido, cerrar }) {
     setOcupado(false)
     if (e) return setError(mensajeError(e))
     setP({ ...p, seguimiento: seg })
+    avisarCambioEstado(nid, p.id)        // avisa al cliente por su celular, si tiene los avisos activos (no frena nada si falla)
   }
 
   const wa = numeroWhatsapp(p.telefono)

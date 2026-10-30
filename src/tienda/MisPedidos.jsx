@@ -1,10 +1,12 @@
 // Mis pedidos (cliente con Google): perfil guardado con consentimiento, estado de cada pedido y borrado de datos.
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { entrarConGoogle } from '../lib/google'
 import { ir } from '../lib/ruta'
 import { mensajeError } from '../lib/errores'
 import { cop } from '../lib/pedido'
+import { detectarCambios } from '../lib/cambiosPedido'
+import { estadoAvisosCliente, activarAvisosCliente, desactivarAvisosCliente } from '../lib/avisosCliente'
 import { Btn, Volver, Aviso, Campo, clsInput, PiePlataforma } from './ui'
 
 const fecha = (t) => new Date(t).toLocaleString('es-CO', { timeZone: 'America/Bogota', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })
@@ -35,24 +37,40 @@ export default function MisPedidos({ slug, n, sesion }) {
   const [dirs, setDirs] = useState([])
   const [dirBorrar, setDirBorrar] = useState(null)
   const activo = n?.modulos?.includes('mis_pedidos')
+  const [cambios, setCambios] = useState([])          // avisos dentro de la app cuando cambia el estado de un pedido
+  const [avisos, setAvisos] = useState('...')           // estado de los avisos push en este celular
+  const antes = useRef(null)
+  const recibir = useCallback((lista) => {
+    const { mapa, cambios: c } = detectarCambios(antes.current, lista)
+    antes.current = mapa
+    if (c.length) { setCambios((x) => [...c.map((y) => y.texto), ...x].slice(0, 3)); if (navigator.vibrate) navigator.vibrate([200, 100, 200]) }
+  }, [])
 
   const cargar = useCallback(async () => {
     const [a, b, c] = await Promise.all([supabase.rpc('mi_perfil_cliente'), supabase.rpc('mis_pedidos'), supabase.rpc('mis_direcciones')])
     if (!c.error) setDirs(c.data || [])
     if (!a.error) { setPerfil(a.data || null); if (a.data) setF((x) => ({ ...x, nombre: a.data.nombre, telefono: a.data.telefono, direccion: a.data.direccion || '', acepta_promos: !!a.data.acepta_promos })) }
     else setPerfil(null)
-    if (!b.error) setPedidos(b.data || []); else setPedidos([])
-  }, [])
+    if (!b.error) { setPedidos(b.data || []); recibir(b.data || []) } else setPedidos([])
+  }, [recibir])
 
   useEffect(() => {
     if (!sesion) return
     cargar()
-    const t = setInterval(() => supabase.rpc('mis_pedidos').then(({ data }) => data && setPedidos(data)), 20000)
+    const t = setInterval(() => supabase.rpc('mis_pedidos').then(({ data }) => { if (data) { setPedidos(data); recibir(data) } }), 20000)
     return () => clearInterval(t)
-  }, [sesion, cargar])
+  }, [sesion, cargar, recibir])
+  useEffect(() => { if (sesion) estadoAvisosCliente().then(setAvisos) }, [sesion])
 
   const set = (k) => (e) => setF({ ...f, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value })
   const volver = () => ir(`/t/${slug}`)
+
+  async function alternarAvisos() {
+    setOcupado(true); setMsg(null)
+    try { if (avisos === 'activo') await desactivarAvisosCliente(); else await activarAvisosCliente(); setAvisos(await estadoAvisosCliente()) }
+    catch (e) { setMsg({ tipo: 'error', texto: e.message || 'No pudimos activar los avisos' }); setAvisos(await estadoAvisosCliente()) }
+    setOcupado(false)
+  }
 
   async function entrar() { const e = await entrarConGoogle(); if (e) setMsg({ tipo: 'error', texto: e }) }
 
@@ -112,6 +130,26 @@ export default function MisPedidos({ slug, n, sesion }) {
     <main className="mx-auto w-full max-w-3xl px-4 py-6 pb-10 text-lg">
       {Cabecera}
       {msg && <div className="mb-4"><Aviso tipo={msg.tipo}>{msg.texto}</Aviso></div>}
+
+      {cambios.length > 0 && (
+        <div className="mb-4 space-y-2" role="status" aria-live="polite">
+          {cambios.map((t, i) => <Aviso key={i} tipo="ok">🔔 {t}</Aviso>)}
+          <Btn variante="suave" onClick={() => setCambios([])}>Entendido</Btn>
+        </div>
+      )}
+      {!['sin_llave', '...', 'no_soportado'].includes(avisos) && (
+        <section className="mb-5 rounded-2xl border-2 border-black/5 bg-white p-4">
+          <h2 className="mb-1 text-xl font-bold leading-snug">Avisos en este celular</h2>
+          {avisos === 'ios_instalar' && <p className="text-lg leading-snug text-tinta/70">En iPhone, para recibir avisos primero instala la app: en Safari toca Compartir y «Añadir a pantalla de inicio».</p>}
+          {avisos === 'bloqueado' && <p className="text-lg leading-snug text-tinta/70">Los avisos están bloqueados en este navegador. Actívalos en los permisos del sitio y vuelve aquí.</p>}
+          {(avisos === 'activo' || avisos === 'inactivo') && (
+            <>
+              <p className="mb-3 text-lg leading-snug text-tinta/70">{avisos === 'activo' ? 'Te avisamos cuando la tienda prepare, despache o entregue tu pedido.' : 'Activa los avisos y te decimos cuando la tienda prepare, despache o entregue tu pedido, aunque tengas la app cerrada.'}</p>
+              <Btn variante={avisos === 'activo' ? 'suave' : 'principal'} disabled={ocupado} onClick={alternarAvisos}>{avisos === 'activo' ? 'Desactivar los avisos' : 'Activar los avisos'}</Btn>
+            </>
+          )}
+        </section>
+      )}
 
       <h2 className="mb-3 text-2xl font-bold">Estado de mis pedidos</h2>
       {pedidos === null && <p className="py-6 text-center text-tinta/60">Cargando tus pedidos…</p>}
