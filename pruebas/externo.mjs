@@ -43,7 +43,7 @@ for (const f of ['01-plataforma.sql', '02-datos.sql', '03-seguridad.sql', '04-fu
   try { await db.exec(fs.readFileSync(path.join(sqlDir, f), 'utf8')); console.log('OK   ', f) }
   catch (e) { console.log('FALLA', f, '→', e.message); process.exit(1) }
 }
-for (const f of ['25-horarios-directorio.sql', '26-solicitudes-negocio.sql', '27-administrador-miembro.sql', '28-avisos-pedidos.sql', '29-cuenta-cliente.sql', '30-directorio-externo.sql', '30-directorio-externo.sql']) {
+for (const f of ['25-horarios-directorio.sql', '26-solicitudes-negocio.sql', '27-administrador-miembro.sql', '28-avisos-pedidos.sql', '29-cuenta-cliente.sql', '30-directorio-externo.sql', '34-directorio-mapa.sql']) {
   try { await db.exec(fs.readFileSync(path.join(sqlDir, f), 'utf8')); console.log('OK   ', f) }
   catch (e) { console.log('FALLA', f, '→', e.message); process.exit(1) }
 }
@@ -89,7 +89,7 @@ const dir = (a = []) => q(`select directorio_tiendas(${a.join(',')}) as d`)
 const lista = (r) => r.rows[0].d
 await ok('verificar_aislamiento todo true', 'sistema', () => q(`select * from verificar_aislamiento()`), r => r.rows.every(x => x.ok) || (console.log(r.rows.filter(x => !x.ok)), false))
 await ok('Cibus sale en el directorio para un anónimo', 'anon', () => dir(), r => lista(r).some(t => t.slug === 'cibus' && t.externa === true && t.url === 'https://matriz-cibus.vercel.app/tienda' && t.logo_url === '/cibus-logo.webp'))
-await ok('la tarjeta no entrega coordenadas', 'anon', () => dir(), r => !JSON.stringify(lista(r)).includes('"lat"') && !JSON.stringify(lista(r)).includes('"lng"'))
+await ok('la tarjeta lleva lat y lng (para el mapa; vacías si la tienda no tiene punto)', 'anon', () => dir(), r => lista(r).every(t => 'lat' in t && 'lng' in t))
 await ok('buscar por nombre', 'anon', () => dir([`null`, `null`, `'cib'`]), r => lista(r).length === 1 && lista(r)[0].slug === 'cibus')
 await ok('buscar algo que no existe', 'anon', () => dir([`null`, `null`, `'zzzz'`]), r => lista(r).length === 0)
 await ok('filtro de tipo ropa no la trae', 'anon', () => dir([`null`, `null`, `null`, `null`, `'ropa'`]), r => !lista(r).some(t => t.slug === 'cibus'))
@@ -97,6 +97,7 @@ await ok('filtro de tipo tienda sí', 'anon', () => dir([`null`, `null`, `null`,
 await ok('sin horario no dice abierta: «solo abiertas» la oculta', 'anon', () => dir([`null`, `null`, `null`, `null`, `null`, `true`]), r => !lista(r).some(t => t.slug === 'cibus'))
 await como('sistema', () => q(`update directorio_externo set ciudad='Puerto Colombia', direccion='Calle 10 # 5-20', lat=10.9878, lng=-74.9548, horario_semana='{"0":[["00:00","23:59"]],"1":[["00:00","23:59"]],"2":[["00:00","23:59"]],"3":[["00:00","23:59"]],"4":[["00:00","23:59"]],"5":[["00:00","23:59"]],"6":[["00:00","23:59"]]}' where slug='cibus'`))
 await ok('con horario completo aparece abierta', 'anon', () => dir([`null`, `null`, `null`, `null`, `null`, `true`]), r => lista(r).some(t => t.slug === 'cibus' && t.estado_horario.abierto === true))
+await ok('con punto, la tarjeta entrega sus coordenadas', 'anon', () => dir(), r => { const t = lista(r).find(x => x.slug === 'cibus'); return t && Number(t.lat) === 10.9878 && Number(t.lng) === -74.9548 })
 await ok('distancia desde un punto cercano', 'anon', () => dir([`10.99`, `-74.95`]), r => { const t = lista(r).find(x => x.slug === 'cibus'); return t && t.distancia_km != null && t.distancia_km < 3 })
 await ok('filtro por ciudad', 'anon', () => dir([`null`, `null`, `null`, `'puerto colombia'`]), r => lista(r).some(t => t.slug === 'cibus'))
 await ok('otra ciudad no la trae', 'anon', () => dir([`null`, `null`, `null`, `'Bogotá'`]), r => !lista(r).some(t => t.slug === 'cibus'))

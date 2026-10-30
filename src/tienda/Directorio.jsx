@@ -5,14 +5,26 @@ import { ir } from '../lib/ruta'
 import { textoDistancia } from '../lib/horario'
 import { Btn, Aviso, Logo, InsigniaHorario, clsInput, PiePlataforma } from './ui'
 import MarcaMatriz from './MarcaMatriz'
+import MapaTiendas from './MapaTiendas'
+import PieMatriz from './PieMatriz'
+import BarraInferior from './BarraInferior'
+import BotonWhatsApp from './BotonWhatsApp'
 import { TIPOS_NEGOCIO } from '../lib/solicitud'
 
 const TIPOS = [['', 'Todas'], ...TIPOS_NEGOCIO.filter((t) => t.clave !== 'mixto').map((t) => [t.clave, t.nombre.split(' o ')[0]])]
 const NOMBRE_TIPO = Object.fromEntries([...TIPOS_NEGOCIO.map((t) => [t.clave, t.nombre]), ['mixto', 'Tienda y ropa']])
 
-function Tarjeta({ t }) {
+const tienePunto = (t) => t.lat != null && t.lng != null && Number.isFinite(Number(t.lat)) && Number.isFinite(Number(t.lng))
+
+function useAncho(min = 960) {
+  const [g, setG] = useState(() => typeof window !== 'undefined' && window.innerWidth >= min)
+  useEffect(() => { const f = () => setG(window.innerWidth >= min); window.addEventListener('resize', f); return () => window.removeEventListener('resize', f) }, [min])
+  return g
+}
+
+function Tarjeta({ t, activa = false, onElegir }) {
   return (
-    <article className="flex flex-col gap-3 rounded-2xl border-2 border-black/5 bg-white p-4 shadow-sm">
+    <article id={`tienda-${t.slug}`} onClick={onElegir} className={`flex cursor-pointer flex-col gap-3 rounded-2xl border-2 bg-white p-4 shadow-sm transition ${activa ? 'border-champagne ring-2 ring-champagne/60' : 'border-black/5'}`}>
       <div className="grid grid-cols-[auto_1fr] items-center gap-4">
         {t.externa && t.logo_url
           ? <div className="flex h-16 w-24 items-center justify-center"><img src={t.logo_url} alt={t.nombre} className="max-h-16 w-full object-contain" /></div>
@@ -28,7 +40,7 @@ function Tarjeta({ t }) {
         {(t.direccion || t.ciudad) && <li className="grid grid-cols-[auto_1fr] gap-2 items-start break-words"><Icono nombre="negocio" className="h-5 w-5 mt-0.5" /><span>{[t.direccion, t.ciudad].filter(Boolean).join(', ')}</span></li>}
         <li className="grid grid-cols-[auto_1fr] gap-2 items-start">{t.domicilio ? <Icono nombre="moto" className="h-5 w-5 mt-0.5" /> : <span />}<span>{NOMBRE_TIPO[t.tipo] || 'Tienda'}{t.domicilio ? ' · Hace domicilios' : ''}</span></li>
       </ul>
-      <Btn onClick={() => (t.externa && /^https:\/\//.test(t.url || '') ? window.location.assign(t.url) : ir(`/t/${t.slug}`))}>Ver la tienda</Btn>
+      <Btn onClick={(e) => { e.stopPropagation(); (t.externa && /^https:\/\//.test(t.url || '') ? window.location.assign(t.url) : ir(`/t/${t.slug}`)) }}>Ver la tienda</Btn>
     </article>
   )
 }
@@ -46,6 +58,9 @@ export default function Directorio() {
   const [ubicando, setUbicando] = useState(false)
   const [avisoUbic, setAvisoUbic] = useState('')
   const pedido = useRef(0)
+  const grande = useAncho()
+  const [vista, setVista] = useState('lista')
+  const [seleccion, setSeleccion] = useState(null)
 
   useEffect(() => { const t = setTimeout(() => setQFiltro(q.trim()), 350); return () => clearTimeout(t) }, [q])
   useEffect(() => { supabase.rpc('directorio_ciudades').then(({ data }) => setCiudades(Array.isArray(data) ? data : [])) }, [])
@@ -74,44 +89,91 @@ export default function Directorio() {
     )
   }
 
-  return (
-    <main className="mx-auto w-full max-w-3xl px-4 py-6 text-lg sm:py-10">
-      <div className="mb-6 flex justify-center"><MarcaMatriz tamano={56} /></div>
-      <h1 className="mb-1 text-center text-3xl font-bold">Tiendas cerca de ti</h1>
-      <p className="mb-5 text-center text-tinta/70">Mira cuáles están abiertas ahora y pide desde tu celular.</p>
+  const FILTROS = (
+    <section className="grid gap-3 rounded-2xl border-2 border-black/5 bg-white p-4 shadow-sm">
+      {pos
+        ? <div className="grid grid-cols-[1fr_auto] items-center gap-3 rounded-2xl bg-emerald-50 p-3 text-emerald-900"><span className="grid grid-cols-[auto_1fr] gap-2 items-center"><Icono nombre="pin" className="h-5 w-5" />Ordenadas de la más cercana a la más lejana.</span><button onClick={() => setPos(null)} className="min-h-12 rounded-xl border-2 border-emerald-700/30 px-4 font-semibold">Quitar</button></div>
+        : <Btn onClick={buscarCerca} disabled={ubicando}>{ubicando ? 'Buscando dónde estás…' : 'Mostrar las más cercanas a mí'}</Btn>}
+      {avisoUbic && <Aviso tipo="info">{avisoUbic}</Aviso>}
+      <input className={clsInput} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por nombre" aria-label="Buscar tienda por nombre" maxLength={60} />
+      {ciudades.length > 1 && (
+        <select className={clsInput} value={ciudad} onChange={(e) => setCiudad(e.target.value)} aria-label="Ciudad">
+          <option value="">Todas las ciudades</option>
+          {ciudades.map((c) => <option key={c.ciudad} value={c.ciudad}>{c.ciudad} ({c.tiendas})</option>)}
+        </select>
+      )}
+      <select className={clsInput} value={tipo} onChange={(e) => setTipo(e.target.value)} aria-label="Tipo de tienda">
+      {TIPOS.map(([v, t]) => <option key={v} value={v}>{v ? t : 'Todos los tipos de tienda'}</option>)}
+    </select>
+      <label className="flex min-h-12 items-center gap-3 rounded-xl border-2 border-black/15 px-4 text-lg font-semibold">
+        <input type="checkbox" className="h-6 w-6 accent-emerald-700" checked={abiertas} onChange={(e) => setAbiertas(e.target.checked)} />
+        Solo las que están abiertas ahora
+      </label>
+    </section>
+  )
+  const elegir = (slug, desdeMapa = false) => {
+    setSeleccion(slug)
+    if (desdeMapa && grande) setTimeout(() => document.getElementById(`tienda-${slug}`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 40)
+  }
+  const sel = lista?.find((t) => t.slug === seleccion) || null
+  const sinPunto = lista ? lista.filter((t) => !tienePunto(t)).length : 0
 
-      <section className="mb-5 grid gap-3 rounded-2xl border-2 border-black/5 bg-white p-4 shadow-sm">
-        {pos
-          ? <div className="grid grid-cols-[1fr_auto] items-center gap-3 rounded-2xl bg-emerald-50 p-3 text-emerald-900"><span className="grid grid-cols-[auto_1fr] gap-2 items-center"><Icono nombre="pin" className="h-5 w-5" />Ordenadas de la más cercana a la más lejana.</span><button onClick={() => setPos(null)} className="min-h-12 rounded-xl border-2 border-emerald-700/30 px-4 font-semibold">Quitar</button></div>
-          : <Btn onClick={buscarCerca} disabled={ubicando}>{ubicando ? 'Buscando dónde estás…' : 'Mostrar las más cercanas a mí'}</Btn>}
-        {avisoUbic && <Aviso tipo="info">{avisoUbic}</Aviso>}
-        <input className={clsInput} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por nombre" aria-label="Buscar tienda por nombre" maxLength={60} />
-        {ciudades.length > 1 && (
-          <select className={clsInput} value={ciudad} onChange={(e) => setCiudad(e.target.value)} aria-label="Ciudad">
-            <option value="">Todas las ciudades</option>
-            {ciudades.map((c) => <option key={c.ciudad} value={c.ciudad}>{c.ciudad} ({c.tiendas})</option>)}
-          </select>
-        )}
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3" role="group" aria-label="Tipo de tienda">
-          {TIPOS.map(([v, t]) => (
-            <button key={v} onClick={() => setTipo(v)} aria-pressed={tipo === v}
-              className={`min-h-12 rounded-xl border-2 px-2 text-base font-semibold ${tipo === v ? 'border-principal bg-principal text-white' : 'border-black/15 bg-white'}`}>{t}</button>
-          ))}
-        </div>
-        <label className="flex min-h-12 items-center gap-3 rounded-xl border-2 border-black/15 px-4 text-lg font-semibold">
-          <input type="checkbox" className="h-6 w-6 accent-emerald-700" checked={abiertas} onChange={(e) => setAbiertas(e.target.checked)} />
-          Solo las que están abiertas ahora
-        </label>
-      </section>
-
+  const mensajes = (
+    <>
       {error && <Aviso tipo="error">{error}</Aviso>}
       {lista === null && !error && <p className="py-10 text-center text-xl text-tinta/60">Buscando tiendas…</p>}
       {lista && lista.length === 0 && !error && (
         <Aviso>No encontramos tiendas con esos datos. {abiertas ? 'Prueba quitando «solo las abiertas». ' : ''}{(q || ciudad || tipo) ? 'Prueba con otra búsqueda.' : 'Muy pronto habrá más tiendas.'}</Aviso>
       )}
-      <div className="grid gap-4 sm:grid-cols-2">{lista?.map((t) => <Tarjeta key={t.slug} t={t} />)}</div>
-      <div className="mt-8 grid"><Btn variante="suave" onClick={() => ir('/')}>← Volver al inicio</Btn></div>
-      <PiePlataforma />
-    </main>
+    </>
+  )
+  const tarjetas = lista?.map((t) => <Tarjeta key={t.slug} t={t} activa={t.slug === seleccion} onElegir={() => elegir(t.slug)} />)
+  const mapa = (alto) => lista && lista.length > 0 && (
+    <div className="grid gap-3">
+      <MapaTiendas tiendas={lista} seleccion={seleccion} onSeleccion={(slug) => elegir(slug, true)} pos={pos} alto={alto} />
+      {sinPunto > 0 && <p className="text-center text-sm text-tinta/60">{sinPunto === 1 ? '1 tienda no tiene su punto en el mapa' : `${sinPunto} tiendas no tienen su punto en el mapa`}, pero sí salen en la lista.</p>}
+    </div>
+  )
+
+  return (
+    <div className="bg-papel text-tinta">
+      {grande ? (
+        <main className="mx-auto w-full max-w-[1400px] px-4 pb-24 pt-4 text-lg" style={{ display: 'grid', gap: 20, gridTemplateColumns: '420px 1fr', alignItems: 'start' }}>
+          <div className="grid gap-3" style={{ maxHeight: 'calc(100vh - 96px)', overflowY: 'auto', paddingRight: 6, position: 'sticky', top: 16 }}>
+            <div className="flex items-center gap-3"><button onClick={() => ir('/')} aria-label="Ir al inicio"><MarcaMatriz tamano={36} eslogan={false} /></button><h1 className="text-2xl font-bold leading-tight">Tiendas cerca de ti</h1></div>
+            {FILTROS}
+            {mensajes}
+            {tarjetas}
+          </div>
+          <div style={{ position: 'sticky', top: 16 }}>{mapa('calc(100vh - 96px)')}</div>
+        </main>
+      ) : (
+        <main className="mx-auto w-full max-w-3xl px-4 pb-32 pt-6 text-lg">
+          <div className="mb-3 flex justify-center"><MarcaMatriz tamano={44} /></div>
+          <h1 className="mb-1 text-center text-[clamp(1.7rem,6vw,2.25rem)] font-bold leading-tight">Tiendas cerca de ti</h1>
+          <p className="mb-4 text-center text-tinta/70">Mira dónde están, cuáles están abiertas ahora y pide desde tu celular.</p>
+          <div className="mb-4">{FILTROS}</div>
+          {lista && lista.length > 0 && (
+            <div className="mb-4 grid grid-cols-2 gap-2" role="tablist" aria-label="Ver como">
+              {[['lista', 'Lista'], ['mapa', 'Mapa']].map(([v, t]) => (
+                <button key={v} role="tab" aria-selected={vista === v} onClick={() => setVista(v)}
+                  className={`min-h-12 rounded-xl border-2 text-base font-semibold ${vista === v ? 'border-negro bg-negro text-champagne' : 'border-black/15 bg-white'}`}>{t}</button>
+              ))}
+            </div>
+          )}
+          {mensajes}
+          {vista === 'lista' && <div className="grid gap-3">{tarjetas}</div>}
+          {vista === 'mapa' && (
+            <div className="grid gap-3">
+              {mapa('calc(100vh - 300px)')}
+              {sel && <Tarjeta t={sel} activa />}
+            </div>
+          )}
+        </main>
+      )}
+      <PieMatriz />
+      <BotonWhatsApp />
+      <BarraInferior activa="/tiendas" />
+    </div>
   )
 }

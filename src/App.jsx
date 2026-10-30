@@ -6,6 +6,7 @@ import { Pagina, Tarjeta, Cargando } from './pages/Piezas'
 import Login from './pages/Login'
 import Inicio from './pages/Inicio'
 import Portada from './pages/Portada'
+import PaginaLegal from './pages/PaginaLegal'
 import PanelApp from './panel/PanelApp'
 import PaginaMisPedidos from './tienda/PaginaMisPedidos'
 import Directorio from './tienda/Directorio'
@@ -40,6 +41,7 @@ export default function App() {
   if (vista === 'directorio') return <Directorio />
   if (vista === 'registro') return <Registro />
   if (vista === 'solicitudes') return <Solicitudes />
+  if (vista === 'info') return <PaginaLegal tipo={legal} />
   if (vista === 'legal') return <LegalCibus slug={slug} tipo={legal} />
   if (vista === 'publico') return <TiendaCibus slug={slug} />
   if (vista === 'panel') return <PanelApp slug={slug} />

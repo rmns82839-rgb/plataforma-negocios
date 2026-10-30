@@ -37,7 +37,7 @@ for (const n of ['duenoA', 'cajeroA', 'duenoB', 'soporte', 'extra', 'duenoV', 'g
 
 // ---------- Cargar los SQL del proyecto ----------
 let fallas = 0, pruebas = 0
-for (const f of ['01-plataforma.sql', '02-datos.sql', '03-seguridad.sql', '04-funciones-plataforma.sql', '05-storage-realtime.sql', '06-funciones-negocio.sql', '07-tablero-y-pedidos.sql', '08-permisos.sql', '10-planes-modulos.sql', '11-catalogo-clientes.sql', '12-redondeo-domicilio.sql', '14-panel.sql', '15-domicilio-km.sql', '16-direcciones-cliente.sql', '17-caja-pedidos.sql', '18-formas-pago-comision.sql', '19-caja-movimientos.sql', '20-clientes-datos.sql', '21-vitrina-tienda.sql', '22-prepago-resumen.sql', '23-panel-caja.sql', '24-panel-fiados.sql', '25-horarios-directorio.sql', '26-solicitudes-negocio.sql', '27-administrador-miembro.sql', '28-avisos-pedidos.sql', '29-cuenta-cliente.sql', '30-directorio-externo.sql', '31-pago-digital.sql', '32-tipos-negocio.sql', '33-plan-gestion.sql']) {
+for (const f of ['01-plataforma.sql', '02-datos.sql', '03-seguridad.sql', '04-funciones-plataforma.sql', '05-storage-realtime.sql', '06-funciones-negocio.sql', '07-tablero-y-pedidos.sql', '08-permisos.sql', '10-planes-modulos.sql', '11-catalogo-clientes.sql', '12-redondeo-domicilio.sql', '14-panel.sql', '15-domicilio-km.sql', '16-direcciones-cliente.sql', '17-caja-pedidos.sql', '18-formas-pago-comision.sql', '19-caja-movimientos.sql', '20-clientes-datos.sql', '21-vitrina-tienda.sql', '22-prepago-resumen.sql', '23-panel-caja.sql', '24-panel-fiados.sql', '25-horarios-directorio.sql', '26-solicitudes-negocio.sql', '27-administrador-miembro.sql', '28-avisos-pedidos.sql', '29-cuenta-cliente.sql', '30-directorio-externo.sql', '31-pago-digital.sql', '32-tipos-negocio.sql', '34-directorio-mapa.sql']) {
   try { await db.exec(fs.readFileSync(path.join(sqlDir, f), 'utf8')); console.log('OK   ', f) }
   catch (e) { console.log('FALLA', f, '→', e.message); process.exit(1) }
 }
@@ -463,7 +463,7 @@ await falla('un usuario no activa planes', 'duenoA', () => q(`select activar_pla
 await falla('un usuario no publica tiendas', 'duenoV', () => q(`select publicar_negocio($1,true)`, [V]), 'permission denied')
 await falla('un usuario no asigna precio fundador', 'duenoA', () => q(`select asignar_fundador($1,true)`, [A]), 'permission denied')
 await falla('anon no lee los planes', 'anon', () => q(`select * from planes`), 'permission denied')
-await ok('un usuario con sesión lee los planes activos (3: Tienda ya no se ofrece) y sus módulos', 'duenoA', () => q(`select (select count(*) from planes) p, (select count(*) from plan_modulos where plan='completo') m`), r => r.rows[0].p == 3 && r.rows[0].m >= 20)
+await ok('un usuario con sesión lee los planes y sus módulos', 'duenoA', () => q(`select (select count(*) from planes) p, (select count(*) from plan_modulos where plan='completo') m`), r => r.rows[0].p == 4 && r.rows[0].m >= 20)
 await falla('un usuario no cambia los precios', 'duenoA', () => q(`update planes set precio_mensual=1 where clave='tienda'`), 'permission denied')
 await ok('cada plan incluye al anterior (los paquetes escalan)', 'sistema', () => q(`select
   not exists (select 1 from plan_modulos a where a.plan='vitrina' and not exists (select 1 from plan_modulos b where b.plan='tienda' and b.modulo=a.modulo)) v_t,
@@ -1206,6 +1206,11 @@ await falla('solicitud con tipo inventado rechazada', 'anon', () => q(`select en
   } catch (e) { fallas++; console.log('✗ vitrina →', e.message) }
 }
 await falla('tipo inventado sigue rechazado', 'sistema', () => crear('tipo-bar', 'Bar', 'bar', 'bar@correo.com'), 'no válido')
+console.log('\n--- Plan Gestión como principal (33) ---')
+await db.exec(fs.readFileSync(path.join(sqlDir, '33-plan-gestion.sql'), 'utf8'))
+await db.exec(fs.readFileSync(path.join(sqlDir, '33-plan-gestion.sql'), 'utf8'))   // segunda carga: idempotente
+await ok('Tienda ya no se ofrece: quedan 3 planes activos y Gestión sale a 39.900', 'duenoA', () => q(`select (select count(*) from planes) p, (select precio_fundador from planes where clave='gestion') g`), r => r.rows[0].p == 3 && r.rows[0].g == 39900)
+await falla('no se crea un negocio nuevo con el plan Tienda', 'sistema', () => crear('plan-viejo', 'Plan viejo', 'tienda', 'viejo@correo.com', 'tienda'), 'no válido')
 console.log('\n--- Verificación automática de la base ---')
 const ver = await como('sistema', () => q(`select * from verificar_aislamiento()`))
 for (const f of ver.rows) { pruebas++; if (f.ok) console.log('✓', f.chequeo); else { fallas++; console.log('✗', f.chequeo, '→', f.detalle) } }

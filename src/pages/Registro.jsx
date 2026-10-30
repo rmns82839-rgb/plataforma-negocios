@@ -1,5 +1,5 @@
 // Registro de un negocio nuevo: qué vende, qué plan, sus datos y enviar. No crea la tienda: el equipo la revisa y la aprueba.
-// Pasos (siempre con «Volver»): 1 qué vendes · 2 plan · 3 tus datos · 4 revisar y enviar.
+// Pasos (siempre con «Volver»): 1 qué vendes · 2 tus datos · 3 plan, revisar y enviar.
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { ir } from '../lib/ruta'
@@ -7,8 +7,8 @@ import { Btn, Aviso, Campo, clsInput, BarraFija, PiePlataforma } from '../tienda
 import MarcaMatriz from '../tienda/MarcaMatriz'
 import { TIPOS_NEGOCIO, validarSolicitud, precioTexto, soloCelular } from '../lib/solicitud'
 
-const PASOS = ['tipo', 'plan', 'datos', 'revisar']
-const TITULO = { tipo: '¿Qué vendes?', plan: 'Elige tu plan', datos: 'Cuéntanos de tu negocio', revisar: 'Revisa y envía' }
+const PASOS = ['tipo', 'datos', 'revisar']
+const TITULO = { tipo: '¿Qué vendes?', plan: 'Elige tu plan', datos: 'Cuéntanos de tu negocio', revisar: 'Tu plan y envío' }
 
 function OpcionTipo({ t, activo, onClick }) {
   return (
@@ -126,21 +126,6 @@ export default function Registro() {
       )}
       {paso === 'tipo' && errores.tipo && <p className="mt-3 text-base font-semibold text-red-700">{errores.tipo}</p>}
 
-      {paso === 'plan' && (
-        <div role="radiogroup" aria-label="Plan" className="space-y-3">
-          {errorPlanes && <Aviso tipo="error">{errorPlanes}</Aviso>}
-          {!planes && !errorPlanes && <p className="py-10 text-center text-xl text-tinta/60">Cargando planes…</p>}
-          {planes?.filter((p) => p.clave !== 'vitrina').map((p) => <TarjetaPlan key={p.clave} p={p} activo={f.plan === p.clave} onClick={() => set('plan', p.clave)} recomendado={p.clave === 'gestion'} />)}
-          {planes?.filter((p) => p.clave === 'vitrina').map((p) => (
-            <button key={p.clave} type="button" role="radio" aria-checked={f.plan === p.clave} onClick={() => set('plan', p.clave)}
-              className={`w-full rounded-xl border px-4 py-3 text-left text-base leading-snug ${f.plan === p.clave ? 'border-principal bg-principal/5 font-semibold text-principal' : 'border-black/10 text-tinta/60'}`}>
-              {f.plan === p.clave ? '✓ ' : ''}¿Solo quieres probar? Empieza con una <b>vitrina gratis</b>: tu catálogo y pedidos por WhatsApp, hasta {p.max_productos?.toLocaleString('es-CO') || 200} productos.
-            </button>
-          ))}
-          {planes && <p className="text-base leading-snug text-tinta/60">El plan se puede cambiar después. Los precios de lanzamiento son por tiempo limitado.</p>}
-        </div>
-      )}
-
       {paso === 'datos' && (
         <div className="space-y-5">
           <Campo etiqueta="Nombre de tu negocio" error={errores.nombre_negocio}>
@@ -169,6 +154,18 @@ export default function Registro() {
 
       {paso === 'revisar' && (
         <div className="space-y-4">
+      <div role="radiogroup" aria-label="Plan" className="space-y-3">
+            {errorPlanes && <Aviso tipo="error">{errorPlanes}</Aviso>}
+            {!planes && !errorPlanes && <p className="py-10 text-center text-xl text-tinta/60">Cargando planes…</p>}
+            {planes?.filter((p) => p.clave !== 'vitrina').map((p) => <TarjetaPlan key={p.clave} p={p} activo={f.plan === p.clave} onClick={() => set('plan', p.clave)} recomendado={p.clave === 'gestion'} />)}
+            {planes?.filter((p) => p.clave === 'vitrina').map((p) => (
+              <button key={p.clave} type="button" role="radio" aria-checked={f.plan === p.clave} onClick={() => set('plan', p.clave)}
+                className={`w-full rounded-xl border px-4 py-3 text-left text-base leading-snug ${f.plan === p.clave ? 'border-principal bg-principal/5 font-semibold text-principal' : 'border-black/10 text-tinta/60'}`}>
+                {f.plan === p.clave ? '✓ ' : ''}¿Solo quieres probar? Empieza con una <b>vitrina gratis</b>: tu catálogo y pedidos por WhatsApp, hasta {p.max_productos?.toLocaleString('es-CO') || 200} productos.
+              </button>
+            ))}
+            {planes && <p className="text-base leading-snug text-tinta/60">El plan se puede cambiar después. Los precios de lanzamiento son por tiempo limitado.</p>}
+          </div>
           <dl className="space-y-3 rounded-2xl border-2 border-black/5 bg-white p-4">
             {[
               ['Vendes', TIPOS_NEGOCIO.find((t) => t.clave === f.tipo)?.nombre],
@@ -184,7 +181,7 @@ export default function Registro() {
           </dl>
           <label className="flex items-start gap-3 rounded-2xl border-2 border-black/10 bg-white p-4">
             <input type="checkbox" checked={f.acepta} onChange={(e) => set('acepta', e.target.checked)} className="mt-1 h-7 w-7 shrink-0 accent-principal" />
-            <span className="text-base leading-snug">Autorizo a Matriz a usar estos datos para contactarme y crear mi tienda (tratamiento de datos personales, Ley 1581 de 2012).</span>
+            <span className="text-base leading-snug">Autorizo a Matriz a usar estos datos para contactarme y crear mi tienda, según la <a href="/privacidad" target="_blank" rel="noopener" className="font-semibold underline">política de datos personales</a> (Ley 1581 de 2012) y los <a href="/terminos" target="_blank" rel="noopener" className="font-semibold underline">términos</a>.</span>
           </label>
           {errores.acepta && <p className="text-base font-semibold text-red-700">{errores.acepta}</p>}
         </div>
@@ -197,7 +194,7 @@ export default function Registro() {
           <Btn variante="suave" type="button" onClick={volver} disabled={enviando}>← Volver</Btn>
           {paso === 'revisar'
             ? <Btn type="button" onClick={enviar} disabled={enviando}>{enviando ? 'Enviando…' : 'Enviar solicitud'}</Btn>
-            : <Btn type="button" onClick={seguir} disabled={paso === 'plan' && !planes}>Continuar</Btn>}
+            : <Btn type="button" onClick={seguir} disabled={false}>Continuar</Btn>}
         </div>
       </BarraFija>
     </main>

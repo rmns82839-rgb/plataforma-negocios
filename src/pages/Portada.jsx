@@ -5,7 +5,11 @@ import { supabase } from '../lib/supabase'
 import { ir } from '../lib/ruta'
 import { TIPOS_NEGOCIO, precioTexto } from '../lib/solicitud'
 import { urlFoto } from '../cibus/lib/fotos'
-import { Logo, PiePlataforma } from '../tienda/ui'
+import { Logo } from '../tienda/ui'
+import PieMatriz from '../tienda/PieMatriz'
+import BarraInferior from '../tienda/BarraInferior'
+import BotonWhatsApp from '../tienda/BotonWhatsApp'
+import { WHATSAPP_BONITO, enlaceWhatsApp } from '../lib/contacto'
 import { Isotipo } from '../tienda/MarcaMatriz'
 import { modoComputadorEnCelular, preferenciaVista } from '../lib/vistaPantalla'
 
@@ -19,6 +23,17 @@ const PASOS = [
   ['1', 'Cuéntanos de tu negocio', 'Llenas un formulario corto: qué vendes, tu ciudad y tu celular. Sin pagar nada para empezar.'],
   ['2', 'Cargamos tu catálogo', 'Con fotos y productos listos para vender. Tú le pones tus precios y listo.'],
   ['3', 'Vende por WhatsApp y en línea', 'Tus clientes piden desde el celular, pagan por Nequi, Llave o Daviplata y tú los atiendes desde tu panel.'],
+]
+const PREGUNTAS = [
+  ['¿Cuánto cuesta?', 'El plan Gestión tiene precio de lanzamiento de $39.900 al mes durante los primeros 6 meses. También hay una vitrina gratis para probar, con tu catálogo y pedidos por WhatsApp.'],
+  ['¿Cobran comisión por cada venta?', 'No. Pagas solo tu plan mensual. Los pagos por Nequi, Llave o Daviplata llegan directo a tu número.'],
+  ['¿Necesito saber de computadores?', 'No. Te ayudamos a cargar tus productos y todo está pensado para usarse desde el celular, con letra y botones grandes.'],
+  ['¿Cómo recibo el dinero de mis clientes?', 'El cliente paga a tu Nequi, Llave o Daviplata, o en efectivo al recibir. Te avisa en la app y tú confirmas cuando el dinero te llega.'],
+  ['¿Puedo hacer domicilios?', 'Sí. El cliente marca su dirección en el mapa y el sistema calcula el valor del domicilio según la distancia y tus reglas. Tú decides hasta dónde entregas.'],
+  ['¿Cuánto demora tener mi tienda lista?', 'Revisamos tu solicitud en pocos días. Con tus productos cargados, puedes empezar a vender el mismo día en que te aprobamos.'],
+  ['¿Qué pasa con mis datos y los de mis clientes?', 'Cada negocio solo ve sus propios datos. No vendemos información. Puedes leer nuestra política de datos personales al pie de la página.'],
+  ['¿Puedo cancelar cuando quiera?', 'Sí. No hay permanencia mínima.'],
+  ['¿Necesito descargar algo?', 'No. Matriz funciona desde el navegador y se puede instalar como app en el celular con un toque, sin pasar por tiendas de aplicaciones.'],
 ]
 const BENEFICIOS = [
   ['/iconos/tienda-linea.webp', 'Tu tienda en línea', 'Un enlace propio con tu catálogo, tus fotos y tu horario. Se comparte por WhatsApp.'],
@@ -37,9 +52,9 @@ function Boton({ children, onClick, variante = 'oro', className = '' }) {
   return <button onClick={onClick} className={`inline-flex min-h-[56px] items-center justify-center rounded-2xl px-6 text-lg font-semibold transition active:scale-[0.99] ${v} ${className}`}>{children}</button>
 }
 
-function Seccion({ titulo, sub, children, fondo = '' }) {
+function Seccion({ titulo, sub, children, fondo = '', id }) {
   return (
-    <section className={`px-4 py-10 sm:py-14 ${fondo}`}>
+    <section id={id} style={{ scrollMarginTop: 8 }} className={`px-4 py-10 sm:py-14 ${fondo}`}>
       <div className="mx-auto w-full max-w-5xl">
         <h2 className="portada-h2 font-bold leading-tight">{titulo}</h2>
         {sub && <p className="mt-2 max-w-2xl text-lg leading-snug text-tinta/70">{sub}</p>}
@@ -116,7 +131,7 @@ export default function Portada() {
       </Seccion>
 
       {/* Qué ofrece */}
-      <Seccion titulo="Todo lo que necesitas para vender más" fondo="bg-white">
+      <Seccion id="beneficios" titulo="Todo lo que necesitas para vender más" fondo="bg-white">
         <div style={cols(3, 150, 12)}>
           {BENEFICIOS.map(([i, t, d]) => (
             <div key={t} className="rounded-2xl border-2 border-black/5 bg-papel p-4 sm:p-5">
@@ -152,8 +167,8 @@ export default function Portada() {
         <Seccion titulo="Tiendas que ya están aquí" fondo="bg-white">
           <div style={cols(3, 270, 12)}>
             {tiendas.map((t) => (
-              <button key={t.slug} onClick={() => ir(`/t/${t.slug}`)} className="flex items-center gap-4 rounded-2xl border-2 border-black/5 bg-papel p-4 text-left transition hover:border-oro/40">
-                <div className="flex w-16 shrink-0 justify-center"><Logo n={t} tamano={56} /></div>
+              <button key={t.slug} onClick={() => (t.externa && /^https:\/\//.test(t.url || '') ? window.location.assign(t.url) : ir(`/t/${t.slug}`))} className="flex items-center gap-4 rounded-2xl border-2 border-black/5 bg-papel p-4 text-left transition hover:border-oro/40">
+                <div className="flex w-16 shrink-0 justify-center">{t.externa && t.logo_url ? <img src={t.logo_url} alt={t.nombre} className="max-h-14 w-full object-contain" /> : <Logo n={t} tamano={56} />}</div>
                 <div className="min-w-0">
                   <p className="break-words text-xl font-bold leading-tight">{t.nombre}</p>
                   <p className="text-base text-tinta/60">{NOMBRE_TIPO[t.tipo] || 'Tienda'}{t.ciudad ? ` · ${t.ciudad}` : ''}</p>
@@ -169,7 +184,7 @@ export default function Portada() {
       {planes.some((p) => p.clave === 'gestion') && (() => {
         const g = planes.find((p) => p.clave === 'gestion'), pr = precioTexto(g), c = planes.find((p) => p.clave === 'completo'), v = planes.find((p) => p.clave === 'vitrina')
         return (
-          <Seccion titulo="Un plan sencillo y claro" sub="Todo lo que tu negocio necesita para vender en línea y llevar su control, por menos de lo que cuesta un almuerzo al día.">
+          <Seccion id="planes" titulo="Un plan sencillo y claro" sub="Todo lo que tu negocio necesita para vender en línea y llevar su control, por menos de lo que cuesta un almuerzo al día.">
             <div className="mx-auto max-w-xl rounded-3xl border-2 border-champagne bg-white p-6 shadow-sm">
               <span className="inline-block rounded-full bg-champagne px-3 py-0.5 text-sm font-bold text-negro">Recomendado</span>
               <h3 className="mt-2 text-3xl font-bold leading-tight">{g.nombre}</h3>
@@ -203,13 +218,63 @@ export default function Portada() {
         </ol>
       </Seccion>
 
+      {/* Beneficios: negocios y clientes */}
+      <Seccion titulo="Una app que gana el tendero y el cliente" sub="Matriz conecta a los negocios del barrio con las personas que quieren comprarles, sin intermediarios.">
+        <div style={cols(2, 300, 16)}>
+          <div className="rounded-3xl border-2 border-champagne/60 bg-white p-6">
+            <h3 className="text-2xl font-bold leading-tight">Para tu negocio</h3>
+            <ul className="mt-3 grid gap-2 text-base leading-snug">
+              {['Vendes las 24 horas, aunque la tienda esté cerrada', 'Tus clientes piden por el celular y tú solo alistas', 'Sin comisión por venta: el pago llega directo a ti', 'Controlas tu inventario y tu caja sin cuadernos', 'Sales en el mapa de tiendas cerca de tus clientes', 'Te ayudamos a cargar tus productos con foto'].map((t) => (
+                <li key={t} className="grid grid-cols-[auto_1fr] gap-2"><span className="font-bold text-esmeralda" aria-hidden="true">✓</span><span>{t}</span></li>
+              ))}
+            </ul>
+          </div>
+          <div className="rounded-3xl border-2 border-black/5 bg-white p-6">
+            <h3 className="text-2xl font-bold leading-tight">Para tus clientes</h3>
+            <ul className="mt-3 grid gap-2 text-base leading-snug">
+              {['Ven qué tiendas están abiertas y cuáles les quedan cerca', 'Piden en pocos toques, sin llamar ni esperar', 'Pagan por Nequi, Llave, Daviplata o al recibir', 'Siguen su pedido desde el celular', 'Domicilio calculado por distancia, sin sorpresas', 'Instalan la app en su celular, sin ocupar memoria'].map((t) => (
+                <li key={t} className="grid grid-cols-[auto_1fr] gap-2"><span className="font-bold text-esmeralda" aria-hidden="true">✓</span><span>{t}</span></li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </Seccion>
+
+      {/* Misión y visión */}
+      <Seccion id="nosotros" titulo="Quiénes somos" fondo="bg-white">
+        <div style={cols(2, 300, 16)}>
+          <div className="rounded-3xl bg-negro p-6 text-white">
+            <p className="text-sm font-bold uppercase tracking-[0.25em] text-champagne">Misión</p>
+            <p className="mt-3 text-xl leading-snug">Darle a cada negocio de barrio las herramientas de una gran empresa para vender en línea y llevar su control, de forma sencilla, justa y a un precio que pueda pagar.</p>
+          </div>
+          <div className="rounded-3xl bg-negro p-6 text-white">
+            <p className="text-sm font-bold uppercase tracking-[0.25em] text-champagne">Visión</p>
+            <p className="mt-3 text-xl leading-snug">Ser la plataforma que conecte a miles de tiendas de Colombia con sus clientes, y que comprar en el comercio de barrio sea tan fácil como pedir por una app.</p>
+          </div>
+        </div>
+        <p className="mt-5 max-w-2xl text-base leading-snug text-tinta/70">Matriz nació dentro de una tienda real de barrio, probada día a día en el mostrador. Por eso cada herramienta está hecha para quien atiende, no para quien mira desde una oficina.</p>
+      </Seccion>
+
+      {/* Preguntas frecuentes */}
+      <Seccion id="preguntas" titulo="Preguntas frecuentes">
+        <div className="grid gap-3">
+          {PREGUNTAS.map(([q, r]) => (
+            <details key={q} className="group rounded-2xl border-2 border-black/5 bg-white p-4 open:border-champagne/60">
+              <summary className="flex min-h-[44px] cursor-pointer list-none items-center justify-between gap-3 text-lg font-bold leading-snug"><span>{q}</span><span className="text-2xl text-oro transition group-open:rotate-45" aria-hidden="true">+</span></summary>
+              <p className="mt-2 text-base leading-relaxed text-tinta/80">{r}</p>
+            </details>
+          ))}
+        </div>
+        <p className="mt-5 text-base text-tinta/70">¿Otra duda? Escríbenos por <a className="font-semibold underline" href={enlaceWhatsApp('Hola, tengo una pregunta sobre Matriz')}>WhatsApp {WHATSAPP_BONITO}</a>.</p>
+      </Seccion>
+
       {/* Publicidad y cierre */}
       <section className="bg-negro px-4 py-14 text-white">
         <div className="mx-auto w-full max-w-5xl" style={cols(2, 300, 32)}>
           <div>
             <h2 className="text-3xl font-bold leading-tight">¿Quieres que más gente conozca tu marca?</h2>
             <p className="mt-3 text-lg leading-snug text-white/80">Anuncia tu producto o tu negocio en Matriz: tu publicidad llega a clientes que ya están comprando en tiendas de su barrio. Escríbenos y te contamos.</p>
-            <a href="https://wa.me/573005008432?text=Hola%2C%20quiero%20anunciarme%20en%20Matriz" className="mt-5 inline-flex min-h-[56px] items-center justify-center rounded-2xl border-2 border-champagne/60 px-6 text-lg font-semibold text-champagne-claro hover:bg-white/5">Quiero anunciarme</a>
+            <a href={enlaceWhatsApp('Hola, quiero anunciarme en Matriz')} className="mt-5 inline-flex min-h-[56px] items-center justify-center rounded-2xl border-2 border-champagne/60 px-6 text-lg font-semibold text-champagne-claro hover:bg-white/5">Quiero anunciarme</a>
           </div>
           <div className="rounded-2xl border border-champagne/30 bg-white/5 p-6">
             <h2 className="text-3xl font-bold leading-tight">Tu negocio también puede estar aquí</h2>
@@ -218,7 +283,9 @@ export default function Portada() {
           </div>
         </div>
       </section>
-      <div className="px-4 pb-10"><PiePlataforma /></div>
+      <PieMatriz />
+      <BotonWhatsApp />
+      <BarraInferior activa="/" />
     </div>
   )
 }
