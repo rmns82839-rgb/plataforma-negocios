@@ -1,9 +1,14 @@
 // Solicitud de un negocio nuevo (página /registro y bandeja del administrador). Lógica pura: se prueba sola.
 
 export const TIPOS_NEGOCIO = [
-  { clave: 'tienda', nombre: 'Tienda o abarrotes', ejemplos: 'Víveres, verduras, droguería, papelería, licores…', icono: '🛒' },
+  { clave: 'tienda', nombre: 'Tienda o abarrotes', ejemplos: 'Víveres, verduras, droguería, licores…', icono: '🛒' },
+  { clave: 'miscelanea', nombre: 'Miscelánea', ejemplos: 'De todo un poco: aseo, dulces, recargas, regalos', icono: '🧺' },
+  { clave: 'tecnologia', nombre: 'Celulares y tecnología', ejemplos: 'Celulares, accesorios, fundas, cargadores, computadores', icono: '📱' },
+  { clave: 'ferreteria', nombre: 'Ferretería', ejemplos: 'Herramientas, tornillería, pinturas, eléctricos, plomería', icono: '🔨' },
+  { clave: 'papeleria', nombre: 'Papelería', ejemplos: 'Útiles, fotocopias, impresiones, regalos, oficina', icono: '✏️' },
+  { clave: 'veterinaria', nombre: 'Veterinaria y mascotas', ejemplos: 'Alimento, medicinas, accesorios, peluquería', icono: '🐾' },
   { clave: 'ropa', nombre: 'Ropa y calzado', ejemplos: 'Boutique, moda, zapatos, accesorios', icono: '👗' },
-  { clave: 'repuestos', nombre: 'Repuestos', ejemplos: 'Motos, carros, ferretería', icono: '🔧' },
+  { clave: 'repuestos', nombre: 'Repuestos', ejemplos: 'Motos, carros, autopartes', icono: '🔧' },
   { clave: 'mixto', nombre: 'Productos y ropa', ejemplos: 'Vendes de los dos tipos', icono: '🏬' },
 ]
 export const NOMBRE_TIPO = Object.fromEntries(TIPOS_NEGOCIO.map((t) => [t.clave, t.nombre]))

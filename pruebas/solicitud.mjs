@@ -6,7 +6,7 @@ let n = 0
 const prueba = (nombre, f) => { f(); n++; console.log('  ✓', nombre) }
 const BUENA = { tipo: 'ropa', plan: 'tienda', nombre_negocio: 'Moda Luna', ciudad: 'Bogotá', nombre_contacto: 'Luisa Pérez', email: 'luisa@correo.com', telefono: '300 123 4567', mensaje: '', acepta: true }
 
-prueba('hay 4 tipos y coinciden con los de la base de datos', () => assert.deepEqual(TIPOS_NEGOCIO.map((t) => t.clave), ['tienda', 'ropa', 'repuestos', 'mixto']))
+prueba('hay 9 tipos y coinciden con los de la base de datos', () => assert.deepEqual(TIPOS_NEGOCIO.map((t) => t.clave).sort(), ['ferreteria', 'miscelanea', 'mixto', 'papeleria', 'repuestos', 'ropa', 'tecnologia', 'tienda', 'veterinaria']))
 prueba('solicitud completa: sin errores', () => assert.deepEqual(validarSolicitud(BUENA, 'revisar'), {}))
 prueba('paso tipo: exige elegir', () => assert.ok(validarSolicitud({ ...BUENA, tipo: '' }, 'tipo').tipo))
 prueba('paso tipo: tipo inventado no sirve', () => assert.ok(validarSolicitud({ ...BUENA, tipo: 'bar' }, 'tipo').tipo))

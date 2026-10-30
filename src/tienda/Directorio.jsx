@@ -5,9 +5,10 @@ import { ir } from '../lib/ruta'
 import { textoDistancia } from '../lib/horario'
 import { Btn, Aviso, Logo, InsigniaHorario, clsInput, PiePlataforma } from './ui'
 import MarcaMatriz from './MarcaMatriz'
+import { TIPOS_NEGOCIO } from '../lib/solicitud'
 
-const TIPOS = [['', 'Todas'], ['tienda', 'Tiendas'], ['ropa', 'Ropa'], ['repuestos', 'Repuestos']]
-const NOMBRE_TIPO = { tienda: 'Tienda', ropa: 'Ropa', repuestos: 'Repuestos', mixto: 'Tienda y ropa' }
+const TIPOS = [['', 'Todas'], ...TIPOS_NEGOCIO.filter((t) => t.clave !== 'mixto').map((t) => [t.clave, t.icono + ' ' + t.nombre.split(' o ')[0]])]
+const NOMBRE_TIPO = Object.fromEntries([...TIPOS_NEGOCIO.map((t) => [t.clave, t.nombre]), ['mixto', 'Tienda y ropa']])
 
 function Tarjeta({ t }) {
   return (
@@ -91,7 +92,7 @@ export default function Directorio() {
             {ciudades.map((c) => <option key={c.ciudad} value={c.ciudad}>{c.ciudad} ({c.tiendas})</option>)}
           </select>
         )}
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" role="group" aria-label="Tipo de tienda">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3" role="group" aria-label="Tipo de tienda">
           {TIPOS.map(([v, t]) => (
             <button key={v} onClick={() => setTipo(v)} aria-pressed={tipo === v}
               className={`min-h-12 rounded-xl border-2 px-2 text-base font-semibold ${tipo === v ? 'border-principal bg-principal text-white' : 'border-black/15 bg-white'}`}>{t}</button>

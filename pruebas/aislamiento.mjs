@@ -37,7 +37,7 @@ for (const n of ['duenoA', 'cajeroA', 'duenoB', 'soporte', 'extra', 'duenoV', 'g
 
 // ---------- Cargar los SQL del proyecto ----------
 let fallas = 0, pruebas = 0
-for (const f of ['01-plataforma.sql', '02-datos.sql', '03-seguridad.sql', '04-funciones-plataforma.sql', '05-storage-realtime.sql', '06-funciones-negocio.sql', '07-tablero-y-pedidos.sql', '08-permisos.sql', '10-planes-modulos.sql', '11-catalogo-clientes.sql', '12-redondeo-domicilio.sql', '14-panel.sql', '15-domicilio-km.sql', '16-direcciones-cliente.sql', '17-caja-pedidos.sql', '18-formas-pago-comision.sql', '19-caja-movimientos.sql', '20-clientes-datos.sql', '21-vitrina-tienda.sql', '22-prepago-resumen.sql', '23-panel-caja.sql', '24-panel-fiados.sql', '25-horarios-directorio.sql', '26-solicitudes-negocio.sql', '27-administrador-miembro.sql', '28-avisos-pedidos.sql', '29-cuenta-cliente.sql', '30-directorio-externo.sql', '31-pago-digital.sql']) {
+for (const f of ['01-plataforma.sql', '02-datos.sql', '03-seguridad.sql', '04-funciones-plataforma.sql', '05-storage-realtime.sql', '06-funciones-negocio.sql', '07-tablero-y-pedidos.sql', '08-permisos.sql', '10-planes-modulos.sql', '11-catalogo-clientes.sql', '12-redondeo-domicilio.sql', '14-panel.sql', '15-domicilio-km.sql', '16-direcciones-cliente.sql', '17-caja-pedidos.sql', '18-formas-pago-comision.sql', '19-caja-movimientos.sql', '20-clientes-datos.sql', '21-vitrina-tienda.sql', '22-prepago-resumen.sql', '23-panel-caja.sql', '24-panel-fiados.sql', '25-horarios-directorio.sql', '26-solicitudes-negocio.sql', '27-administrador-miembro.sql', '28-avisos-pedidos.sql', '29-cuenta-cliente.sql', '30-directorio-externo.sql', '31-pago-digital.sql', '32-tipos-negocio.sql']) {
   try { await db.exec(fs.readFileSync(path.join(sqlDir, f), 'utf8')); console.log('OK   ', f) }
   catch (e) { console.log('FALLA', f, '→', e.message); process.exit(1) }
 }
@@ -1179,6 +1179,33 @@ console.log('\n--- Archivo 20: datos del cliente ---')
   if (v20.rows.length === 6 && v20.rows.every(r => r.ok === true)) console.log('✓ archivo 20: 6 filas true, y se puede correr dos veces'); else { fallas++; console.log('✗ archivo 20', JSON.stringify(v20.rows)) }
 }
 
+
+console.log('\n--- Tipos de negocio nuevos (32) ---')
+for (const t of ['tecnologia', 'ferreteria', 'miscelanea', 'papeleria', 'veterinaria']) {
+  pruebas++
+  try {
+    const r = await como('sistema', () => crear('tipo-' + t, 'Prueba ' + t, t, t + '@correo.com'))
+    const mods = (await como('sistema', () => q(`select modulo from negocio_modulos where negocio_id = $1 and activo`, [r.negocio_id || r.id]))).rows.map(x => x.modulo)
+    if (mods.includes('productos') && mods.includes('caja')) console.log('✓ se puede crear un negocio de tipo', t, '(' + mods.length + ' módulos)'); else { fallas++; console.log('✗ tipo', t, 'sin módulos base', mods) }
+  } catch (e) { fallas++; console.log('✗ tipo', t, '→', e.message) }
+}
+{
+  pruebas++
+  const dat = (tipo) => JSON.stringify({ nombre_negocio: 'Vet Patitas', tipo, ciudad: 'Barranquilla', nombre_contacto: 'Ana Gómez', email: 'ana@correo.com', telefono: '3001112233', plan: 'vitrina', acepta_datos: true })
+  try {
+    const r = await como('anon', () => q(`select enviar_solicitud_negocio($1::jsonb) r`, [dat('veterinaria')]))
+    if (r.rows[0].r.ok === true) console.log('✓ se puede solicitar un negocio de tipo veterinaria'); else { fallas++; console.log('✗ solicitud veterinaria', JSON.stringify(r.rows)) }
+  } catch (e) { fallas++; console.log('✗ solicitud veterinaria →', e.message) }
+}
+await falla('solicitud con tipo inventado rechazada', 'anon', () => q(`select enviar_solicitud_negocio($1::jsonb) r`, [JSON.stringify({ nombre_negocio: 'Bar X', tipo: 'bar', ciudad: 'Bogotá', nombre_contacto: 'Ana Gómez', email: 'ana2@correo.com', telefono: '3001112233', plan: 'vitrina', acepta_datos: true })]), 'qué vendes')
+{
+  pruebas++
+  try {
+    const r = await como('anon', () => q(`select vitrina_plataforma(6) v`))
+    if (Array.isArray(r.rows[0].v)) console.log('✓ la vitrina de la portada responde sin iniciar sesión (' + r.rows[0].v.length + ' productos)'); else { fallas++; console.log('✗ vitrina', JSON.stringify(r.rows)) }
+  } catch (e) { fallas++; console.log('✗ vitrina →', e.message) }
+}
+await falla('tipo inventado sigue rechazado', 'sistema', () => crear('tipo-bar', 'Bar', 'bar', 'bar@correo.com'), 'no válido')
 console.log('\n--- Verificación automática de la base ---')
 const ver = await como('sistema', () => q(`select * from verificar_aislamiento()`))
 for (const f of ver.rows) { pruebas++; if (f.ok) console.log('✓', f.chequeo); else { fallas++; console.log('✗', f.chequeo, '→', f.detalle) } }

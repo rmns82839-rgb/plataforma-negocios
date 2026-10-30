@@ -20,6 +20,7 @@ export function useRuta() {
     return { vista: v, slug: partes[1].toLowerCase() }
   }
   if (partes[0] === 'tiendas') return { vista: 'directorio', slug: null }
+  if (partes[0] === 'ingreso') return { vista: 'ingreso', slug: null }
   if (partes[0] === 'registro') return { vista: 'registro', slug: null }
   if (partes[0] === 'solicitudes') return { vista: 'solicitudes', slug: null }
   return { vista: 'inicio', slug: null }

@@ -5,6 +5,7 @@ import { useSesion } from './lib/sesion'
 import { Pagina, Tarjeta, Cargando } from './pages/Piezas'
 import Login from './pages/Login'
 import Inicio from './pages/Inicio'
+import Portada from './pages/Portada'
 import PanelApp from './panel/PanelApp'
 import PaginaMisPedidos from './tienda/PaginaMisPedidos'
 import Directorio from './tienda/Directorio'
@@ -45,5 +46,6 @@ export default function App() {
   if (vista === 'pistola') return <Suspense fallback={<Cargando />}><PistolaPagina slug={slug} /></Suspense>
   if (vista === 'mis-pedidos') return <PaginaMisPedidos slug={slug} />
   if (sesion === undefined) return <Cargando />
-  return sesion ? <Inicio /> : <Login />
+  if (vista === 'ingreso') return sesion ? <Inicio /> : <Login />
+  return sesion ? <Inicio /> : <Portada />
 }
