@@ -7,7 +7,7 @@ import { Btn, Aviso, Logo, InsigniaHorario, clsInput, PiePlataforma } from './ui
 import MarcaMatriz from './MarcaMatriz'
 import { TIPOS_NEGOCIO } from '../lib/solicitud'
 
-const TIPOS = [['', 'Todas'], ...TIPOS_NEGOCIO.filter((t) => t.clave !== 'mixto').map((t) => [t.clave, t.icono + ' ' + t.nombre.split(' o ')[0]])]
+const TIPOS = [['', 'Todas'], ...TIPOS_NEGOCIO.filter((t) => t.clave !== 'mixto').map((t) => [t.clave, t.nombre.split(' o ')[0]])]
 const NOMBRE_TIPO = Object.fromEntries([...TIPOS_NEGOCIO.map((t) => [t.clave, t.nombre]), ['mixto', 'Tienda y ropa']])
 
 function Tarjeta({ t }) {

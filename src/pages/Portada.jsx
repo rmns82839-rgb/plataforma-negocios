@@ -51,7 +51,7 @@ export default function Portada() {
 
   useEffect(() => {
     supabase.rpc('directorio_tiendas', { p_limite: 6 }).then(({ data }) => setTiendas(Array.isArray(data) ? data : []), () => setTiendas([]))
-    supabase.rpc('vitrina_plataforma', { p_limite: 12 }).then(({ data }) => setProductos(Array.isArray(data) ? data : []), () => setProductos([]))
+    fetch('/muestra-cibus.json').then((r) => (r.ok ? r.json() : [])).then((d) => setProductos(Array.isArray(d) ? d.slice(0, 12) : []), () => setProductos([]))
   }, [])
 
   return (
@@ -69,7 +69,8 @@ export default function Portada() {
 
       {/* Héroe */}
       <section className="bg-negro px-4 pb-14 pt-10 text-white">
-        <div className="mx-auto w-full max-w-5xl">
+        <div className="mx-auto grid w-full max-w-5xl items-center gap-6 lg:grid-cols-[1fr_320px]">
+          <div>
           <p className="text-sm font-semibold uppercase tracking-[0.25em] text-champagne">Para negocios de barrio y comercios</p>
           <h1 className="mt-3 max-w-3xl text-4xl font-bold leading-tight sm:text-6xl">Vende por internet sin complicarte. <span className="text-champagne">Tu negocio, en tu celular.</span></h1>
           <p className="mt-5 max-w-2xl text-xl leading-snug text-white/80">Matriz le da a tu tienda un catálogo en línea, pedidos por WhatsApp, domicilios con mapa y pagos por Nequi, Llave y Daviplata. Y además manejas tu inventario y tu caja.</p>
@@ -78,6 +79,8 @@ export default function Portada() {
             <Boton variante="linea" onClick={() => ir('/tiendas')}>Ver tiendas y comprar</Boton>
           </div>
           <p className="mt-4 text-base text-white/60">Empieza gratis · Te ayudamos a cargar tus productos · Hecho en Colombia</p>
+          </div>
+          <img src="/iconos/carrito.webp" alt="" className="mx-auto hidden w-72 object-contain lg:block" />
         </div>
       </section>
 
@@ -86,7 +89,7 @@ export default function Portada() {
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {TIPOS_NEGOCIO.map((t) => (
             <button key={t.clave} onClick={() => ir('/registro')} className="flex flex-col items-start gap-1 rounded-2xl border-2 border-black/5 bg-white p-4 text-left shadow-sm transition hover:border-oro/40">
-              <span className="text-3xl" aria-hidden="true">{t.icono}</span>
+              <img src={t.imagen} alt="" width="80" height="80" loading="lazy" className="h-20 w-20 object-contain" />
               <span className="text-xl font-bold leading-tight">{t.nombre}</span>
               <span className="text-base leading-snug text-tinta/60">{t.ejemplos}</span>
             </button>
@@ -107,21 +110,20 @@ export default function Portada() {
         </div>
       </Seccion>
 
-      {/* Productos reales */}
+      {/* Muestra del catálogo base (el de Cibus): lo que recibe una tienda nueva al registrarse */}
       {productos?.length > 0 && (
-        <Seccion titulo="Lo que ya se vende en Matriz" sub="Productos reales de las tiendas de la plataforma. Toca uno para ir a la tienda.">
+        <Seccion titulo="Tu tienda arranca con productos ya cargados" sub="Ejemplos del catálogo base de Matriz, con nombre, categoría y foto. Tú solo le pones tus precios y empiezas a vender.">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             {productos.map((p, i) => (
-              <button key={i} onClick={() => ir(`/t/${p.slug}`)} className="overflow-hidden rounded-2xl border-2 border-black/5 bg-white text-left shadow-sm transition hover:border-oro/40">
+              <div key={i} className="overflow-hidden rounded-2xl border-2 border-black/5 bg-white shadow-sm">
                 <div className="aspect-square w-full bg-black/5">
-                  {urlFoto(p.imagen) && <img src={urlFoto(p.imagen)} alt={p.nombre} loading="lazy" className="h-full w-full object-cover" />}
+                  {urlFoto(p.foto) && <img src={urlFoto(p.foto)} alt={p.nombre} loading="lazy" className="h-full w-full object-contain" />}
                 </div>
                 <div className="p-3">
-                  <p className="line-clamp-2 break-words text-base font-semibold leading-tight">{p.nombre}</p>
-                  <p className="mt-1 text-xl font-bold text-oro-oscuro">{dinero(p.precio)}</p>
-                  <p className="truncate text-sm text-tinta/60">{p.tienda}</p>
+                  <p className="break-words text-base font-semibold leading-tight">{p.nombre}</p>
+                  {p.categoria && <p className="text-sm text-tinta/60">{p.categoria}</p>}
                 </div>
-              </button>
+              </div>
             ))}
           </div>
         </Seccion>

@@ -14,7 +14,7 @@ function OpcionTipo({ t, activo, onClick }) {
   return (
     <button type="button" role="radio" aria-checked={activo} onClick={onClick}
       className={`flex min-h-[132px] flex-col items-start justify-between gap-2 rounded-2xl border-2 p-4 text-left transition active:scale-[0.99] ${activo ? 'border-principal bg-principal/5 ring-2 ring-principal' : 'border-black/10 bg-white'}`}>
-      <span className="text-3xl" aria-hidden="true">{t.icono}</span>
+      <img src={t.imagen} alt="" width="64" height="64" className="h-16 w-16 object-contain" />
       <span className="block">
         <span className="block break-words text-xl font-bold leading-tight">{t.nombre}</span>
         <span className="block break-words text-base leading-snug text-tinta/70">{t.ejemplos}</span>
