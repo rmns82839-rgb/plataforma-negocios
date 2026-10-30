@@ -8,13 +8,14 @@ import { mensajeError } from '../lib/errores'
 import { Btn, Volver, Aviso, Campo, BarraFija, clsInput } from '../tienda/ui'
 import { Titulo, Seccion, Insignia, Interruptor, Opciones, SoloLectura } from './piezas'
 import CargaMasiva from './CargaMasiva'
+import CatalogoBase from './CatalogoBase'
 
 const COLS = 'id,codigo,nombre,categoria,precio_venta,precio_compra,stock,unidad,activo,publicado,disponible,controla_stock,descripcion,imagenes'
 const FILTROS = [['todos', 'Todos'], ['publicados', 'En la tienda'], ['ocultos', 'Ocultos'], ['agotados', 'Agotados']]
 const agotado = (p) => !(p.controla_stock ? Number(p.stock) > 0 : p.disponible)
 
 export default function Productos({ ctx, volver }) {
-  const [vista, setVista] = useState('lista')   // lista · form · masiva
+  const [vista, setVista] = useState('lista')   // lista · form · masiva · base
   const [sel, setSel] = useState(null)
   const [lista, setLista] = useState(null)
   const [error, setError] = useState('')
@@ -48,6 +49,7 @@ export default function Productos({ ctx, volver }) {
   }
 
   if (vista === 'form') return <Formulario ctx={ctx} producto={sel} volver={() => { setVista('lista'); cargar() }} />
+  if (vista === 'base') return <CatalogoBase ctx={ctx} volver={() => { setVista('lista'); cargar() }} />
   if (vista === 'masiva') return <CargaMasiva ctx={ctx} volver={() => { setVista('lista'); cargar() }} />
 
   return (
@@ -56,6 +58,12 @@ export default function Productos({ ctx, volver }) {
       <Titulo sub={lista ? `${lista.length} productos` : ''}>Productos</Titulo>
       {ctx.soloLectura && <SoloLectura />}
       {error && <div className="mb-4"><Aviso tipo="error">{error}</Aviso></div>}
+      {!ctx.soloLectura && ctx.esDueno && (
+        <button onClick={() => setVista('base')} className="mb-4 flex min-h-[64px] w-full items-center gap-3 rounded-2xl border-2 border-dashed border-principal/40 bg-principal/5 px-4 py-3 text-left">
+          <span aria-hidden="true" className="text-3xl">📦</span>
+          <span className="min-w-0 flex-1"><b className="block text-xl leading-snug text-principal">Cargar productos base</b><span className="block text-lg leading-snug text-tinta/70">Cientos de productos ya con nombre y foto: solo les pones el precio.</span></span>
+        </button>
+      )}
       <input type="search" value={texto} onChange={(e) => setTexto(e.target.value)} placeholder="Buscar un producto" aria-label="Buscar un producto" className={`${clsInput} mb-3`} />
       <div className="mb-5"><Opciones columnas={4} valor={filtro} opciones={FILTROS} onChange={setFiltro} /></div>
 
@@ -121,6 +129,16 @@ function Formulario({ ctx, producto, volver }) {
   const [subiendo, setSubiendo] = useState(false)
   const [confirmarQuitar, setConfirmarQuitar] = useState(false)
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value })
+  const [sugerido, setSugerido] = useState('')
+  // Al escribir o escanear un código nuevo, si está en el catálogo base se llena lo que esté vacío
+  async function buscarBase() {
+    const c = f.codigo.trim()
+    if (!nuevo || c.length < 3) return
+    const { data } = await supabase.rpc('catalogo_base_buscar', { p_negocio_id: nid, p_codigo: c })
+    if (!data) return setSugerido('')
+    setSugerido(data.nombre)
+    setF((x) => ({ ...x, nombre: x.nombre || data.nombre, categoria: x.categoria || data.categoria, unidad: x.codigo === c && x.nombre ? x.unidad : data.unidad, imagenes: x.imagenes.length || !data.foto ? x.imagenes : [data.foto] }))
+  }
 
   useEffect(() => {
     supabase.from('categorias').select('nombre').eq('negocio_id', nid).eq('activa', true).order('orden').order('nombre').then(({ data }) => {
@@ -239,7 +257,7 @@ function Formulario({ ctx, producto, volver }) {
         <details className="rounded-2xl border-2 border-black/5 bg-white p-4">
           <summary className="min-h-[44px] cursor-pointer text-lg font-semibold">Más datos (opcional)</summary>
           <div className="mt-4 space-y-5">
-            <Campo etiqueta="Código o referencia"><input className={clsInput} value={f.codigo} onChange={set('codigo')} maxLength={40} /></Campo>
+            <Campo etiqueta="Código o referencia" ayuda={sugerido ? `Lo encontramos: «${sugerido}». Se llenó el nombre y la categoría.` : undefined}><input className={clsInput} value={f.codigo} onChange={set('codigo')} onBlur={buscarBase} maxLength={40} inputMode="numeric" /></Campo>
             <Campo etiqueta="Costo de compra ($)"><input className={clsInput} inputMode="numeric" value={f.precio_compra} onChange={set('precio_compra')} /></Campo>
           </div>
         </details>

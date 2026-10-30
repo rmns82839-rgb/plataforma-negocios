@@ -11,6 +11,7 @@ export const supabase = configurado
 
 // Las imágenes se guardan como RUTA ({negocio_id}/{carpeta}/archivo); aquí se arma la URL pública.
 export function urlImagen(ruta) {
+  if (ruta && /^https:\/\//.test(ruta)) return ruta   // fotos del catálogo base: ya son un enlace completo
   return ruta && url ? `${url}/storage/v1/object/public/negocios/${ruta}` : null
 }
 

@@ -1211,6 +1211,35 @@ await db.exec(fs.readFileSync(path.join(sqlDir, '33-plan-gestion.sql'), 'utf8'))
 await db.exec(fs.readFileSync(path.join(sqlDir, '33-plan-gestion.sql'), 'utf8'))   // segunda carga: idempotente
 await ok('Tienda ya no se ofrece: quedan 3 planes activos y Gestión sale a 39.900', 'duenoA', () => q(`select (select count(*) from planes) p, (select precio_fundador from planes where clave='gestion') g`), r => r.rows[0].p == 3 && r.rows[0].g == 39900)
 await falla('no se crea un negocio nuevo con el plan Tienda', 'sistema', () => crear('plan-viejo', 'Plan viejo', 'tienda', 'viejo@correo.com', 'tienda'), 'no válido')
+console.log('\n--- Catálogo base compartido (37 y 38) ---')
+await db.exec(fs.readFileSync(path.join(sqlDir, '37-catalogo-base.sql'), 'utf8'))
+for (const n of [1, 2, 3]) await db.exec(fs.readFileSync(path.join(sqlDir, `38-catalogo-base-datos-${n}.sql`), 'utf8'))
+await db.exec(fs.readFileSync(path.join(sqlDir, '38-catalogo-base-datos-1.sql'), 'utf8'))   // segunda corrida: no repite
+await db.exec(fs.readFileSync(path.join(sqlDir, '37-catalogo-base.sql'), 'utf8'))           // idempotente
+await ok('el catálogo base tiene más de 2.800 productos y no se repite al volver a correr', 'sistema', () => q(`select count(*)::int n, count(distinct codigo)::int c, count(*) filter (where foto is not null)::int f from catalogo_base`), r => r.rows[0].n > 2800 && r.rows[0].f > 100 && r.rows[0].f < 200)
+await ok('toda categoría del catálogo base está asignada a algún tipo de negocio', 'sistema', () => q(`select count(*)::int n from (select distinct categoria from catalogo_base) b where not exists (select 1 from catalogo_base_categoria c where c.categoria = b.categoria)`), r => r.rows[0].n === 0)
+await falla('una tienda no lee la tabla del catálogo base directamente', 'duenoA', () => q(`select * from catalogo_base limit 1`), 'permission denied')
+await falla('una tienda no escribe en el catálogo base', 'duenoA', () => q(`insert into catalogo_base (nombre) values ('Producto colado')`), 'permission denied')
+await falla('anónimo no ve las categorías base', 'anon', () => q(`select catalogo_base_categorias($1::uuid)`, [A]), 'permission denied')
+await falla('anónimo no carga productos base', 'anon', () => q(`select cargar_catalogo_base($1::uuid, array['Aseo'])`, [A]), 'permission denied')
+await falla('el dueño de B no puede cargar en A', 'duenoB', () => q(`select cargar_catalogo_base($1::uuid, array['Aseo'])`, [A]), 'Solo el dueño')
+await falla('el cajero de A no carga productos base', 'cajeroA', () => q(`select cargar_catalogo_base($1::uuid, array['Aseo'])`, [A]), 'Solo el dueño')
+await falla('el soporte no carga productos base', 'soporte', () => q(`select cargar_catalogo_base($1::uuid, array['Aseo'])`, [A]), 'Solo el dueño')
+await falla('hay que elegir al menos una categoría', 'duenoA', () => q(`select cargar_catalogo_base($1::uuid, '{}')`, [A]), 'al menos una')
+await ok('la tienda A ve sus categorías con cuántos productos nuevos trae cada una', 'duenoA', () => q(`select catalogo_base_categorias($1::uuid) c`, [A]), r => r.rows[0].c.length > 20 && r.rows[0].c.every(x => x.nuevos > 0 && x.nuevos <= x.total) && r.rows[0].c.some(x => x.categoria === 'Aseo') && !r.rows[0].c.some(x => x.categoria === 'Ferretería'))
+let antesBase
+await ok('antes de cargar, A tiene sus productos de siempre', 'sistema', async () => { antesBase = (await q(`select count(*)::int n from productos where negocio_id = $1`, [A])).rows[0].n; return q(`select 1`) })
+let cargados = 0
+await ok('A carga Aseo y Lácteos: entran ocultos, en $0 y sin stock', 'duenoA', async () => { const r = await q(`select cargar_catalogo_base($1::uuid, array['Aseo','Lácteos']) r`, [A]); cargados = r.rows[0].r.cargados; return r }, r => r.rows[0].r.cargados > 100)
+await ok('lo cargado queda solo en A, sin precio y sin publicar', 'sistema', () => q(`select (select count(*)::int from productos where negocio_id = $1 and categoria in ('Aseo','Lácteos') and precio_venta = 0 and not publicado and precio_compra = 0 and stock = 0) a, (select count(*)::int from productos where negocio_id = $2) b`, [A, B]), r => r.rows[0].a === cargados && r.rows[0].b <= 2)
+await ok('también se crearon las categorías en A', 'sistema', () => q(`select count(*)::int n from categorias where negocio_id = $1 and nombre in ('Aseo','Lácteos')`, [A]), r => r.rows[0].n === 2)
+await ok('volver a cargar lo mismo no repite productos', 'duenoA', () => q(`select cargar_catalogo_base($1::uuid, array['Aseo','Lácteos']) r`, [A]), r => r.rows[0].r.cargados === 0)
+await ok('ya cargadas, esas categorías salen del listado', 'duenoA', () => q(`select catalogo_base_categorias($1::uuid) c`, [A]), r => r.rows[0].c.filter(x => x.categoria === 'Aseo' || x.categoria === 'Lácteos').every(x => x.nuevos === 0))
+await ok('los productos ocultos en $0 no salen en el catálogo público de A', 'anon', () => q(`select catalogo_tienda('tienda-a') c`), r => r.rows[0].c.productos.length > 0 && r.rows[0].c.productos.every(p => p.precio_venta > 0 && !['Aseo','Lácteos'].includes(p.categoria) || p.categoria === null || p.categoria === 'Granos'))
+const codigoConocido = (await como('sistema', () => q(`select codigo from catalogo_base where codigo is not null limit 1`))).rows[0].codigo
+await ok('buscar un código conocido devuelve nombre y categoría', 'duenoA', () => q(`select catalogo_base_buscar($1::uuid, $2) r`, [A, codigoConocido]), r => r.rows[0].r && r.rows[0].r.nombre && r.rows[0].r.categoria)
+await ok('buscar un código inexistente devuelve nada', 'duenoA', () => q(`select catalogo_base_buscar($1::uuid, '0000000000000') r`, [A]), r => r.rows[0].r === null)
+await falla('otra tienda no consulta códigos en nombre de A', 'duenoB', () => q(`select catalogo_base_buscar($1::uuid, '7702191521816')`, [A]), 'Sin acceso')
 console.log('\n--- Verificación automática de la base ---')
 const ver = await como('sistema', () => q(`select * from verificar_aislamiento()`))
 for (const f of ver.rows) { pruebas++; if (f.ok) console.log('✓', f.chequeo); else { fallas++; console.log('✗', f.chequeo, '→', f.detalle) } }
