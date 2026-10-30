@@ -30,7 +30,7 @@ grant select, insert, update, delete on storage.objects, realtime.messages to au
 grant select on storage.buckets to authenticated;
 `)
 const U = {}
-for (const n of ['duenoA', 'cajeroA', 'duenoB', 'soporte', 'extra', 'duenoV', 'google1', 'google2', 'otro']) {
+for (const n of ['duenoA', 'cajeroA', 'duenoB', 'soporte', 'extra', 'duenoV', 'google1', 'google2', 'otro', 'adminCat']) {
   const r = await db.query(`insert into auth.users (email) values ($1) returning id`, [n + '@prueba.com'])
   U[n] = r.rows[0].id
 }
@@ -1240,6 +1240,31 @@ const codigoConocido = (await como('sistema', () => q(`select codigo from catalo
 await ok('buscar un código conocido devuelve nombre y categoría', 'duenoA', () => q(`select catalogo_base_buscar($1::uuid, $2) r`, [A, codigoConocido]), r => r.rows[0].r && r.rows[0].r.nombre && r.rows[0].r.categoria)
 await ok('buscar un código inexistente devuelve nada', 'duenoA', () => q(`select catalogo_base_buscar($1::uuid, '0000000000000') r`, [A]), r => r.rows[0].r === null)
 await falla('otra tienda no consulta códigos en nombre de A', 'duenoB', () => q(`select catalogo_base_buscar($1::uuid, '7702191521816')`, [A]), 'Sin acceso')
+console.log('\n--- Administración del catálogo (39) ---')
+await db.exec(fs.readFileSync(path.join(sqlDir, '39-catalogo-admin.sql'), 'utf8'))
+await db.exec(fs.readFileSync(path.join(sqlDir, '39-catalogo-admin.sql'), 'utf8'))   // idempotente
+await db.exec(`insert into plataforma_admins (user_id, nivel) values ('${U.adminCat}', 'administrador')`)
+await falla('una tienda no administra el catálogo', 'duenoA', () => q(`select catalogo_admin_resumen()`), 'Solo el administrador')
+await falla('el soporte de solo lectura no administra el catálogo', 'soporte', () => q(`select catalogo_admin_listar()`), 'Solo el administrador')
+await falla('anónimo no administra el catálogo', 'anon', () => q(`select catalogo_admin_listar()`), 'permission denied')
+await falla('una tienda no puede cambiar la foto del catálogo', 'duenoA', () => q(`select catalogo_admin_foto(1, null)`), 'Solo el administrador')
+await falla('una tienda no puede editar un producto del catálogo', 'duenoA', () => q(`select catalogo_admin_guardar(1, 'x', null, 'Aseo', null, null)`), 'Solo el administrador')
+await ok('el administrador ve el resumen del catálogo', 'adminCat', () => q(`select catalogo_admin_resumen() r`), r => r.rows[0].r.total > 2800 && r.rows[0].r.con_foto > 100 && r.rows[0].r.categorias.length > 40)
+await ok('el administrador lista solo los productos sin foto, 10 a la vez', 'adminCat', () => q(`select catalogo_admin_listar(null, null, 'sin_foto', 0, 10) r`), r => r.rows[0].r.filas.length === 10 && r.rows[0].r.total > 2000 && r.rows[0].r.filas.every(x => x.foto === null))
+await ok('el administrador busca por nombre', 'adminCat', () => q(`select catalogo_admin_listar('coca', null, 'todos', 0, 60) r`), r => r.rows[0].r.total > 0 && r.rows[0].r.filas.every(x => /coca/i.test(x.nombre)))
+await falla('un filtro inventado se rechaza', 'adminCat', () => q(`select catalogo_admin_listar(null, null, 'raro')`), 'Filtro no válido')
+let pid
+await ok('el administrador crea un producto nuevo en el catálogo', 'adminCat', async () => { const r = await q(`select catalogo_admin_crear('Cuaderno cuadriculado 100 hojas', 'Papeleria', '7700000000017', '100 hojas') id`); pid = r.rows[0].id; return r }, r => r.rows[0].id > 0)
+await ok('el administrador edita nombre, presentación y descripción', 'adminCat', async () => { await q(`select catalogo_admin_guardar($1, 'Cuaderno cuadriculado Norma', '100 hojas', 'Papeleria', 'Hojas resistentes, ideal para el colegio.', '7700000000017')`, [pid]); return q(`select catalogo_admin_listar('Norma', null, 'todos', 0, 5) r`) }, r => r.rows[0].r.filas[0].descripcion === 'Hojas resistentes, ideal para el colegio.' && r.rows[0].r.filas[0].presentacion === '100 hojas')
+await falla('no se acepta una foto de otro lugar', 'adminCat', () => q(`select catalogo_admin_foto($1, 'https://sitio-malo.com/x.webp')`, [pid]), 'no es válida')
+await falla('no se acepta la foto de otro producto', 'adminCat', () => q(`select catalogo_admin_foto($1, 'https://x.supabase.co/storage/v1/object/public/catalogo/1.webp')`, [pid]), 'no es válida')
+await ok('el administrador fija la foto y sube la versión', 'adminCat', async () => { await q(`select catalogo_admin_foto($1::bigint, 'https://x.supabase.co/storage/v1/object/public/catalogo/' || $1::text || '.webp?v=1')`, [pid]); return q(`select catalogo_admin_listar('Norma', null, 'todos', 0, 5) r`) }, r => r.rows[0].r.filas[0].foto.endsWith(pid + '.webp?v=1') && r.rows[0].r.filas[0].foto_version === 1)
+await ok('el administrador sube una foto al espacio catalogo', 'adminCat', () => q(`insert into storage.objects (bucket_id, name) values ('catalogo', $1 || '.webp')`, [String(pid)]))
+await falla('una tienda no sube fotos al espacio catalogo', 'duenoA', () => q(`insert into storage.objects (bucket_id, name) values ('catalogo', '99.webp')`), 'row-level security')
+await falla('el administrador solo sube <id>.webp al catálogo', 'adminCat', () => q(`insert into storage.objects (bucket_id, name) values ('catalogo', 'cualquiera.png')`), 'row-level security')
+await ok('el administrador quita la foto', 'adminCat', async () => { await q(`select catalogo_admin_foto($1::bigint, null)`, [pid]); return q(`select catalogo_admin_listar('Norma', null, 'todos', 0, 5) r`) }, r => r.rows[0].r.filas[0].foto === null)
+await ok('la descripción del catálogo viaja a la tienda al cargar', 'sistema', async () => { await q(`update catalogo_base set descripcion = 'Descripción de prueba' where categoria = 'Víveres' and id = (select min(id) from catalogo_base where categoria = 'Víveres')`); return q(`select 1`) })
+await ok('A carga Víveres y recibe la descripción', 'duenoA', async () => { await q(`select cargar_catalogo_base($1::uuid, array['Víveres'])`, [A]); return q(`select count(*)::int n from productos where negocio_id = $1 and descripcion = 'Descripción de prueba'`, [A]) }, r => r.rows[0].n === 1)
 console.log('\n--- Verificación automática de la base ---')
 const ver = await como('sistema', () => q(`select * from verificar_aislamiento()`))
 for (const f of ver.rows) { pruebas++; if (f.ok) console.log('✓', f.chequeo); else { fallas++; console.log('✗', f.chequeo, '→', f.detalle) } }
