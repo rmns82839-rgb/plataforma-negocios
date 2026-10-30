@@ -14,6 +14,12 @@ import { TIPOS_NEGOCIO } from '../lib/solicitud'
 const TIPOS = [['', 'Todas'], ...TIPOS_NEGOCIO.filter((t) => t.clave !== 'mixto').map((t) => [t.clave, t.nombre.split(' o ')[0]])]
 const NOMBRE_TIPO = Object.fromEntries([...TIPOS_NEGOCIO.map((t) => [t.clave, t.nombre]), ['mixto', 'Tienda y ropa']])
 
+const celular = (v) => { let d = String(v ?? '').replace(/\D/g, ''); if (d.length === 12 && d.startsWith('57')) d = d.slice(2); return d.length === 10 ? d : '' }
+const celularBonito = (v) => { const d = celular(v); return d ? `${d.slice(0, 3)} ${d.slice(3, 6)} ${d.slice(6)}` : '' }
+// Enlace a Google Maps: el que puso la tienda, o su punto, o su dirección escrita
+const enlaceMapa = (t) => /^https:\/\//.test(t.maps_url || '') ? t.maps_url
+  : (t.lat != null && t.lng != null) ? `https://www.google.com/maps/search/?api=1&query=${t.lat},${t.lng}`
+  : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([t.direccion, t.ciudad].filter(Boolean).join(', '))}`
 const tienePunto = (t) => t.lat != null && t.lng != null && Number.isFinite(Number(t.lat)) && Number.isFinite(Number(t.lng))
 
 function useAncho(min = 960) {
@@ -37,7 +43,23 @@ function Tarjeta({ t, activa = false, onElegir }) {
       <InsigniaHorario estado={t.estado_horario} className="self-start" />
       <ul className="space-y-1 text-base text-tinta/80">
         {t.distancia_km != null && <li className="grid grid-cols-[auto_1fr] gap-2 items-start"><Icono nombre="pin" className="h-5 w-5 mt-0.5" /><span><b>{textoDistancia(t.distancia_km)}</b> de ti</span></li>}
-        {(t.direccion || t.ciudad) && <li className="grid grid-cols-[auto_1fr] gap-2 items-start break-words"><Icono nombre="negocio" className="h-5 w-5 mt-0.5" /><span>{[t.direccion, t.ciudad].filter(Boolean).join(', ')}</span></li>}
+        {(t.direccion || t.ciudad) && (
+          <li className="grid grid-cols-[auto_1fr] items-start gap-2 break-words">
+            <Icono nombre="negocio" className="mt-0.5 h-5 w-5" />
+            <a href={enlaceMapa(t)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="font-semibold text-principal underline decoration-principal/40 underline-offset-2">
+              {[t.direccion, t.ciudad].filter(Boolean).join(', ')}
+            </a>
+          </li>
+        )}
+        {celular(t.telefono) && (
+          <li className="grid grid-cols-[auto_1fr] items-start gap-2">
+            <Icono nombre="usuario" className="mt-0.5 h-5 w-5" />
+            <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <a href={`tel:+57${celular(t.telefono)}`} onClick={(e) => e.stopPropagation()} className="font-semibold text-principal underline underline-offset-2">{celularBonito(t.telefono)}</a>
+              <a href={`https://wa.me/57${celular(t.telefono)}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="rounded-full bg-[#128C4A] px-3 py-0.5 text-sm font-bold text-white">WhatsApp</a>
+            </span>
+          </li>
+        )}
         <li className="grid grid-cols-[auto_1fr] gap-2 items-start">{t.domicilio ? <Icono nombre="moto" className="h-5 w-5 mt-0.5" /> : <span />}<span>{NOMBRE_TIPO[t.tipo] || 'Tienda'}{t.domicilio ? ' · Hace domicilios' : ''}</span></li>
       </ul>
       <Btn onClick={(e) => { e.stopPropagation(); (t.externa && /^https:\/\//.test(t.url || '') ? window.location.assign(t.url) : ir(`/t/${t.slug}`)) }}>Ver la tienda</Btn>

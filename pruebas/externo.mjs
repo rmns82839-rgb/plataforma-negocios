@@ -43,7 +43,7 @@ for (const f of ['01-plataforma.sql', '02-datos.sql', '03-seguridad.sql', '04-fu
   try { await db.exec(fs.readFileSync(path.join(sqlDir, f), 'utf8')); console.log('OK   ', f) }
   catch (e) { console.log('FALLA', f, '→', e.message); process.exit(1) }
 }
-for (const f of ['25-horarios-directorio.sql', '26-solicitudes-negocio.sql', '27-administrador-miembro.sql', '28-avisos-pedidos.sql', '29-cuenta-cliente.sql', '30-directorio-externo.sql', '34-directorio-mapa.sql']) {
+for (const f of ['25-horarios-directorio.sql', '26-solicitudes-negocio.sql', '27-administrador-miembro.sql', '28-avisos-pedidos.sql', '29-cuenta-cliente.sql', '30-directorio-externo.sql', '34-directorio-mapa.sql', '35-directorio-contacto.sql']) {
   try { await db.exec(fs.readFileSync(path.join(sqlDir, f), 'utf8')); console.log('OK   ', f) }
   catch (e) { console.log('FALLA', f, '→', e.message); process.exit(1) }
 }
@@ -98,6 +98,9 @@ await ok('sin horario no dice abierta: «solo abiertas» la oculta', 'anon', () 
 await como('sistema', () => q(`update directorio_externo set ciudad='Puerto Colombia', direccion='Calle 10 # 5-20', lat=10.9878, lng=-74.9548, horario_semana='{"0":[["00:00","23:59"]],"1":[["00:00","23:59"]],"2":[["00:00","23:59"]],"3":[["00:00","23:59"]],"4":[["00:00","23:59"]],"5":[["00:00","23:59"]],"6":[["00:00","23:59"]]}' where slug='cibus'`))
 await ok('con horario completo aparece abierta', 'anon', () => dir([`null`, `null`, `null`, `null`, `null`, `true`]), r => lista(r).some(t => t.slug === 'cibus' && t.estado_horario.abierto === true))
 await ok('con punto, la tarjeta entrega sus coordenadas', 'anon', () => dir(), r => { const t = lista(r).find(x => x.slug === 'cibus'); return t && Number(t.lat) === 10.9878 && Number(t.lng) === -74.9548 })
+await como('sistema', () => q(`update directorio_externo set telefono='3005550101' where slug='cibus'`))
+await ok('la tarjeta de Cibus entrega su teléfono', 'anon', () => dir(), r => lista(r).find(x => x.slug === 'cibus')?.telefono === '3005550101')
+await falla('teléfono mal escrito rechazado', 'sistema', () => q(`update directorio_externo set telefono='12345' where slug='cibus'`), 'telefono_ck|check')
 await ok('distancia desde un punto cercano', 'anon', () => dir([`10.99`, `-74.95`]), r => { const t = lista(r).find(x => x.slug === 'cibus'); return t && t.distancia_km != null && t.distancia_km < 3 })
 await ok('filtro por ciudad', 'anon', () => dir([`null`, `null`, `null`, `'puerto colombia'`]), r => lista(r).some(t => t.slug === 'cibus'))
 await ok('otra ciudad no la trae', 'anon', () => dir([`null`, `null`, `null`, `'Bogotá'`]), r => !lista(r).some(t => t.slug === 'cibus'))
