@@ -46,6 +46,7 @@ import Domicilios from './components/Domicilios'
 import Agenda from './components/Agenda'
 import DomiciliariosRed from './components/DomiciliariosRed'
 import Referencias from './components/Referencias'
+import CodigosImprimir from './components/CodigosImprimir'
 import Garantias from './components/Garantias'
 import MiCuenta from './components/MiCuenta'
 import SelectorVista from '../tienda/SelectorVista'
@@ -80,6 +81,7 @@ const MAS = [
   { id: 'exportar', texto: 'Exportar a Excel',    nota: 'Base de datos',            icono: 'exportar' },
   { id: 'domiciliarios', texto: 'Domiciliarios',   nota: 'Repartidores de la red', icono: 'ventas' },
   { id: 'agenda',      texto: 'Agenda de citas',   nota: 'Citas y mascotas',     icono: 'nota' },
+  { id: 'codigos',  texto: 'Códigos de productos', nota: 'Frutas, verduras, pan', icono: 'etiqueta', soloDueno: true },
   { id: 'referencias', texto: 'Referencias',       nota: 'Marca, medida, compatible', icono: 'buscar' },
   { id: 'garantias',   texto: 'Garantías',         nota: 'Serial, IMEI y vencimiento', icono: 'etiqueta' },
   { id: 'ropa',     texto: 'Catálogo de ropa',    nota: 'Pedidos WhatsApp',     icono: 'ropa' },
@@ -450,6 +452,7 @@ function Contenido() {
         {activa === 'mas' && sub === 'domiciliarios' && <DomiciliariosRed />}
         {activa === 'mas' && sub === 'agenda'      && <Agenda />}
         {activa === 'mas' && sub === 'referencias' && <Referencias />}
+        {activa === 'mas' && sub === 'codigos' && dueno === true && <CodigosImprimir />}
         {activa === 'mas' && sub === 'garantias'   && <Garantias />}
         {activa === 'mas' && sub === 'domicilios' && <Domicilios />}
         {activa === 'mas' && sub === 'clientes' && dueno === true && <ClientesRegistrados />}

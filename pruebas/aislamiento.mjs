@@ -1305,6 +1305,33 @@ await ok('(preparar) una tienda usa la foto v1 del catálogo y el catálogo sube
   await q(`update catalogo_base set foto = $1 || id || '.webp?v=2' where id = $2`, [URLB, r.bid]); return q(`select 1`) })
 await ok('simular detecta 1 foto por refrescar', 'adminCat', () => q(`select catalogo_admin_sincronizar_fotos(true) r`), r => r.rows[0].r.refrescadas === 1)
 await ok('aplicar refresca la versión', 'adminCat', async () => { await q(`select catalogo_admin_sincronizar_fotos(false)`); return q(`select imagenes[1] f from productos where negocio_id = $1 and id = $2`, [A, refId]) }, r => r.rows[0].f.endsWith('?v=2'))
+console.log('\n--- Códigos internos (45) ---')
+await db.exec(fs.readFileSync(path.join(sqlDir, '45-codigos-internos.sql'), 'utf8'))
+await db.exec(fs.readFileSync(path.join(sqlDir, '45-codigos-internos.sql'), 'utf8'))   // idempotente
+await ok('el dígito verificador EAN-13 es correcto (7702004003508)', 'sistema', () => q(`select ean13_digito('770200400350') d`), r => r.rows[0].d === 8)
+await ok('otro EAN conocido (4006381333931)', 'sistema', () => q(`select ean13_digito('400638133393') d`), r => r.rows[0].d === 1)
+await falla('una tienda no asigna códigos al catálogo', 'duenoA', () => q(`select catalogo_admin_asignar_codigos(false)`), 'Solo el administrador')
+await falla('anónimo no asigna códigos', 'anon', () => q(`select catalogo_admin_asignar_codigos(false)`), 'permission denied')
+let sinCodigo45
+await ok('simular cuenta los productos sin código', 'adminCat', async () => { const r = await q(`select catalogo_admin_asignar_codigos(true) r`); sinCodigo45 = r.rows[0].r.sin_codigo; return r }, r => r.rows[0].r.aplicado === false && r.rows[0].r.sin_codigo > 0)
+await ok('(preparar) un producto sin código y uno con código', 'sistema', async () => { await q(`insert into catalogo_base (nombre, categoria) values ('Tomate chonto (kg)', 'Frutas y verduras')`); return q(`select 1`) })
+await ok('asignar da código a todos los que no tenían', 'adminCat', () => q(`select catalogo_admin_asignar_codigos(false) r`), r => r.rows[0].r.aplicado === true)
+await ok('no queda ninguno sin código', 'sistema', () => q(`select count(*)::int n from catalogo_base where codigo is null and eliminado_en is null`), r => r.rows[0].n === 0)
+await ok('los códigos nuevos son EAN-13 internos (prefijo 20) con verificador correcto', 'sistema', () => q(`select count(*)::int n from catalogo_base where codigo ~ '^20[0-9]{11}$' and substr(codigo, 13, 1)::int = ean13_digito(substr(codigo, 1, 12))`), r => r.rows[0].n >= 1)
+let cod1
+await ok('(leer) código del tomate', 'sistema', async () => { cod1 = (await q(`select codigo from catalogo_base where nombre = 'Tomate chonto (kg)'`)).rows[0].codigo; return q(`select 1`) })
+await ok('el código no cambia si se vuelve a correr', 'adminCat', async () => { await q(`select catalogo_admin_asignar_codigos(false)`); return q(`select 1`) })
+await ok('sigue igual', 'sistema', () => q(`select codigo from catalogo_base where nombre = 'Tomate chonto (kg)'`), r => r.rows[0].codigo === cod1)
+let idTom
+await ok('(leer) número del tomate', 'sistema', async () => { idTom = (await q(`select id from catalogo_base where nombre = 'Tomate chonto (kg)'`)).rows[0].id; return q(`select 1`) })
+await ok('el administrador busca un producto por su número', 'adminCat', () => q(`select catalogo_admin_listar($1::text, null, 'todos', 0, 5) r`, [String(idTom)]), r => r.rows[0].r.filas.some(x => x.nombre === 'Tomate chonto (kg)'))
+await falla('una tienda ajena no genera códigos', 'duenoB', () => q(`select generar_codigos_internos($1::uuid)`, [A]), 'Solo el dueño')
+await falla('el cajero no genera códigos', 'cajeroA', () => q(`select generar_codigos_internos($1::uuid)`, [A]), 'Solo el dueño')
+await ok('(preparar) A tiene 3 productos sin código', 'sistema', async () => { for (const n of ['Cebolla cabezona', 'Papa pastusa', 'Banano']) await q(`insert into productos (negocio_id, nombre, unidad, precio_venta, precio_compra) values ($1, $2, 'kg', 1000, 500)`, [A, n]); return q(`select 1`) })
+await ok('A genera códigos internos solo para los que no tienen', 'duenoA', () => q(`select generar_codigos_internos($1::uuid) r`, [A]), r => r.rows[0].r.asignados >= 3)
+await ok('quedan con prefijo 21, únicos y verificador correcto', 'sistema', () => q(`select count(*)::int n, count(distinct codigo)::int d from productos where negocio_id = $1 and codigo ~ '^21[0-9]{11}$' and substr(codigo, 13, 1)::int = ean13_digito(substr(codigo, 1, 12))`, [A]), r => r.rows[0].n >= 3 && r.rows[0].n === r.rows[0].d)
+await ok('volver a generar no cambia nada', 'duenoA', () => q(`select generar_codigos_internos($1::uuid) r`, [A]), r => r.rows[0].r.asignados === 0)
+await ok('B no recibió códigos de A', 'sistema', () => q(`select count(*)::int n from productos where negocio_id = $1 and codigo ~ '^21'`, [B]), r => r.rows[0].n === 0)
 console.log('\n--- Avisos de estado del pedido al cliente (40) ---')
 await db.exec(fs.readFileSync(path.join(sqlDir, '40-avisos-estado.sql'), 'utf8'))
 await db.exec(fs.readFileSync(path.join(sqlDir, '40-avisos-estado.sql'), 'utf8'))   // idempotente
