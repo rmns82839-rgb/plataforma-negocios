@@ -5,6 +5,7 @@ import { dinero, fechaHora } from '../lib/formato'
 import { numeroFactura } from '../lib/factura'
 import { useConfig } from '../lib/config'
 import BarraFija from './BarraFija'
+import DesgloseDomicilio from './DesgloseDomicilio'
 
 const ESTADOS = [
   { id: 'pendiente', texto: 'Pendientes' },
@@ -21,6 +22,7 @@ const COLOR = {
 export default function Domicilios() {
   useConfig()   // (para que el prefijo de la factura esté cargado)
   const [lista, setLista] = useState([])
+  const [pedidos, setPedidos] = useState({})            // venta → pedido de la tienda en línea de donde salió (con la ruta y la tarifa)
   const [filtro, setFiltro] = useState('pendiente')
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
@@ -33,6 +35,12 @@ export default function Domicilios() {
     if (err) setError(/domicilio|column|schema cache/i.test(err.message) ? 'Falta ejecutar migracion-v9.sql en Supabase.' : err.message)
     setLista(data ?? [])
     setCargando(false)
+    const ids = (data ?? []).map(v => v.id)
+    if (ids.length > 0) {
+      let r = await supabase.from('pedidos_tienda').select('venta_id, direccion, domicilio, dom_km, dom_tarifa, dom_por_confirmar').in('venta_id', ids)
+      if (r.error) r = await supabase.from('pedidos_tienda').select('venta_id, direccion, domicilio').in('venta_id', ids)       // sin las columnas de ruta
+      if (!r.error) setPedidos(Object.fromEntries((r.data ?? []).map(x => [x.venta_id, x])))
+    }
   }, [])
   useEffect(() => { cargar() }, [cargar])
 
@@ -86,6 +94,7 @@ export default function Domicilios() {
                   <div className="rounded-xl bg-slate-50 px-3 py-2"><p className="text-slate-400">Total a cobrar</p><p className="text-base font-bold">{dinero(v.total)}</p></div>
                   <div className="rounded-xl bg-slate-50 px-3 py-2"><p className="text-slate-400">Costo del envío</p><p className="text-base font-bold">{dinero(v.dom_costo)}</p></div>
                 </div>
+                <DesgloseDomicilio pedido={pedidos[v.id]} direccion={v.dom_direccion} cobrado={v.dom_costo} />
                 {v.nota && <p className="text-xs text-slate-500">Nota: {v.nota}</p>}
                 <div className="grid grid-cols-2 gap-2">
                   {tel ? (

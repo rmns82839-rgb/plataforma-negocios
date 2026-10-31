@@ -5,6 +5,7 @@ import { claseInput } from '../lib/estilos'
 import { usePersistido, borrarBorradores, TREINTA_MIN } from '../lib/usePersistido'
 import { enlaceWhatsApp } from '../lib/datosCliente'
 import Modal from './Modal'
+import DesgloseDomicilio from './DesgloseDomicilio'
 
 const hora = (iso) => new Date(iso).toLocaleString('es-CO', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })
 
@@ -81,9 +82,7 @@ export default function PedidoDetalle({ pedido: p, onCerrar, onCobrar, onCambio 
           {p.dom_por_confirmar && (
             <p className="text-xs rounded-lg px-3 py-2 bg-champagne/30 text-negro break-words">El cliente pidió que tú confirmes el domicilio: no se pudo calcular la ruta. Pon el valor aquí abajo.</p>
           )}
-          {Number(p.dom_km) > 0 && (
-            <p className="text-xs text-slate-500 break-words">Ruta calculada: {Number(p.dom_km).toLocaleString('es-CO')} km{p.dom_tarifa?.base != null ? ` · tarifa ${dinero(p.dom_tarifa.base)} + ${dinero(p.dom_tarifa.por_km)} por km` : ''}. La tarifa quedó guardada en este pedido.</p>
-          )}
+          <DesgloseDomicilio pedido={p} direccion={p.direccion} cobrado={costo} />
           {atajos.length > 0 && (
             <div className={`grid gap-2 ${atajos.length >= 3 ? 'grid-cols-3' : 'grid-cols-2'}`}>
               {atajos.map(v => (

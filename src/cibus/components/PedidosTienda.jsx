@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase, negocioActual } from '../lib/supabase'
 import { avisarCambioEstado } from '../../lib/avisosCliente'
 import BarraFija from './BarraFija'
+import DesgloseDomicilio from './DesgloseDomicilio'
 import { dinero, numero } from '../lib/formato'
 import { enlaceWhatsApp } from '../lib/datosCliente'
 import { confirmar } from '../lib/confirmar'
@@ -155,6 +156,7 @@ export default function PedidosTienda({ onCobrar }) {
                   )}
                   <p className="grid grid-cols-[1fr_auto] text-sm font-bold text-slate-800"><span>Total</span><span>{dinero(p.total)}</span></p>
                 </div>
+                {p.entrega !== 'recoger' && <DesgloseDomicilio pedido={p} direccion={p.direccion} cobrado={p.domicilio} />}
                 {p.pago_estado && p.pago_estado !== 'confirmado' && p.estado !== 'cancelado' && (
                   <div className="grid grid-cols-2 gap-2">
                     <button onClick={async () => { const e = await confirmarPago(p.id, true); setError(e); if (!e) cargar() }} className="min-h-12 rounded-xl bg-green-600 text-white text-sm font-semibold">Pago recibido</button>
