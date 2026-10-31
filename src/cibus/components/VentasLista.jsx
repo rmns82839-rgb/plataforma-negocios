@@ -10,6 +10,7 @@ import Factura from './Factura'
 import { numeroFactura, subtotalVenta } from '../lib/factura'
 import { useDueno } from '../context/rol'
 import BarraFija from './BarraFija'
+import { leerBorrador, guardarBorrador, DOCE_HORAS } from '../lib/borrador'
 
 // Lista de ventas del periodo. Desde aquí el dueño puede anular una venta (con motivo).
 export default function VentasLista({ rango }) {
@@ -24,6 +25,7 @@ export default function VentasLista({ rango }) {
   const [errorAnular, setErrorAnular] = useState('')
   const [enviando, setEnviando] = useState(false)
   const [facturaId, setFacturaId] = useState(null)
+  const [aviso, setAviso] = useState('')
 
   const cargar = useCallback(async () => {
     setCargando(true); setError('')
@@ -44,6 +46,30 @@ export default function VentasLista({ rango }) {
   const total = validas.reduce((s, v) => s + Number(v.total), 0)
 
   const abrir = (v) => { setAbierta(v); setAnulando(false); setMotivo(''); setErrorAnular('') }
+
+  // Reversar: la venta se deshace y sus productos quedan esperando en la caja (en la venta en curso)
+  const reversar = async () => {
+    setEnviando(true); setErrorAnular('')
+    const { data: r, error: err } = await supabase.rpc('reversar_venta', { p_venta_id: abierta.id, p_motivo: motivo.trim() || null })
+    setEnviando(false)
+    if (err) return setErrorAnular(err.message)
+    if (!r?.ropa) {
+      const g = leerBorrador('borrador-caja', DOCE_HORAS) ?? { lineas: [] }
+      const lineas = [...(g.lineas ?? [])]
+      for (const i of r?.items ?? []) {
+        if (!i.producto_id) continue
+        const x = lineas.find(l => l.id === i.producto_id)
+        if (x) x.cantidad = Math.round((Number(x.cantidad) + Number(i.cantidad)) * 1000) / 1000
+        else lineas.push({ id: i.producto_id, cantidad: Number(i.cantidad), ...(Number(i.descuento) > 0 && !i.promo ? { descuento: Number(i.descuento) } : {}) })
+      }
+      guardarBorrador('borrador-caja', { ...g, lineas, clienteId: g.clienteId || r?.cliente_id || '', nota: g.nota || r?.nota || '' })
+    }
+    setAbierta(null)
+    setAviso(r?.ropa
+      ? `Factura ${numeroFactura(r?.numero)} reversada. Era de ropa: vuelve a registrarla desde Ropa.`
+      : `Factura ${numeroFactura(r?.numero)} reversada. Sus productos te esperan en la Caja.`)
+    cargar()
+  }
 
   const anular = async () => {
     if (motivo.trim().length < 3) return setErrorAnular('Escribe el motivo de la anulación')
@@ -74,6 +100,7 @@ export default function VentasLista({ rango }) {
       </BarraFija>
 
       {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
+      {aviso && <p className="text-sm text-marca bg-lima/20 rounded-lg px-3 py-2">{aviso}</p>}
 
       {cargando ? (
         <p className="text-center text-sm text-slate-400 py-8">Cargando…</p>
@@ -91,7 +118,7 @@ export default function VentasLista({ rango }) {
                   </p>
                   <p className="text-xs text-slate-400 break-words">
                     {fechaHora(v.fecha)} · {v.venta_items.length} {v.venta_items.length === 1 ? 'producto' : 'productos'}
-                    {v.anulada && <span className="text-red-500 font-medium"> · Anulada</span>}
+                    {v.anulada && <span className="text-red-500 font-medium"> · {v.reversada ? "Reversada" : "Anulada"}</span>}
                   </p>
                   {v.nota && <p className="text-xs font-medium text-red-600 break-words">Nota: {v.nota}</p>}
                 </div>
@@ -177,10 +204,18 @@ export default function VentasLista({ rango }) {
               </div>
             </div>
           ) : dueno === true ? (
-            <button onClick={() => setAnulando(true)}
-              className="w-full h-12 rounded-xl bg-red-50 text-red-600 font-semibold active:bg-red-100">
-              Anular esta venta
-            </button>
+            <div className="space-y-3">
+              {errorAnular && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{errorAnular}</p>}
+              <button onClick={reversar} disabled={enviando}
+                className="w-full h-12 rounded-xl bg-negro text-champagne font-semibold disabled:opacity-40 active:opacity-90">
+                {enviando ? 'Reversando…' : '↩️ Reversar a la caja'}
+              </button>
+              <p className="text-xs text-slate-400 text-center">Devuelve el dinero y el stock, y sus productos vuelven a la Caja para cobrarlos bien.</p>
+              <button onClick={() => setAnulando(true)}
+                className="w-full h-12 rounded-xl bg-red-50 text-red-600 font-semibold active:bg-red-100">
+                Anular esta venta
+              </button>
+            </div>
           ) : (
             <p className="text-xs text-slate-400 text-center">Solo el dueño puede anular una venta.</p>
           )}

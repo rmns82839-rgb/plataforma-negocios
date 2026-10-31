@@ -16,6 +16,7 @@ import ProductosBase from './ProductosBase'
 import { catalogoBaseCsv } from '../lib/catalogoBase'
 import { esGenerica } from '../lib/imagenGenerica'
 import { fotosDe } from '../lib/fotos'
+import { descargarFotos } from '../lib/descargarFotos'
 import PublicarEnLinea from './PublicarEnLinea'
 import FotoRapida from './FotoRapida'
 import { useDueno } from '../context/rol'
@@ -57,6 +58,10 @@ export default function Productos() {
   const [ajuste, setAjuste] = usePersistido('productos:ajuste', null, true, TREINTA_MIN)   // producto que se está contando
   const [compra, setCompra] = usePersistido('productos:compra', false, true, TREINTA_MIN)
   const [fotos, setFotos] = usePersistido('productos:importarFotos', false, true, TREINTA_MIN)
+  const [modoBajar, setModoBajar] = useState(false)      // «Descargar fotos»: se pueden marcar varios productos
+  const [marcados, setMarcados] = useState(() => new Set())
+  const [bajando, setBajando] = useState(null)             // { hechas, total } mientras se descarga
+  const [avisoBajar, setAvisoBajar] = useState('')
   const [carga, setCarga] = useState(false)
   const [base, setBase] = useState(false)
   const [publicar, setPublicar] = usePersistido('productos:publicarLinea', false, true, TREINTA_MIN)
@@ -254,6 +259,10 @@ export default function Productos() {
             className={`h-10 rounded-xl text-xs font-semibold ${filtro === 'sinfoto' ? 'bg-negro text-champagne' : 'bg-slate-100 text-slate-700'}`}>
             {filtro === 'sinfoto' ? 'Ver todos' : `Sin foto (${sinFotos.length})`}
           </button>
+          <button onClick={() => { setModoBajar(v => !v); setMarcados(new Set()); setAvisoBajar('') }}
+            className={`col-span-2 min-h-10 rounded-xl text-xs font-semibold px-2 leading-tight ${modoBajar ? 'bg-negro text-champagne' : 'bg-slate-100 text-slate-700'}`}>
+            {modoBajar ? 'Salir de descargar fotos' : 'Descargar fotos de productos'}
+          </button>
           <button onClick={() => {
             const url = URL.createObjectURL(new Blob([catalogoBaseCsv(productos)], { type: 'text/csv;charset=utf-8' }))
             const a = document.createElement('a'); a.href = url; a.download = 'catalogo-base-sin-precios.csv'; a.click(); setTimeout(() => URL.revokeObjectURL(url), 2000)
@@ -268,6 +277,33 @@ export default function Productos() {
       </Desplegable>
 
       {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
+
+      {modoBajar && (() => {
+        const conFoto = visibles.filter(p => fotosDe(p).length > 0)
+        const elegidos = productos.filter(p => marcados.has(p.id) && fotosDe(p).length > 0)
+        const bajar = async (lista) => {
+          setAvisoBajar(''); setBajando({ hechas: 0, total: lista.reduce((s, p) => s + fotosDe(p).length, 0) })
+          const r = await descargarFotos(lista, (hechas, total) => setBajando({ hechas, total }))
+          setBajando(null)
+          setAvisoBajar(r.bajadas === 0 ? 'No se pudo bajar ninguna foto. Revisa la conexión.' : `Listo: ${r.bajadas} ${r.bajadas === 1 ? 'foto' : 'fotos'}${r.fallidas ? ` (${r.fallidas} no se pudieron bajar)` : ''}.`)
+        }
+        return (
+          <div className="rounded-2xl bg-white shadow-sm p-3 space-y-2">
+            <p className="text-xs text-slate-500">Marca los productos y baja sus fotos en un solo .zip, o usa ⬇️ en uno solo. Con el buscador y los filtros eliges cuáles ver.</p>
+            <div className="grid grid-cols-2 gap-2">
+              <button onClick={() => setMarcados(new Set(conFoto.map(p => p.id)))} disabled={bajando !== null}
+                className="min-h-10 rounded-xl bg-slate-100 text-slate-700 text-xs font-semibold px-2 leading-tight">Marcar los {conFoto.length} que se ven</button>
+              <button onClick={() => setMarcados(new Set())} disabled={bajando !== null}
+                className="min-h-10 rounded-xl bg-slate-100 text-slate-700 text-xs font-semibold px-2 leading-tight">Quitar marcas</button>
+              <button onClick={() => bajar(elegidos)} disabled={bajando !== null || elegidos.length === 0}
+                className="col-span-2 min-h-11 rounded-xl bg-negro text-champagne text-sm font-semibold disabled:opacity-40">
+                {bajando ? `Bajando ${bajando.hechas} de ${bajando.total}…` : `⬇️ Descargar fotos de ${elegidos.length} ${elegidos.length === 1 ? 'producto' : 'productos'}`}
+              </button>
+            </div>
+            {avisoBajar && <p className="text-sm text-marca bg-lima/20 rounded-lg px-3 py-2">{avisoBajar}</p>}
+          </div>
+        )
+      })()}
 
       {cargando ? (
         <p className="text-center text-sm text-slate-400 py-8">Cargando…</p>
@@ -286,6 +322,25 @@ export default function Productos() {
             const bajo = Number(p.stock) <= Number(p.stock_minimo)
             return (
               <li key={p.id} className="p-3 grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-x-3 gap-y-2 items-center">
+                {modoBajar && (
+                  <div className="sm:col-span-2 flex items-center justify-between gap-3">
+                    {fotosDe(p).length > 0 ? (
+                      <>
+                        <label className="flex items-center gap-2 text-xs text-slate-600 min-h-10">
+                          <input type="checkbox" className="h-5 w-5" checked={marcados.has(p.id)}
+                            onChange={() => setMarcados(prev => { const n = new Set(prev); n.has(p.id) ? n.delete(p.id) : n.add(p.id); return n })} />
+                          Elegir para descargar
+                        </label>
+                        <button disabled={bajando !== null} onClick={async () => {
+                            setAvisoBajar(''); setBajando({ hechas: 0, total: fotosDe(p).length })
+                            const r = await descargarFotos([p], (hechas, total) => setBajando({ hechas, total }))
+                            setBajando(null); if (r.bajadas === 0) setAvisoBajar('No se pudo bajar la foto. Revisa la conexión.')
+                          }}
+                          className="min-h-10 px-3 rounded-lg bg-negro text-champagne text-xs font-semibold disabled:opacity-40">⬇️ Descargar foto</button>
+                      </>
+                    ) : <p className="text-xs text-slate-400">Sin foto</p>}
+                  </div>
+                )}
                 <button onClick={() => setForm(p)} className="min-w-0 text-left grid grid-cols-[auto_1fr] gap-3 items-center">
                   <Miniatura producto={p} tam="h-11 w-11" />
                   <span className="min-w-0 block">

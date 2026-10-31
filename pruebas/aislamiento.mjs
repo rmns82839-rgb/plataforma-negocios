@@ -1627,6 +1627,107 @@ await ok('numera 3 productos escogidos en el orden marcado', 'adminCat', () => q
 await ok('el filtro «tanda» muestra justo esos 3: el 1.º marcado es el Nº 1', 'adminCat', () => q(`select catalogo_admin_listar(null, null, 'tanda', 0, 20) r`), r => r.rows[0].r.filas.map(x => x.id).join() === esc3.join() && r.rows[0].r.filas.map(x => x.tanda_n).join() === '1,2,3')
 await ok('una tanda escogida nueva borra la anterior', 'adminCat', async () => { await q(`select catalogo_admin_tanda_ids(array[$1::bigint])`, [esc3[2]]); return q(`select catalogo_admin_listar(null, null, 'tanda', 0, 20) r`) }, r => r.rows[0].r.total === 1 && r.rows[0].r.filas[0].id === esc3[2] && r.rows[0].r.filas[0].tanda_n === 1)
 await ok('(limpiar) se quitan los números', 'adminCat', () => q(`select catalogo_admin_tanda_quitar()`), () => true)
+// ---------- 50 · Secciones del catálogo ----------
+await db.exec(fs.readFileSync(path.join(sqlDir, '50-secciones.sql'), 'utf8'))
+await db.exec(fs.readFileSync(path.join(sqlDir, '50-secciones.sql'), 'utf8'))   // idempotente
+await falla('una tienda no lista por secciones', 'duenoA', () => q(`select catalogo_admin_listar_secciones(array['Aseo'])`), 'Solo el administrador')
+await falla('anónimo no lista por secciones', 'anon', () => q(`select catalogo_admin_listar_secciones(array['Aseo'])`), 'permission denied')
+await falla('un filtro inventado se rechaza en secciones', 'adminCat', () => q(`select catalogo_admin_listar_secciones(array['Aseo'], false, null, 'raro')`), 'Filtro no válido')
+let secA, secB
+await ok('(leer) totales de 2 categorías, por separado', 'sistema', async () => { secA = (await q(`select count(*)::int n from catalogo_base where eliminado_en is null and categoria = 'Aseo'`)).rows[0].n; secB = (await q(`select count(*)::int n from catalogo_base where eliminado_en is null and categoria = 'Ferretería'`)).rows[0].n; return { rows: [{ n: secA + secB }] } }, r => r.rows[0].n > 0)
+await ok('una sección con 2 categorías suma las dos', 'adminCat', () => q(`select catalogo_admin_listar_secciones(array['Aseo','Ferretería'], false, null, 'todos', 0, 5) r`), r => r.rows[0].r.total === secA + secB && r.rows[0].r.filas.length === 5 && r.rows[0].r.filas.every(x => ['Aseo', 'Ferretería'].includes(x.categoria)))
+await ok('la sección admite búsqueda y filtro de foto', 'adminCat', () => q(`select catalogo_admin_listar_secciones(array['Aseo'], false, null, 'sin_foto', 0, 200) r`), r => r.rows[0].r.filas.every(x => x.categoria === 'Aseo' && x.foto === null))
+await ok('sin categorías ni «sin categoría» no devuelve nada', 'adminCat', () => q(`select catalogo_admin_listar_secciones(array[]::text[]) r`), r => r.rows[0].r.total === 0)
+
+// ---------- 51 · Por revisar ----------
+await db.exec(fs.readFileSync(path.join(sqlDir, '51-por-revisar.sql'), 'utf8'))
+await db.exec(fs.readFileSync(path.join(sqlDir, '51-por-revisar.sql'), 'utf8'))   // idempotente
+let revIds
+await ok('(leer) 3 productos para marcar', 'sistema', async () => { revIds = (await q(`select id from catalogo_base where eliminado_en is null and categoria = 'Aseo' order by id limit 3`)).rows.map(x => String(x.id)); return { rows: [{ n: revIds.length }] } }, r => r.rows[0].n === 3)
+await falla('una tienda no marca para revisar', 'duenoA', () => q(`select catalogo_admin_revisar($1::bigint[], 'Foto mala')`, [revIds]), 'Solo el administrador')
+await falla('anónimo no marca', 'anon', () => q(`select catalogo_admin_revisar($1::bigint[], 'Foto mala')`, [revIds]), 'permission denied')
+await falla('sin productos se rechaza', 'adminCat', () => q(`select catalogo_admin_revisar('{}'::bigint[], 'x')`), 'entre 1 y 500')
+await falla('un motivo larguísimo se rechaza', 'adminCat', () => q(`select catalogo_admin_revisar($1::bigint[], repeat('a', 41))`, [revIds]), 'muy largo')
+await ok('marca 2 productos como «Foto mala» y 1 como «Duplicado»', 'adminCat', async () => { await q(`select catalogo_admin_revisar($1::bigint[], 'Foto mala')`, [[revIds[0], revIds[1]]]); return q(`select catalogo_admin_revisar($1::bigint[], 'Duplicado') n`, [[revIds[2]]]) }, r => r.rows[0].n === 1)
+await ok('el filtro «revisar» muestra los 3', 'adminCat', () => q(`select catalogo_admin_listar(null, 'Aseo', 'revisar', 0, 50) r`), r => r.rows[0].r.total === 3 && r.rows[0].r.filas.every(x => x.revisar))
+await ok('el filtro por motivo muestra solo ese', 'adminCat', () => q(`select catalogo_admin_listar(null, 'Aseo', 'revisar:Foto mala', 0, 50) r`), r => r.rows[0].r.total === 2 && r.rows[0].r.filas.every(x => x.revisar === 'Foto mala'))
+await ok('también funciona por secciones', 'adminCat', () => q(`select catalogo_admin_listar_secciones(array['Aseo'], false, null, 'revisar:Duplicado') r`), r => r.rows[0].r.total === 1 && r.rows[0].r.filas[0].revisar === 'Duplicado')
+await falla('un filtro de revisión mal escrito se rechaza', 'adminCat', () => q(`select catalogo_admin_listar(null, null, 'revisar:')`), 'Filtro no válido')
+await ok('quitar la marca (motivo vacío)', 'adminCat', () => q(`select catalogo_admin_revisar($1::bigint[], '') n`, [revIds]), r => r.rows[0].n === 3)
+await ok('ya no queda ninguno por revisar', 'adminCat', () => q(`select catalogo_admin_listar(null, 'Aseo', 'revisar', 0, 50) r`), r => r.rows[0].r.total === 0)
+
+// ---------- 52 · Arreglo de la sincronización de fotos ----------
+await db.exec(fs.readFileSync(path.join(sqlDir, '52-arreglo-sync.sql'), 'utf8'))
+await db.exec(fs.readFileSync(path.join(sqlDir, '52-arreglo-sync.sql'), 'utf8'))   // idempotente
+await ok('la sincronización (simulada) sigue funcionando', 'adminCat', () => q(`select catalogo_admin_sincronizar_fotos(true) r`), r => typeof r.rows[0].r.nuevas === 'number')
+await falla('una tienda no sincroniza', 'duenoA', () => q(`select catalogo_admin_sincronizar_fotos(true)`), 'Solo el administrador')
+
+// ---------- 53 · Reversar ventas · agotados con autorización · stock exacto ----------
+console.log('\n=== 53: reversar ventas, agotados y stock exacto ===')
+await db.exec(fs.readFileSync(path.join(sqlDir, '53-reversar-agotados.sql'), 'utf8'))
+await db.exec(fs.readFileSync(path.join(sqlDir, '53-reversar-agotados.sql'), 'utf8'))   // idempotente
+let pH, pSeis = []
+await ok('(preparar) huevos con 2 en stock y otro producto con 150', 'sistema', async () => {
+  pH = (await q(`insert into productos (negocio_id,codigo,nombre,precio_venta,stock,publicado) values ($1,'H1','Huevos A',500,2,true) returning id`, [A])).rows[0].id
+  for (let i = 0; i < 7; i++) pSeis.push((await q(`insert into productos (negocio_id,codigo,nombre,precio_venta,stock,publicado) values ($1,$2,$3,1000,50,true) returning id`, [A, 'S' + i, 'Surtido ' + i + ' A'])).rows[0].id)
+  return { rows: [{ n: 1 }] }
+}, () => true)
+const vOf = (uid, id) => q(`select * from ventas where id=$1`, [id])
+await falla('vender más de lo que hay se bloquea (AGOTADO)', 'cajeroA', () => venta(A, [{ producto_id: pH, cantidad: 3 }], efectivo(1500)), 'AGOTADO|Huevos A|2|3')
+await ok('lo bloqueado no tocó el stock', 'sistema', () => q(`select stock from productos where id=$1`, [pH]), r => Number(r.rows[0].stock) === 2)
+await ok('vender lo que sí hay funciona', 'cajeroA', () => venta(A, [{ producto_id: pH, cantidad: 2 }], efectivo(1000)), r => !!r.rows[0].id)
+await ok('ahora quedan 0', 'sistema', () => q(`select stock from productos where id=$1`, [pH]), r => Number(r.rows[0].stock) === 0)
+await falla('con 0 en stock tampoco se vende', 'cajeroA', () => venta(A, [{ producto_id: pH, cantidad: 1 }], efectivo(500)), 'AGOTADO')
+await ok('sin clave del dueño, el cajero no puede autorizar', 'cajeroA', () => q(`select autorizar_stock($1, '1234') r`, [A]), r => r.rows[0].r.ok === false && /todavía no creó/.test(r.rows[0].r.error))
+await falla('el cajero no puede crear la clave', 'cajeroA', () => q(`select definir_pin_autorizacion($1, '1234')`, [A]), 'Solo el dueño')
+await falla('una clave de letras se rechaza', 'duenoA', () => q(`select definir_pin_autorizacion($1, 'abcd')`, [A]), 'entre 4 y 8 números')
+await ok('el dueño crea su clave', 'duenoA', () => q(`select definir_pin_autorizacion($1, '4321')`, [A]), () => true)
+await ok('el cajero sabe que hay clave (sin verla)', 'cajeroA', () => q(`select tiene_pin_autorizacion($1) t`, [A]), r => r.rows[0].t === true)
+await falla('nadie lee la clave guardada', 'cajeroA', () => q(`select * from negocio_pin`), 'permission denied')
+await ok('clave mala: no autoriza y avisa cuántos intentos quedan', 'cajeroA', () => q(`select autorizar_stock($1, '0000') r`, [A]), r => r.rows[0].r.ok === false && /quedan 4/.test(r.rows[0].r.error))
+let tok
+await ok('clave buena: da un permiso de un solo uso', 'cajeroA', () => q(`select autorizar_stock($1, '4321') r`, [A]), r => { tok = r.rows[0].r.autorizacion; return r.rows[0].r.ok === true && !!tok })
+await ok('con el permiso, se vende lo agotado y el stock queda en negativo', 'cajeroA', () => q(`select registrar_venta($1::uuid,$2::jsonb,$3::jsonb,null,null,null,0,null,$4::uuid) id`, [A, J([{ producto_id: pH, cantidad: 1 }]), J(efectivo(500)), tok]), r => !!r.rows[0].id)
+await ok('el stock quedó en −1 y la venta dice que fue autorizada', 'sistema', async () => ({ rows: [{ s: await stock(pH), a: (await q(`select agotado_autorizado a from ventas where negocio_id=$1 order by numero desc limit 1`, [A])).rows[0].a }] }), r => r.rows[0].s === -1 && r.rows[0].a === true)
+await falla('el mismo permiso no se puede usar dos veces', 'cajeroA', () => q(`select registrar_venta($1::uuid,$2::jsonb,$3::jsonb,null,null,null,0,null,$4::uuid) id`, [A, J([{ producto_id: pH, cantidad: 1 }]), J(efectivo(500)), tok]), 'AGOTADO')
+await ok('el dueño con sesión autoriza sin clave', 'duenoA', () => q(`select autorizar_stock($1) r`, [A]), r => r.rows[0].r.ok === true)
+await falla('un permiso falso no sirve', 'cajeroA', () => q(`select registrar_venta($1::uuid,$2::jsonb,$3::jsonb,null,null,null,0,null,gen_random_uuid()) id`, [A, J([{ producto_id: pH, cantidad: 1 }]), J(efectivo(500))]), 'AGOTADO')
+await falla('un permiso de otra tienda no sirve', 'duenoB', () => q(`select autorizar_stock($1) r`, [A]), 'No autorizado')
+for (let i = 0; i < 5; i++) await como('cajeroA', () => q(`select autorizar_stock($1, '9999') r`, [A]))
+await ok('tras 5 claves malas se bloquea, aun con la clave buena', 'cajeroA', () => q(`select autorizar_stock($1, '4321') r`, [A]), r => r.rows[0].r.ok === false && /Espera/.test(r.rows[0].r.error))
+await ok('(desbloquear) el dueño cambia la clave', 'duenoA', () => q(`select definir_pin_autorizacion($1, '4321')`, [A]), () => true)
+await ok('con la regla apagada se vende en negativo sin permiso (como antes)', 'sistema', async () => { await q(`update negocio_reglas set bloquear_agotados=false where negocio_id=$1`, [A]); return { rows: [{ n: 1 }] } }, () => true)
+await ok('… y se vende', 'cajeroA', () => venta(A, [{ producto_id: pH, cantidad: 1 }], efectivo(500)), r => !!r.rows[0].id)
+await ok('(volver a bloquear)', 'sistema', async () => { await q(`update negocio_reglas set bloquear_agotados=true where negocio_id=$1`, [A]); return { rows: [{ n: 1 }] } }, () => true)
+
+// --- Reversar ventas ---
+let vs = []
+await ok('(preparar) el cajero hace 6 ventas, una tras otra', 'cajeroA', async () => {
+  for (let i = 0; i < 6; i++) vs.push((await venta(A, [{ producto_id: pSeis[i], cantidad: 2 }], efectivo(2000))).rows[0].id)
+  return { rows: [{ n: vs.length }] }
+}, r => r.rows[0].n === 6)
+let vDueno
+await ok('(preparar) el dueño hace una venta', 'duenoA', async () => { vDueno = (await venta(A, [{ producto_id: pSeis[6], cantidad: 1 }], efectivo(1000))).rows[0].id; return { rows: [{ n: 1 }] } }, () => true)
+await ok('las ventas llevan quién las hizo', 'sistema', () => q(`select count(*) n from ventas where id = any($1::uuid[]) and creada_por=$2`, [vs, U.cajeroA]), r => Number(r.rows[0].n) === 6)
+await ok('el cajero ve solo sus 5 últimas ventas', 'cajeroA', () => q(`select ventas_recientes($1, 5) r`, [A]), r => r.rows[0].r.length === 5 && r.rows[0].r[0].id === vs[5] && !r.rows[0].r.some(x => x.id === vDueno))
+await ok('el dueño ve las últimas de todos', 'duenoA', () => q(`select ventas_recientes($1, 5) r`, [A]), r => r.rows[0].r.length === 5 && r.rows[0].r[0].id === vDueno)
+await falla('el cajero no reversa una venta del dueño', 'cajeroA', () => q(`select reversar_venta($1,$2)`, [A, vDueno]), 'tus propias ventas')
+await falla('el cajero no reversa la 6.ª más antigua', 'cajeroA', () => q(`select reversar_venta($1,$2)`, [A, vs[0]]), 'últimas 5')
+let rev
+await ok('el cajero reversa su última venta y recibe los productos para la caja', 'cajeroA', () => q(`select reversar_venta($1,$2,'me equivoqué de pago') r`, [A, vs[5]]), r => { rev = r.rows[0].r; return rev.items.length === 1 && rev.items[0].producto_id === pSeis[5] && Number(rev.items[0].cantidad) === 2 && Number(rev.total) === 2000 })
+await ok('el stock volvió y la venta quedó reversada', 'sistema', async () => ({ rows: [{ s: await stock(pSeis[5]), v: (await vOf(0, vs[5])).rows[0] }] }), r => r.rows[0].s === 50 && r.rows[0].v.anulada === true && r.rows[0].v.reversada === true && /Reversada a la caja: me equivoqué/.test(r.rows[0].v.motivo_anulacion))
+await falla('no se reversa dos veces', 'cajeroA', () => q(`select reversar_venta($1,$2)`, [A, vs[5]]), 'ya estaba')
+await ok('al reversar una, la 6.ª entra al grupo de las últimas 5', 'cajeroA', () => q(`select reversar_venta($1,$2) r`, [A, vs[0]]), r => r.rows[0].r.items.length === 1)
+await ok('el dueño reversa cualquier venta', 'duenoA', () => q(`select reversar_venta($1,$2) r`, [A, vs[1]]), r => r.rows[0].r.items.length === 1)
+await falla('una tienda no reversa ventas de otra', 'duenoB', () => q(`select reversar_venta($1,$2)`, [A, vs[2]]), 'No autorizado')
+await falla('anónimo no reversa', 'anon', () => q(`select reversar_venta($1,$2)`, [A, vs[2]]), 'permission denied')
+await falla('una venta que no existe', 'duenoA', () => q(`select reversar_venta($1, gen_random_uuid())`, [A]), 'no encontrada')
+
+// --- Stock exacto en la tienda online ---
+await ok('(preparar) un producto publicado con 150 en stock', 'sistema', async () => { await q(`update productos set stock=150 where id=$1`, [pA]); return { rows: [{ n: 1 }] } }, () => true)
+await ok('la tienda online dice cuántos quedan: 150 exacto, no «50+»', 'anon', () => q(`select catalogo_tienda('tienda-a') c`), r => { const p = r.rows[0].c.productos.find(x => x.id === pA); return p && Number(p.quedan) === 150 })
+await ok('un producto agotado muestra 0, nunca negativo', 'anon', () => q(`select catalogo_tienda('tienda-a') c`), r => { const p = r.rows[0].c.productos.find(x => x.id === pH); return p && Number(p.quedan) === 0 && p.disponible === false })
+
 console.log('\n--- Verificación automática de la base ---')
 const ver = await como('sistema', () => q(`select * from verificar_aislamiento()`))
 for (const f of ver.rows) { pruebas++; if (f.ok) console.log('✓', f.chequeo); else { fallas++; console.log('✗', f.chequeo, '→', f.detalle) } }

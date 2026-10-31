@@ -14,6 +14,7 @@ import DomicilioKmConfig from './DomicilioKmConfig'
 import PagoDigitalConfig from './PagoDigitalConfig'
 import HorarioAtencion from './HorarioAtencion'
 import { validarDomicilioKm } from '../lib/domicilioKm'
+import ClaveAutorizacion from './ClaveAutorizacion'
 
 const CLAVE_BORRADOR = 'bd:negocio:cambios'      // lo editado y sin guardar sobrevive a recargar la página
 
@@ -261,6 +262,8 @@ export default function Negocio() {
           ni por debajo del precio mínimo de cada producto; tú sí. La comisión del datáfono se descuenta de la ganancia.
         </p>
       </div>
+
+      {dueno === true && <ClaveAutorizacion />}
 
       <div className="bg-white rounded-2xl shadow-sm p-4 space-y-3">
         <p className="text-xs font-medium text-slate-500">Logo (opcional)</p>

@@ -35,7 +35,7 @@ export const recargarPublico = () => { cache = null; return cargarPublico() }
 
 const dePublico = {
   negocio_publico: (d) => (d.n ? [{ ...d.n, logo: url(d.n.logo) }] : []),
-  catalogo_productos: (d) => (d.c?.productos ?? []).map((p) => ({ ...p, imagenes: (p.imagenes ?? []).map(url), quedan: undefined })),
+  catalogo_productos: (d) => (d.c?.productos ?? []).map((p) => ({ ...p, imagenes: (p.imagenes ?? []).map(url), quedan: p.quedan ?? undefined })),
   catalogo_stock: () => [],
   catalogo_mas_vendidos: (d) => (d.c?.mas_vendidos ?? []).map((id, i) => ({ producto_id: id, puesto: i + 1 })),
   prendas: (d) => {        // las prendas con sus tallas dentro, como las pide la pantalla de ropa

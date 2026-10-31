@@ -163,11 +163,11 @@ function AgregarTarjeta({ p, linea, onAgregar, onCambiar }) {
   )
 }
 
-// "Quedan 12": discreto. Solo para productos por unidad; desde 50 en adelante se dice "50+" (no se publica el inventario exacto)
+// "Quedan 12": discreto. Solo para productos por unidad; se dice el stock exacto
 function Quedan({ p }) {
   if (!p.disponible || p.quedan == null || sueltoPorPeso(p)) return null
   const pocas = p.quedan <= 3
-  return <p className={`text-[10px] leading-none pt-0.5 ${pocas ? 'text-naranja-oscuro/80' : 'text-slate-400'}`}>{pocas ? (p.quedan === 1 ? 'Queda 1' : `Quedan ${p.quedan}`) : `Quedan ${p.quedan >= 50 ? '50+' : p.quedan}`}</p>
+  return <p className={`text-[10px] leading-none pt-0.5 ${pocas ? 'text-naranja-oscuro/80' : 'text-slate-400'}`}>{pocas ? (p.quedan === 1 ? 'Queda 1' : `Quedan ${p.quedan}`) : `Quedan ${p.quedan}`}</p>
 }
 
 const textoDomicilio = (dom, base) =>
@@ -248,7 +248,7 @@ export default function TiendaPublica() {
         const err = res.error
         const st = await pedirQuedan
         const mapa = new Map((!st.error && Array.isArray(st.data) ? st.data : []).map(x => [x.id, x.quedan]))
-        const data = Array.isArray(res.data) ? res.data.map(p => ({ ...p, quedan: mapa.get(p.id) })) : res.data
+        const data = Array.isArray(res.data) ? res.data.map(p => ({ ...p, quedan: mapa.has(p.id) ? mapa.get(p.id) : p.quedan })) : res.data
         if (err) setError('No se pudo cargar el catálogo')
         setProductos(data ?? [])
         setCargando(false)

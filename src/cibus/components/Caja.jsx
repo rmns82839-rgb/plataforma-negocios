@@ -29,6 +29,9 @@ import PrestamoRapido from './PrestamoRapido'
 import RetiroCaja from './RetiroCaja'
 import Miniatura from './Miniatura'
 import { encolarVenta, registrarVentaSegura } from '../lib/sincronizar'
+import DialogoAgotado from './DialogoAgotado'
+import ReversarVentas from './ReversarVentas'
+import { leerAgotado, lineasDeReverso } from '../lib/autorizar'
 import { esErrorDeRed, idNuevo } from '../lib/offline'
 import { actualizarCatalogo, productoPorCodigo, buscarPorNombre, productosPorIds, descontarStockLocal } from '../lib/catalogoLocal'
 import ClienteDetalle from './ClienteDetalle'
@@ -114,6 +117,8 @@ export default function Caja() {
   const [verPrestamo, setVerPrestamo] = usePersistido('caja:verPrestamo', false, true, TREINTA_MIN)  // ventana del préstamo rápido (solo dueño)
   const [verCuenta, setVerCuenta] = usePersistido('caja:verCuenta', null, true, TREINTA_MIN)         // cliente cuya cuenta se abre desde el aviso de deuda
   const [notaVenta, setNotaVenta] = useState('')       // nota opcional de la venta (sale en rojo en el reporte de ventas)
+  const [agotado, setAgotado] = useState(null)       // venta detenida por un producto agotado: { info, resto }
+  const [verReverso, setVerReverso] = useState(false)  // ventana «Reversar una venta»
   const [pedidoTienda, setPedidoTienda] = useState(null)   // pedido de la tienda en línea que se está cobrando: { id, numero }
   const envio = dom.on ? Math.max(aNumero(dom.costoTxt), 0) : 0
 
@@ -437,7 +442,27 @@ export default function Caja() {
 
   const irAPagar = () => document.getElementById('pago-caja')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 
-  const cobrar = async (restoElegido) => {
+  // Una venta reversada vuelve a la caja: sus productos regresan al carrito para corregirla y cobrarla de nuevo
+  const alReversar = async (r) => {
+    setVerReverso(false); setUltima(null)
+    if (r?.ropa) return setAviso({ tipo: 'ok', texto: `Factura ${numeroFactura(r?.numero)} reversada: el dinero y el stock se devolvieron. Era una venta de ropa: vuelve a registrarla desde Ropa.` })
+    const { lineas: ls, faltan } = await lineasDeReverso(r?.items)
+    setCarrito(prev => {
+      const mapa = new Map(prev.map(l => [l.producto.id, l]))
+      for (const l of ls) {
+        const x = mapa.get(l.producto.id)
+        mapa.set(l.producto.id, x ? { ...x, cantidad: Math.round((x.cantidad + l.cantidad) * 1000) / 1000, txt: undefined } : l)
+      }
+      return [...mapa.values()]
+    })
+    if (r?.cliente_id) setClienteId(prev => prev || r.cliente_id)
+    if (r?.nota) setNotaVenta(prev => prev || r.nota)
+    if (Number(r?.descuento) > 0) setDescuentoTxt(prev => prev || String(Math.round(r.descuento)))
+    setAviso({ tipo: 'ok', texto: `Factura ${numeroFactura(r?.numero)} reversada: el dinero y el stock se devolvieron y los productos volvieron a la caja.${faltan ? ` ${faltan} producto(s) ya no existen y no se pudieron volver a poner.` : ''}` })
+    cargarExtras?.()
+  }
+
+  const cobrar = async (restoElegido, autorizacion) => {
     setAvisoCobro('')
     if (pedirResto && typeof restoElegido !== 'string') return setVerResto(true)
     const pg = typeof restoElegido === 'string' ? pagosCon(restoElegido) : pagos
@@ -459,6 +484,7 @@ export default function Caja() {
       p_descuento: descuento,
       p_nota: notaVenta.trim() || null,
       p_domicilio: dom.on ? { direccion: dom.direccion.trim(), telefono: dom.telefono.trim(), costo: envio } : null,
+      ...(typeof autorizacion === 'string' ? { p_autorizacion: autorizacion } : {}),
     }
     const claveVenta = idNuevo()      // clave única: si la respuesta se pierde y se reintenta, la venta no se duplica
     const horaVenta = new Date().toISOString()
@@ -473,7 +499,12 @@ export default function Caja() {
       await descontarStockLocal(lineas)
       sinInternet = true; error = null; ventaId = null
     }
-    if (error) { setCobrando(false); return setAvisoCobro(explicar(error.message)) }
+    if (error) {
+      setCobrando(false)
+      const ag = leerAgotado(error.message)
+      if (ag) return setAgotado({ info: ag, resto: typeof restoElegido === 'string' ? restoElegido : undefined })
+      return setAvisoCobro(explicar(error.message))
+    }
 
     const { data: v } = sinInternet ? { data: null } : await supabase.from('ventas').select('numero').eq('id', ventaId).single()
     if (pedidoTienda?.id && !sinInternet) {
@@ -538,6 +569,10 @@ export default function Caja() {
                 className={`h-11 rounded-xl bg-white shadow-sm text-sm font-medium text-slate-600 ${dueno === true && prestamoRapido ? 'col-span-2' : ''}`}>
                 {verEscaner ? 'Ocultar escáner' : 'Mostrar escáner'}
               </button>
+              <button onClick={() => setVerReverso(true)}
+                className="h-11 rounded-xl bg-white shadow-sm text-sm font-semibold text-negro active:bg-slate-50">
+                ↩️ Reversar venta
+              </button>
               <button onClick={() => setVerRetiro(true)}
                 className="h-11 rounded-xl bg-white shadow-sm text-sm font-semibold text-negro grid grid-cols-[auto_auto] gap-2 items-center justify-center active:bg-slate-50">
                 <Icono nombre="gastos" className="h-5 w-5" /><span>Retiro de caja</span>
@@ -600,6 +635,17 @@ export default function Caja() {
                   className="h-11 rounded-xl bg-white text-slate-600 text-sm font-medium active:bg-slate-50">
                   Listo
                 </button>
+                {!ultima.pendiente && ultima.id && (
+                  <button onClick={async () => {
+                      if (!(await confirmar({ titulo: '¿Reversar esta venta?', texto: 'Se devuelve el dinero y el stock, y sus productos vuelven a la caja.', si: 'Sí, reversar' }))) return
+                      const { data, error } = await supabase.rpc('reversar_venta', { p_venta_id: ultima.id })
+                      if (error) return setAviso({ tipo: 'error', texto: error.message })
+                      alReversar(data)
+                    }}
+                    className="col-span-2 h-11 rounded-xl bg-white ring-1 ring-red-200 text-red-600 text-sm font-semibold active:bg-red-50">
+                    ↩️ Reversar esta venta
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -678,6 +724,11 @@ export default function Caja() {
       {verPrestamo && (
         <PrestamoRapido clientes={clientes} onCerrar={() => setVerPrestamo(false)}
           onHecho={(c, r) => { setVerPrestamo(false); cargarClientes(); setAviso({ tipo: 'ok', texto: r?.pendiente ? `Préstamo rápido a ${c.nombre} guardado sin internet: se sube solo.` : `Préstamo rápido registrado a ${c.nombre}. Míralos todos en Fiados → Préstamos rápidos.` }) }} />
+      )}
+      {verReverso && <ReversarVentas dueno={dueno === true} onReversada={alReversar} onCerrar={() => setVerReverso(false)} />}
+      {agotado && (
+        <DialogoAgotado info={agotado.info} dueno={dueno === true} onCerrar={() => setAgotado(null)}
+          onAutorizado={(aut) => { const r = agotado.resto; setAgotado(null); cobrar(r, aut) }} />
       )}
       {verRetiro && (
         <RetiroCaja onCerrar={() => setVerRetiro(false)}

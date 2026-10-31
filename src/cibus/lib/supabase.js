@@ -14,7 +14,7 @@ const db = () => { if (!negocioId) throw new Error('El panel no sabe de qué tie
 
 // ---------- La tabla «negocio» de Cibus (una fila) vive en la plataforma en negocio_config + negocio_reglas ----------
 const CONFIG = { nombre: 'nombre_comercial', logo: 'logo_path', nit: 'nit', direccion: 'direccion', ciudad: 'ciudad', telefono: 'telefono', email: 'email', web: 'web', titulo_factura: 'titulo_factura', nota_pie: 'nota_pie', ver_logo: 'ver_logo', whatsapp: 'whatsapp', instagram: 'instagram', facebook: 'facebook', tiktok: 'tiktok', horario: 'horario', horario_semana: 'horario_semana', cerrado_hasta: 'cerrado_hasta', en_directorio: 'en_directorio', maps_url: 'maps_url', razon_social: 'razon_social', correo_datos: 'correo_datos', actualizado_en: 'actualizado_en' }
-const REGLAS = ['prefijo_factura', 'comision_datafono', 'margen_minimo', 'mora_mensual', 'descuento_mayorista', 'bloquear_credito_mora', 'domicilio_costo', 'envio_gratis_desde', 'zona_domicilio', 'formas_pago_tienda', 'pago_digital_numero', 'pago_digital_medios', 'pago_digital_titular']
+const REGLAS = ['bloquear_agotados', 'prefijo_factura', 'comision_datafono', 'margen_minimo', 'mora_mensual', 'descuento_mayorista', 'bloquear_credito_mora', 'domicilio_costo', 'envio_gratis_desde', 'zona_domicilio', 'formas_pago_tienda', 'pago_digital_numero', 'pago_digital_medios', 'pago_digital_titular']
 const unir = (c, r) => {
   const o = { id: 1 }
   if (c) for (const [antes, ahora] of Object.entries(CONFIG)) o[antes] = c[ahora]
@@ -81,7 +81,7 @@ const falso = (valor) => {
   return p
 }
 
-const RPC_DE_LECTURA = /^(es_|listar|tablero|mfa|registrar_acceso|mi_perfil|datos_domicilio|calcular_domicilio|mis_pedidos|estado_pedido|caja_dia|previsualizar|resumen_)/
+const RPC_DE_LECTURA = /^(ventas_recientes|tiene_pin_autorizacion|autorizar_stock|es_|listar|tablero|mfa|registrar_acceso|mi_perfil|datos_domicilio|calcular_domicilio|mis_pedidos|estado_pedido|caja_dia|previsualizar|resumen_)/
 const RPC_PUBLICAS = /^(crear_pedido_|registrar_visita|guardar_mi_perfil|borrar_mi_perfil|publicar_|borrar_mis_|guardar_suscripcion_push|borrar_mi_suscripcion_push|registrar_app_instalada)/
 
 // Funciones de Cibus que en la plataforma se llaman distinto
