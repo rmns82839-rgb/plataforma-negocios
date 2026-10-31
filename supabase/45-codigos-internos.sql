@@ -7,7 +7,6 @@
 --    siempre tiene el mismo código.
 --  · Cada tienda: «21» + consecutivo propio (10 dígitos) + verificador, solo para sus productos sin código.
 --  · Nunca cambia un código que ya existe.
---  · El catálogo se puede buscar también por su número.
 -- ============================================================
 
 -- Dígito verificador EAN-13 a partir de los 12 primeros dígitos
@@ -65,37 +64,6 @@ $$;
 revoke all on function ean13_digito(text), catalogo_admin_asignar_codigos(boolean), generar_codigos_internos(uuid) from public, anon;
 grant execute on function ean13_digito(text), catalogo_admin_asignar_codigos(boolean), generar_codigos_internos(uuid) to authenticated;
 
--- ---------- El listado del catálogo también busca por número de producto ----------
-create or replace function catalogo_admin_listar(p_texto text default null, p_categoria text default null, p_filtro text default 'todos', p_desde int default 0, p_limite int default 60)
-returns jsonb
-language plpgsql stable security definer set search_path = public
-as $$
-declare v_texto text := nullif(btrim(coalesce(p_texto, '')), ''); v_total int; v_filas jsonb; v_num bigint;
-begin
-  if not soy_administrador_plataforma() then raise exception 'Solo el administrador de la plataforma'; end if;
-  if p_filtro not in ('todos', 'sin_foto', 'con_foto', 'sin_descripcion', 'eliminados') then raise exception 'Filtro no válido'; end if;
-  v_num := case when v_texto ~ '^[0-9]{1,9}$' then v_texto::bigint end;
-  select count(*) into v_total from catalogo_base b
-   where (v_texto is null or b.nombre ilike '%' || v_texto || '%' or b.codigo = v_texto or b.id = v_num)
-     and (p_categoria is null or b.categoria = p_categoria)
-     and ((p_filtro = 'eliminados') = (b.eliminado_en is not null))
-     and (p_filtro in ('todos', 'eliminados') or (p_filtro = 'sin_foto' and b.foto is null) or (p_filtro = 'con_foto' and b.foto is not null) or (p_filtro = 'sin_descripcion' and b.descripcion is null));
-  select coalesce(jsonb_agg(to_jsonb(t)), '[]'::jsonb) into v_filas from (
-    select b.id, b.codigo, b.nombre, b.categoria, b.unidad, b.presentacion, b.descripcion, b.foto, b.foto_version, (b.eliminado_en is not null) as eliminado
-      from catalogo_base b
-     where (v_texto is null or b.nombre ilike '%' || v_texto || '%' or b.codigo = v_texto or b.id = v_num)
-       and (p_categoria is null or b.categoria = p_categoria)
-       and ((p_filtro = 'eliminados') = (b.eliminado_en is not null))
-       and (p_filtro in ('todos', 'eliminados') or (p_filtro = 'sin_foto' and b.foto is null) or (p_filtro = 'con_foto' and b.foto is not null) or (p_filtro = 'sin_descripcion' and b.descripcion is null))
-     order by b.nombre, b.id
-     offset greatest(coalesce(p_desde, 0), 0) limit least(greatest(coalesce(p_limite, 60), 1), 200)
-  ) t;
-  return jsonb_build_object('total', v_total, 'filas', v_filas);
-end;
-$$;
-revoke all on function catalogo_admin_listar(text, text, text, int, int) from public, anon;
-grant execute on function catalogo_admin_listar(text, text, text, int, int) to authenticated;
-
 notify pgrst, 'reload schema';
 
 -- ---------- VERIFICACIÓN: las 5 filas deben decir ok = true ----------
@@ -103,6 +71,6 @@ select chequeo, ok from (
   select 1 as n, 'verificar_aislamiento: todo en orden' as chequeo, (select bool_and(ok) from verificar_aislamiento()) as ok
   union all select 2, 'el dígito verificador funciona (4006381333931 → 1)', ean13_digito('400638133393') = 1
   union all select 3, 'las funciones de códigos son solo para quien inició sesión', not has_function_privilege('anon', 'generar_codigos_internos(uuid)', 'execute') and has_function_privilege('authenticated', 'catalogo_admin_asignar_codigos(boolean)', 'execute')
-  union all select 4, 'el listado busca también por número', position('b.id = v_num' in pg_get_functiondef('catalogo_admin_listar(text, text, text, int, int)'::regprocedure)) > 0
-  union all select 5, 'ningún código interno repetido en el catálogo', not exists (select codigo from catalogo_base where codigo is not null group by codigo having count(*) > 1)
+  union all select 4, 'las funciones de códigos tienen los permisos correctos', has_function_privilege('authenticated', 'generar_codigos_internos(uuid)', 'execute') and not has_function_privilege('anon', 'catalogo_admin_asignar_codigos(boolean)', 'execute')
+  union all select 5, 'ningún código repetido en el catálogo', not exists (select codigo from catalogo_base where codigo is not null group by codigo having count(*) > 1)
 ) t order by n;
