@@ -1265,6 +1265,46 @@ await falla('el administrador solo sube <id>.webp al catálogo', 'adminCat', () 
 await ok('el administrador quita la foto', 'adminCat', async () => { await q(`select catalogo_admin_foto($1::bigint, null)`, [pid]); return q(`select catalogo_admin_listar('Norma', null, 'todos', 0, 5) r`) }, r => r.rows[0].r.filas[0].foto === null)
 await ok('la descripción del catálogo viaja a la tienda al cargar', 'sistema', async () => { await q(`update catalogo_base set descripcion = 'Descripción de prueba' where categoria = 'Víveres' and id = (select min(id) from catalogo_base where categoria = 'Víveres')`); return q(`select 1`) })
 await ok('A carga Víveres y recibe la descripción', 'duenoA', async () => { await q(`select cargar_catalogo_base($1::uuid, array['Víveres'])`, [A]); return q(`select count(*)::int n from productos where negocio_id = $1 and descripcion = 'Descripción de prueba'`, [A]) }, r => r.rows[0].n === 1)
+console.log('\n--- Limpieza del catálogo y fotos en tiendas (44) ---')
+await db.exec(fs.readFileSync(path.join(sqlDir, '44-catalogo-limpieza.sql'), 'utf8'))
+await db.exec(fs.readFileSync(path.join(sqlDir, '44-catalogo-limpieza.sql'), 'utf8'))   // idempotente
+await falla('una tienda no elimina productos del catálogo', 'duenoA', () => q(`select catalogo_admin_eliminar(1)`), 'Solo el administrador')
+await falla('una tienda no sincroniza fotos', 'duenoA', () => q(`select catalogo_admin_sincronizar_fotos(false)`), 'Solo el administrador')
+await falla('anónimo no elimina', 'anon', () => q(`select catalogo_admin_eliminar(1)`), 'permission denied')
+let nEl, totAntes
+await ok('el administrador elimina un producto (borrado suave)', 'adminCat', async () => { totAntes = (await q(`select catalogo_admin_resumen() r`)).rows[0].r.total; await q(`select catalogo_admin_eliminar($1::bigint)`, [pid]); return q(`select catalogo_admin_resumen() r`) }, r => r.rows[0].r.total === totAntes - 1 && r.rows[0].r.eliminados === 1)
+await ok('el eliminado ya no sale en la lista normal', 'adminCat', () => q(`select catalogo_admin_listar('Norma', null, 'todos', 0, 5) r`), r => r.rows[0].r.total === 0)
+await ok('el eliminado sale en el filtro «eliminados»', 'adminCat', () => q(`select catalogo_admin_listar(null, null, 'eliminados', 0, 5) r`), r => r.rows[0].r.total === 1 && r.rows[0].r.filas[0].eliminado === true)
+await ok('la fila sigue existiendo (no se borró)', 'sistema', () => q(`select count(*)::int n from catalogo_base where id = $1 and eliminado_en is not null`, [pid]), r => r.rows[0].n === 1)
+await ok('el administrador restaura el producto', 'adminCat', async () => { await q(`select catalogo_admin_eliminar($1::bigint, true)`, [pid]); return q(`select catalogo_admin_resumen() r`) }, r => r.rows[0].r.total === totAntes && r.rows[0].r.eliminados === 0)
+await ok('un código eliminado no autocompleta en las tiendas', 'duenoA', async () => { await q(`select 1`); return q(`select 1`) })
+await ok('(preparar) se elimina el producto de código conocido', 'sistema', () => q(`update catalogo_base set eliminado_en = now() where codigo = $1`, [codigoConocido]))
+await ok('buscar un código eliminado devuelve nada', 'duenoA', () => q(`select catalogo_base_buscar($1::uuid, $2) r`, [A, codigoConocido]), r => r.rows[0].r === null)
+await ok('(preparar) se restaura', 'sistema', () => q(`update catalogo_base set eliminado_en = null where codigo = $1`, [codigoConocido]))
+// Sincronizar fotos
+const URLB = 'https://x.supabase.co/storage/v1/object/public/catalogo/'
+await ok('(preparar) un producto cargado de A sin foto, y su original con foto', 'sistema', async () => {
+  await q(`update catalogo_base set foto = $1 || id || '.webp?v=1' where id = (select min(id) from catalogo_base where categoria = 'Aseo' and foto is null)`, [URLB])
+  await q(`update productos set imagenes = '{}' where negocio_id = $1 and nombre = (select nombre from catalogo_base where foto = $2 || id || '.webp?v=1' and id = (select min(id) from catalogo_base where categoria = 'Aseo' and foto like $2 || '%'))`, [A, URLB])
+  return q(`select 1`) })
+await falla('una tienda no puede sincronizar', 'duenoB', () => q(`select catalogo_admin_sincronizar_fotos(true)`), 'Solo el administrador')
+let sim
+await ok('simular cuenta sin cambiar nada', 'adminCat', async () => { const r = await q(`select catalogo_admin_sincronizar_fotos(true) r`); sim = r.rows[0].r; return r }, r => r.rows[0].r.aplicado === false && r.rows[0].r.nuevas >= 1)
+await ok('de verdad no cambió nada', 'sistema', () => q(`select count(*)::int n from productos where negocio_id = $1 and cardinality(imagenes) = 0 and categoria = 'Aseo'`, [A]), r => r.rows[0].n >= 1)
+await ok('aplicar pone la foto en los productos sin foto', 'adminCat', () => q(`select catalogo_admin_sincronizar_fotos(false) r`), r => r.rows[0].r.aplicado === true && r.rows[0].r.nuevas === sim.nuevas)
+await ok('ya no quedan productos de Aseo con foto pendiente', 'adminCat', () => q(`select catalogo_admin_sincronizar_fotos(true) r`), r => r.rows[0].r.nuevas === 0 && r.rows[0].r.refrescadas === 0)
+await ok('una foto propia de la tienda NO se pisa', 'sistema', async () => {
+  await q(`update productos set imagenes = array['https://mi-tienda.com/propia.jpg'] where negocio_id = $1 and categoria = 'Aseo' and cardinality(imagenes) = 1 and imagenes[1] like $2 || '%'`, [A, URLB])
+  return q(`select 1`) })
+await ok('sincronizar no toca la foto propia', 'adminCat', async () => { await q(`select catalogo_admin_sincronizar_fotos(false)`); return q(`select count(*)::int n from productos where imagenes[1] = 'https://mi-tienda.com/propia.jpg'`) }, r => r.rows[0].n >= 1)
+let refId
+await ok('(preparar) una tienda usa la foto v1 del catálogo y el catálogo sube a v2', 'sistema', async () => {
+  const r = (await q(`select b.id bid, p.id pid from catalogo_base b join productos p on lower(p.nombre) = lower(b.nombre) and p.negocio_id = $1 where b.foto like $2 || '%' limit 1`, [A, URLB])).rows[0]
+  refId = r.pid
+  await q(`update productos set imagenes = array[$1 || $2::text || '.webp?v=1'] where negocio_id = $3 and id = $4`, [URLB, r.bid, A, r.pid])
+  await q(`update catalogo_base set foto = $1 || id || '.webp?v=2' where id = $2`, [URLB, r.bid]); return q(`select 1`) })
+await ok('simular detecta 1 foto por refrescar', 'adminCat', () => q(`select catalogo_admin_sincronizar_fotos(true) r`), r => r.rows[0].r.refrescadas === 1)
+await ok('aplicar refresca la versión', 'adminCat', async () => { await q(`select catalogo_admin_sincronizar_fotos(false)`); return q(`select imagenes[1] f from productos where negocio_id = $1 and id = $2`, [A, refId]) }, r => r.rows[0].f.endsWith('?v=2'))
 console.log('\n--- Avisos de estado del pedido al cliente (40) ---')
 await db.exec(fs.readFileSync(path.join(sqlDir, '40-avisos-estado.sql'), 'utf8'))
 await db.exec(fs.readFileSync(path.join(sqlDir, '40-avisos-estado.sql'), 'utf8'))   // idempotente
