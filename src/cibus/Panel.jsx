@@ -43,6 +43,10 @@ import FormasPago from './components/FormasPago'
 import GuiaDinero from './components/GuiaDinero'
 import PromocionesAdmin from './components/PromocionesAdmin'
 import Domicilios from './components/Domicilios'
+import Agenda from './components/Agenda'
+import DomiciliariosRed from './components/DomiciliariosRed'
+import Referencias from './components/Referencias'
+import Garantias from './components/Garantias'
 import MiCuenta from './components/MiCuenta'
 import SelectorVista from '../tienda/SelectorVista'
 import PuertaMfa from './components/PuertaMfa'
@@ -74,6 +78,10 @@ const MAS = [
   { id: 'gastos',   texto: 'Gastos',              nota: 'Arriendo, servicios',     icono: 'gastos' },
   { id: 'retiros',  texto: 'Retiros de caja',     nota: 'Plata que sale o entra', icono: 'caja' },
   { id: 'exportar', texto: 'Exportar a Excel',    nota: 'Base de datos',            icono: 'exportar' },
+  { id: 'domiciliarios', texto: 'Domiciliarios',   nota: 'Repartidores de la red', icono: 'ventas' },
+  { id: 'agenda',      texto: 'Agenda de citas',   nota: 'Citas y mascotas',     icono: 'nota' },
+  { id: 'referencias', texto: 'Referencias',       nota: 'Marca, medida, compatible', icono: 'buscar' },
+  { id: 'garantias',   texto: 'Garantías',         nota: 'Serial, IMEI y vencimiento', icono: 'etiqueta' },
   { id: 'ropa',     texto: 'Catálogo de ropa',    nota: 'Pedidos WhatsApp',     icono: 'ropa' },
   { id: 'domicilios', texto: 'Domicilios',        nota: 'Pedidos por entregar', icono: 'ventas' },
   { id: 'promos',   texto: 'Promociones',         nota: 'Precios automáticos',  icono: 'etiqueta', soloDueno: true },
@@ -439,6 +447,10 @@ function Contenido() {
         {activa === 'mas' && sub === 'retiros'  && <FiltroFechas inicial="mes">{(r) => <CajaMovimientos rango={r} />}</FiltroFechas>}
         {activa === 'mas' && sub === 'exportar' && <div className="lg:max-w-2xl lg:mx-auto"><Exportar /></div>}
         {activa === 'mas' && sub === 'ropa'     && <RopaAdmin />}
+        {activa === 'mas' && sub === 'domiciliarios' && <DomiciliariosRed />}
+        {activa === 'mas' && sub === 'agenda'      && <Agenda />}
+        {activa === 'mas' && sub === 'referencias' && <Referencias />}
+        {activa === 'mas' && sub === 'garantias'   && <Garantias />}
         {activa === 'mas' && sub === 'domicilios' && <Domicilios />}
         {activa === 'mas' && sub === 'clientes' && dueno === true && <ClientesRegistrados />}
         {activa === 'mas' && sub === 'comentarios' && dueno === true && <ComentariosAdmin />}

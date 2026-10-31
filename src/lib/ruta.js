@@ -23,6 +23,8 @@ export function useRuta() {
   if (partes[0] === 'privacidad' || partes[0] === 'terminos') return { vista: 'info', slug: null, legal: partes[0] }
   if (partes[0] === 'ingreso') return { vista: 'ingreso', slug: null }
   if (partes[0] === 'registro') return { vista: 'registro', slug: null }
+  if (partes[0] === 'domiciliarios') return { vista: 'domiciliario', slug: null }
+  if (partes[0] === 'repartidores') return { vista: 'repartidores', slug: null }
   if (partes[0] === 'solicitudes') return { vista: 'solicitudes', slug: null }
   return { vista: 'inicio', slug: null }
 }

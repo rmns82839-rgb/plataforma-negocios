@@ -12,6 +12,7 @@ import ProductoForm from './ProductoForm'
 import ImportarFotos from './ImportarFotos'
 import Repetidos from './Repetidos'
 import CargaMasiva from './CargaMasiva'
+import ProductosBase from './ProductosBase'
 import { catalogoBaseCsv } from '../lib/catalogoBase'
 import { esGenerica } from '../lib/imagenGenerica'
 import { fotosDe } from '../lib/fotos'
@@ -57,13 +58,14 @@ export default function Productos() {
   const [compra, setCompra] = usePersistido('productos:compra', false, true, TREINTA_MIN)
   const [fotos, setFotos] = usePersistido('productos:importarFotos', false, true, TREINTA_MIN)
   const [carga, setCarga] = useState(false)
+  const [base, setBase] = useState(false)
   const [publicar, setPublicar] = usePersistido('productos:publicarLinea', false, true, TREINTA_MIN)
   const dueno = useDueno()
   const [fotosHechas, setFotosHechas] = useState({})      // producto → fotos tomadas en esta pantalla (se quedan en la lista para sumar más)
   const [copiado, copiar] = useCopiado()
   const [verQr, setVerQr] = useState(false)
 
-  const modalAbierto = Boolean(form || compra || ingreso || ajuste || fotos || publicar || carga || verRepetidos)
+  const modalAbierto = Boolean(form || compra || ingreso || ajuste || fotos || publicar || carga || base || verRepetidos)
   const listaRef = useRef([])
   const cargar = useCallback(async () => {
     setCargando(true)
@@ -217,6 +219,11 @@ export default function Productos() {
         </button>
       )}
       {dueno === true && (
+        <button onClick={() => setBase(true)} className="w-full min-h-12 rounded-xl bg-champagne text-negro text-base font-semibold active:opacity-90">
+          Cargar productos base (con foto y código)
+        </button>
+      )}
+      {dueno === true && (
         <button onClick={() => setVerRepetidos(true)} className="w-full min-h-12 rounded-xl bg-white shadow-sm text-slate-700 text-base font-semibold active:bg-slate-100">
           Buscar productos repetidos
         </button>
@@ -335,6 +342,7 @@ export default function Productos() {
                      onGuardado={() => { setAjuste(null); cargar() }} />
       )}
 
+      {base && dueno === true && <ProductosBase onCerrar={() => setBase(false)} onGuardado={cargar} />}
       {carga && dueno === true && <CargaMasiva productos={productos} onCerrar={() => setCarga(false)} onGuardado={cargar} />}
       {verRepetidos && dueno === true && <Repetidos productos={productos} onCerrar={() => setVerRepetidos(false)} onCambio={cargar} />}
 

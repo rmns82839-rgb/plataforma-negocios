@@ -12,6 +12,8 @@ import PaginaMisPedidos from './tienda/PaginaMisPedidos'
 import Directorio from './tienda/Directorio'
 import Registro from './pages/Registro'
 import Solicitudes from './pages/Solicitudes'
+import Domiciliario from './pages/Domiciliario'
+import DomiciliariosAdmin from './pages/DomiciliariosAdmin'
 import TiendaCibus, { LegalCibus } from './cibus/TiendaCibus'
 import { lazy, Suspense } from 'react'
 const PistolaPagina = lazy(() => import('./cibus/PistolaPagina'))
@@ -41,6 +43,8 @@ export default function App() {
   if (vista === 'directorio') return <Directorio />
   if (vista === 'registro') return <Registro />
   if (vista === 'solicitudes') return <Solicitudes />
+  if (vista === 'domiciliario') return <Domiciliario />
+  if (vista === 'repartidores') return <DomiciliariosAdmin />
   if (vista === 'info') return <PaginaLegal tipo={legal} />
   if (vista === 'legal') return <LegalCibus slug={slug} tipo={legal} />
   if (vista === 'publico') return <TiendaCibus slug={slug} />

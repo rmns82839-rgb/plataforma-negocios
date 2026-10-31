@@ -1,16 +1,17 @@
 // Pedidos que los clientes envían desde /tienda. Se atienden por WhatsApp y se cobran en la caja como siempre.
 import { etapaDe } from '../lib/etapaPedido'
 import { useCallback, useEffect, useState } from 'react'
-import { supabase } from '../lib/supabase'
+import { supabase, negocioActual } from '../lib/supabase'
+import { avisarCambioEstado } from '../../lib/avisosCliente'
 import BarraFija from './BarraFija'
 import { dinero, numero } from '../lib/formato'
 import { enlaceWhatsApp } from '../lib/datosCliente'
-import { enviarAviso } from '../lib/avisosPush'
 import { confirmar } from '../lib/confirmar'
 import { alCambiarCola, listarCola } from '../lib/sincronizar'
 import { leerBorrador, guardarBorrador, DOCE_HORAS } from '../lib/borrador'
 import { usePersistido, TREINTA_MIN } from '../lib/usePersistido'
 import PedidoDetalle from './PedidoDetalle'
+import AsignarDomiciliario from './AsignarDomiciliario'
 import { ESTADO_PAGO, textoMedio, confirmarPago } from '../lib/pagoDigital'
 
 const CLAVE_CAJA = 'borrador-caja'
@@ -62,12 +63,8 @@ export default function PedidosTienda({ onCobrar }) {
     const { error: err } = await supabase.from('pedidos_tienda').update({ seguimiento: valor }).eq('id', p.id)
     if (err) return setError(/seguimiento|schema cache/i.test(err.message) ? 'Falta ejecutar migracion-v41.sql en Supabase.' : err.message)
     setError(''); cargar()
-    // Aviso al celular del cliente (si tiene la app y activó los avisos). Si falla, no pasa nada.
-    if (valor && p.user_id) {
-      const n = p.numero ? `N.º ${p.numero} ` : ''
-      enviarAviso({ usuario: p.user_id, tag: `pedido-${p.id}`, titulo: valor === 'en_camino' ? '🛵 Tu pedido va en camino' : '✅ Tu pedido fue entregado',
-        cuerpo: valor === 'en_camino' ? `Tu pedido ${n}ya salió hacia tu dirección.` : `Tu pedido ${n}fue entregado. ¡Gracias por tu compra!` }).catch(() => {})
-    }
+    // Aviso al celular del cliente (si activó los avisos en «Mis pedidos»). Si falla, no pasa nada.
+    if (valor) avisarCambioEstado(negocioActual(), p.id)
   }
   const cambiar = async (p, nuevo, pregunta) => {
     if (pregunta && !(await confirmar({ titulo: pregunta, si: 'Sí, continuar' }))) return
@@ -164,6 +161,7 @@ export default function PedidosTienda({ onCobrar }) {
                     <button onClick={async () => { const e = await confirmarPago(p.id, false); setError(e); if (!e) cargar() }} disabled={p.pago_estado === 'no_recibido'} className="min-h-12 rounded-xl bg-red-50 text-red-600 text-sm font-semibold disabled:opacity-40">No me llegó</button>
                   </div>
                 )}
+                {p.estado !== 'cancelado' && <AsignarDomiciliario pedido={p} onCambio={cargar} />}
                 {p.estado === 'atendido' && (
                   <div className="space-y-2 rounded-xl bg-slate-50 p-3">
                     <p className="text-sm text-slate-600">El cliente ve: <b className="text-slate-800">{etapaDe(p).texto}</b></p>

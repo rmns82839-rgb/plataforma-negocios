@@ -28,6 +28,10 @@ export const NUEVAS = {
   formas:   { modulo: 'caja' },
   negocio:  { modulo: null },
   resumen:  { modulo: 'resumen_semanal' },
+  domiciliarios: { modulo: 'domiciliarios' },
+  agenda:      { modulo: 'agenda' },
+  referencias: { modulo: 'referencias' },
+  garantias:   { modulo: 'garantias' },
 }
 // Pantallas de Cibus que aún usan la versión anterior de la plataforma: id de Cibus → [id de la pantalla anterior, módulo]
 export const LEGADO = {

@@ -280,6 +280,7 @@ export default function Portada() {
             <h2 className="text-3xl font-bold leading-tight">Tu negocio también puede estar aquí</h2>
             <p className="mt-3 text-lg leading-snug text-white/80">Regístralo hoy. Revisamos tu solicitud y te ayudamos a dejarlo funcionando.</p>
             <div className="mt-5"><Boton onClick={() => ir('/registro')} className="w-full">Registrar mi negocio</Boton></div>
+            <p className="mt-4 text-center text-base text-white/80">¿Haces domicilios? <button onClick={() => ir('/domiciliarios')} className="font-semibold underline">Regístrate como domiciliario</button></p>
           </div>
         </div>
       </section>
