@@ -1,4 +1,5 @@
 // Seguimiento del pedido para el cliente: en qué va (recibido, preparando, en camino, entregado) y volver a pedir lo mismo.
+import EntregaCliente from './EntregaCliente'
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { dinero, numero } from '../lib/formato'
@@ -70,6 +71,7 @@ function TarjetaPedido({ p, onPedirDeNuevo }) {
         {(p.items ?? []).map((it, i) => <li key={i} className="break-words">{numero(it.cantidad)}{it.unidad === 'und' ? '×' : ' ' + (it.unidad ?? '')} {it.nombre}</li>)}
       </ul>
       <p className="grid grid-cols-[1fr_auto] text-lg font-bold text-slate-800"><span>Total</span><span>{p.por_confirmar ? `${dinero(Number(p.total))} + domicilio` : dinero(Number(p.total))}</span></p>
+      <EntregaCliente pedido={p} />
       <button onClick={() => onPedirDeNuevo(p)} className="w-full min-h-14 rounded-xl bg-negro text-champagne text-lg font-semibold active:opacity-90">Pedir lo mismo otra vez</button>
     </li>
   )

@@ -8,6 +8,7 @@ import { entrarConGoogle } from '../lib/google'
 import { Btn, Aviso, Campo, clsInput, PiePlataforma } from '../tienda/ui'
 import MarcaMatriz from '../tienda/MarcaMatriz'
 import { Cargando } from './Piezas'
+import DomiciliarioEntregas from './DomiciliarioEntregas'
 
 export const VEHICULOS = [['moto', 'Moto'], ['bicicleta', 'Bicicleta'], ['carro', 'Carro'], ['a_pie', 'A pie']]
 export const nombreVehiculo = (v) => VEHICULOS.find((x) => x[0] === v)?.[1] ?? v
@@ -137,6 +138,7 @@ export default function Domiciliario() {
               <p className="text-base text-tinta/60">Toca el botón para cambiar. Las tiendas ven primero a quienes están disponibles.</p>
             </div>
           )}
+          {yo.estado === 'aprobado' && <DomiciliarioEntregas disponible={yo.disponible} />}
           <div className="mt-6 grid gap-3">
             {yo.estado !== 'suspendido' && <Btn variante="suave" onClick={() => setEditando(true)}>Editar mis datos</Btn>}
             <Btn variante="suave" onClick={() => ir('/')}>← Volver</Btn>
