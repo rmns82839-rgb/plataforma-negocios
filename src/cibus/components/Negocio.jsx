@@ -9,6 +9,7 @@ import { cargarConfig } from '../lib/config'
 import { confirmar } from '../lib/confirmar'
 import { leerBorrador, guardarBorrador, DOCE_HORAS } from '../lib/borrador'
 import AvisoBorrador from './AvisoBorrador'
+import SelectorCiudad from '../../tienda/SelectorCiudad'
 import DomicilioKmConfig from './DomicilioKmConfig'
 import PagoDigitalConfig from './PagoDigitalConfig'
 import HorarioAtencion from './HorarioAtencion'
@@ -163,7 +164,7 @@ export default function Negocio() {
         </Campo>
         <div className="grid grid-cols-2 gap-3">
           <Campo etiqueta="Ciudad">
-            <input value={f.ciudad} onChange={poner('ciudad')} maxLength={80} className={claseInput} />
+            <SelectorCiudad value={f.ciudad} onChange={(v) => { setF((p) => ({ ...p, ciudad: v })); setAviso(null) }} maxLength={80} className={claseInput} />
           </Campo>
           <Campo etiqueta="Correo (opcional)">
             <input value={f.email} onChange={poner('email')} maxLength={120} inputMode="email" className={claseInput} />

@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import { ir } from '../lib/ruta'
 import { Btn, Aviso, Campo, clsInput, BarraFija, PiePlataforma } from '../tienda/ui'
 import MarcaMatriz from '../tienda/MarcaMatriz'
+import SelectorCiudad from '../tienda/SelectorCiudad'
 import { TIPOS_NEGOCIO, validarSolicitud, precioTexto, soloCelular } from '../lib/solicitud'
 
 const PASOS = ['tipo', 'datos', 'revisar']
@@ -132,7 +133,7 @@ export default function Registro() {
             <input value={f.nombre_negocio} onChange={(e) => set('nombre_negocio', e.target.value)} maxLength={120} autoComplete="organization" className={clsInput} />
           </Campo>
           <Campo etiqueta="Ciudad" error={errores.ciudad}>
-            <input value={f.ciudad} onChange={(e) => set('ciudad', e.target.value)} maxLength={60} autoComplete="address-level2" className={clsInput} />
+            <SelectorCiudad value={f.ciudad} onChange={(v) => set('ciudad', v)} className={clsInput} />
           </Campo>
           <Campo etiqueta="Tu nombre completo" error={errores.nombre_contacto}>
             <input value={f.nombre_contacto} onChange={(e) => set('nombre_contacto', e.target.value)} maxLength={80} autoComplete="name" className={clsInput} />

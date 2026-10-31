@@ -8,6 +8,7 @@ import { entrarConGoogle } from '../lib/google'
 import { Btn, Aviso, Campo, clsInput, PiePlataforma } from '../tienda/ui'
 import MarcaMatriz from '../tienda/MarcaMatriz'
 import { Cargando } from './Piezas'
+import SelectorCiudad from '../tienda/SelectorCiudad'
 import DomiciliarioEntregas from './DomiciliarioEntregas'
 
 export const VEHICULOS = [['moto', 'Moto'], ['bicicleta', 'Bicicleta'], ['carro', 'Carro'], ['a_pie', 'A pie']]
@@ -47,7 +48,7 @@ function Formulario({ inicial, alGuardar, enviar, textoBoton, volver }) {
     <form onSubmit={guardar} className="space-y-5 rounded-2xl border-2 border-black/5 bg-white p-5">
       <Campo etiqueta="Nombre completo"><input value={f.nombre} onChange={poner('nombre')} autoComplete="name" className={clsInput} /></Campo>
       <Campo etiqueta="Celular (10 números)"><input value={f.telefono} onChange={poner('telefono')} inputMode="numeric" autoComplete="tel" className={clsInput} /></Campo>
-      <Campo etiqueta="Ciudad donde haces domicilios"><input value={f.ciudad} onChange={poner('ciudad')} className={clsInput} /></Campo>
+      <Campo etiqueta="Ciudad donde haces domicilios"><SelectorCiudad value={f.ciudad} onChange={(v) => setF((p) => ({ ...p, ciudad: v }))} className={clsInput} /></Campo>
       <div role="radiogroup" aria-label="Cómo haces los domicilios" className="grid grid-cols-2 gap-2">
         {VEHICULOS.map(([v, t]) => (
           <button key={v} type="button" role="radio" aria-checked={f.vehiculo === v} onClick={() => setF((p) => ({ ...p, vehiculo: v }))}
