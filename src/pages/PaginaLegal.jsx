@@ -1,7 +1,8 @@
 // Páginas legales de la PLATAFORMA (no de cada tienda): /privacidad (tratamiento de datos, Ley 1581 de 2012) y /terminos.
 // Texto base: debe revisarlo un abogado antes de darlo por definitivo.
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { ir } from '../lib/ruta'
+import { hayRegistroEnCurso } from '../lib/borradorRegistro'
 import { WHATSAPP_BONITO, enlaceWhatsApp } from '../lib/contacto'
 import MarcaMatriz from '../tienda/MarcaMatriz'
 import PieMatriz from '../tienda/PieMatriz'
@@ -110,6 +111,7 @@ function Terminos() {
 export default function PaginaLegal({ tipo }) {
   useEffect(() => { window.scrollTo(0, 0) }, [tipo])
   const esPriv = tipo === 'privacidad'
+  const [enCurso] = useState(() => hayRegistroEnCurso())      // si venía llenando el registro, el botón lo devuelve ahí con sus datos
   return (
     <div className="bg-papel text-tinta">
       <main className="mx-auto w-full max-w-3xl space-y-8 px-4 py-8 text-lg">
@@ -121,7 +123,9 @@ export default function PaginaLegal({ tipo }) {
         {esPriv ? <Privacidad /> : <Terminos />}
         <div className="grid grid-cols-2 gap-3 pt-4">
           <button onClick={() => ir(esPriv ? '/terminos' : '/privacidad')} className="min-h-[56px] rounded-2xl border-2 border-principal/30 bg-white px-3 text-base font-semibold text-principal">{esPriv ? 'Ver términos' : 'Ver política de datos'}</button>
-          <button onClick={() => ir('/')} className="min-h-[56px] rounded-2xl bg-negro px-3 text-base font-semibold text-white">← Volver al inicio</button>
+          {enCurso
+            ? <button onClick={() => ir('/registro')} className="min-h-[56px] rounded-2xl bg-negro px-3 text-base font-semibold text-white">← Seguir con mi registro</button>
+            : <button onClick={() => ir('/')} className="min-h-[56px] rounded-2xl bg-negro px-3 text-base font-semibold text-white">← Volver al inicio</button>}
         </div>
       </main>
       <PieMatriz />

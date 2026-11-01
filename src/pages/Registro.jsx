@@ -1,12 +1,13 @@
 // Registro de un negocio nuevo: qué vende, qué plan, sus datos y enviar. No crea la tienda: el equipo la revisa y la aprueba.
 // Pasos (siempre con «Volver»): 1 qué vendes · 2 tus datos · 3 plan, revisar y enviar.
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { ir } from '../lib/ruta'
 import { Btn, Aviso, Campo, clsInput, BarraFija, PiePlataforma } from '../tienda/ui'
 import MarcaMatriz from '../tienda/MarcaMatriz'
 import SelectorCiudad from '../tienda/SelectorCiudad'
 import { TIPOS_NEGOCIO, validarSolicitud, precioTexto, soloCelular } from '../lib/solicitud'
+import { leerRegistro, guardarRegistro, borrarRegistro } from '../lib/borradorRegistro'
 
 const PASOS = ['tipo', 'datos', 'revisar']
 const TITULO = { tipo: '¿Qué vendes?', plan: 'Elige tu plan', datos: 'Cuéntanos de tu negocio', revisar: 'Tu plan y envío' }
@@ -53,10 +54,13 @@ function TarjetaPlan({ p, activo, onClick, recomendado = false }) {
 }
 
 export default function Registro() {
-  const [paso, setPaso] = useState('tipo')
+  const [guardado] = useState(() => leerRegistro())        // lo que ya había escrito (por ejemplo antes de ir a leer la política de datos)
+  const [paso, setPaso] = useState(guardado?.paso || 'tipo')
   const [planes, setPlanes] = useState(null)
   const [errorPlanes, setErrorPlanes] = useState('')
-  const [f, setF] = useState({ tipo: '', plan: '', nombre_negocio: '', ciudad: '', nombre_contacto: '', email: '', telefono: '', mensaje: '', acepta: false, sitio_web: '' })
+  const [f, setF] = useState({ tipo: '', plan: '', nombre_negocio: '', ciudad: '', nombre_contacto: '', email: '', telefono: '', mensaje: '', acepta: false, sitio_web: '', ...(guardado?.f || {}) })
+  const refAcepta = useRef(null)
+  const [resaltar, setResaltar] = useState(false)
   const [errores, setErrores] = useState({})
   const [error, setError] = useState('')
   const [enviando, setEnviando] = useState(false)
@@ -70,6 +74,7 @@ export default function Registro() {
     })
   }, [])
   useEffect(() => { window.scrollTo(0, 0) }, [paso, listo])
+  useEffect(() => { if (!listo) guardarRegistro(f, paso) }, [f, paso, listo])
 
   const set = (k, v) => { setF((x) => ({ ...x, [k]: v })); setErrores((e) => ({ ...e, [k]: undefined })); setError('') }
   const planElegido = useMemo(() => planes?.find((p) => p.clave === f.plan), [planes, f.plan])
@@ -84,15 +89,22 @@ export default function Registro() {
 
   async function enviar() {
     const v = validarSolicitud(f, 'revisar')
-    if (Object.keys(v).length) { setErrores(v); setError(v._general || 'Revisa los datos'); return }
-    if (f.sitio_web) { setListo({ repetida: false }); return }            // campo trampa para robots: se hace como que salió bien
+    if (Object.keys(v).length) {
+      setErrores(v); setError(v.acepta ? '' : (v._general || 'Revisa los datos'))
+      if (v.acepta) {                                       // falta marcar la autorización: se baja hasta ella y se resalta
+        refAcepta.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        setResaltar(true); setTimeout(() => setResaltar(false), 2500)
+      }
+      return
+    }
+    if (f.sitio_web) { borrarRegistro(); setListo({ repetida: false }); return }            // campo trampa para robots: se hace como que salió bien
     setEnviando(true); setError('')
     const { data, error: e } = await supabase.rpc('enviar_solicitud_negocio', {
       p_datos: { tipo: f.tipo, plan: f.plan, nombre_negocio: f.nombre_negocio, ciudad: f.ciudad, nombre_contacto: f.nombre_contacto, email: f.email, telefono: f.telefono, mensaje: f.mensaje, acepta_datos: f.acepta },
     })
     setEnviando(false)
     if (e) { setError(e.message || 'No pudimos enviar la solicitud. Intenta de nuevo.'); return }
-    setListo({ repetida: Boolean(data?.repetida) })
+    borrarRegistro(); setListo({ repetida: Boolean(data?.repetida) })
   }
 
   if (listo) {
@@ -180,11 +192,11 @@ export default function Registro() {
               </div>
             ))}
           </dl>
-          <label className="flex items-start gap-3 rounded-2xl border-2 border-black/10 bg-white p-4">
+          <label ref={refAcepta} className={`flex items-start gap-3 rounded-2xl border-2 bg-white p-4 transition ${resaltar || errores.acepta ? 'border-red-500 ring-4 ring-red-200' : 'border-black/10'}`}>
             <input type="checkbox" checked={f.acepta} onChange={(e) => set('acepta', e.target.checked)} className="mt-1 h-7 w-7 shrink-0 accent-principal" />
-            <span className="text-base leading-snug">Autorizo a Matriz a usar estos datos para contactarme y crear mi tienda, según la <a href="/privacidad" target="_blank" rel="noopener" className="font-semibold underline">política de datos personales</a> (Ley 1581 de 2012) y los <a href="/terminos" target="_blank" rel="noopener" className="font-semibold underline">términos</a>.</span>
+            <span className="text-base leading-snug">Autorizo a Matriz a usar estos datos para contactarme y crear mi tienda, según la <a href="/privacidad" className="font-semibold underline">política de datos personales</a> (Ley 1581 de 2012) y los <a href="/terminos" className="font-semibold underline">términos</a>.</span>
           </label>
-          {errores.acepta && <p className="text-base font-semibold text-red-700">{errores.acepta}</p>}
+          {errores.acepta && <p role="alert" className="rounded-xl bg-red-50 p-3 text-base font-semibold text-red-800">☝️ Falta marcar esta casilla: autorizas a Matriz a usar tus datos para crear tu tienda. Sin eso no podemos enviar la solicitud.</p>}
         </div>
       )}
 

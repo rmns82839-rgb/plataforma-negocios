@@ -54,22 +54,11 @@ begin
   end if;
 end $$;
 
--- Marca de entrada los productos que la portada mostraba (por su foto)
+-- Marca de entrada los productos que la portada mostraba. Se buscan por CÓDIGO, no por la
+-- dirección de la foto, porque la foto cambia cada vez que la mejoras en el catálogo. Se puede volver a correr sin problema.
 update catalogo_base set en_portada = true
- where eliminado_en is null and foto = any (array[
-  'https://fnwahipriagkzcjppltz.supabase.co/storage/v1/object/public/prendas/productos/3cbd2ca1-ef06-4d9a-afe2-e85233f6db65_real.jpg',
-  'https://fnwahipriagkzcjppltz.supabase.co/storage/v1/object/public/prendas/productos/f96c9b6b-58f7-4057-a674-1408e9c6c663_real.jpg',
-  'https://fnwahipriagkzcjppltz.supabase.co/storage/v1/object/public/prendas/productos/3c75dc86-493e-4f32-9b90-dd2570259f1b_real.jpg',
-  'https://fnwahipriagkzcjppltz.supabase.co/storage/v1/object/public/prendas/productos/91216015-e5bf-436d-8ffc-166b3108ed53_real.jpg',
-  'https://fnwahipriagkzcjppltz.supabase.co/storage/v1/object/public/prendas/productos/90af6c90-9958-411d-9a53-0935dd417872_real.jpg',
-  'https://fnwahipriagkzcjppltz.supabase.co/storage/v1/object/public/prendas/productos/a297f44d-fa48-4b83-a54e-f5635c696731_real.jpg',
-  'https://fnwahipriagkzcjppltz.supabase.co/storage/v1/object/public/prendas/productos/e81a5f8b-c3d9-4740-bcc8-12d611ce7ef7_real.jpg',
-  'https://fnwahipriagkzcjppltz.supabase.co/storage/v1/object/public/prendas/productos/5f0a9ae4-a382-478c-8486-1df8920da057_real.jpg',
-  'https://fnwahipriagkzcjppltz.supabase.co/storage/v1/object/public/prendas/productos/78021da3-f275-4cf2-ba28-fff104d9400e_real.jpg',
-  'https://fnwahipriagkzcjppltz.supabase.co/storage/v1/object/public/prendas/productos/23402f08-39b8-4f88-ae95-03e31e7aa0b9_real.jpg',
-  'https://fnwahipriagkzcjppltz.supabase.co/storage/v1/object/public/prendas/productos/db2fd58a-bfe1-4d43-8ac2-d11f569f1e82_real.jpg',
-  'https://fnwahipriagkzcjppltz.supabase.co/storage/v1/object/public/prendas/productos/8b664e0b-8d96-4b4a-af40-2c53ca455b0a_real.jpg'
- ]) and not en_portada;
+ where eliminado_en is null and foto is not null and not en_portada
+   and codigo = any (array['7702535005354', '7702189053848', '7702177023433', '7702024008118', '188592', '681139', '7702035432117', '853851', '7702020011228', '587988', '7898422746759', '503']);
 
 notify pgrst, 'reload schema';
 
