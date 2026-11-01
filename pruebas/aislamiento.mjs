@@ -1850,6 +1850,17 @@ await q(`update catalogo_base set en_portada=false, eliminado_en=null where id=$
   await falla('tienda inexistente', 'adminCat', () => q(`select publicar_tienda_admin(gen_random_uuid(),false)`), 'no encontrada')
 }
 
+// ---------- 58: plan Catálogo ----------
+{
+  await db.exec(fs.readFileSync(path.join(sqlDir, '58-plan-catalogo.sql'), 'utf8').split('-- ---------- VERIFICACIÓN')[0])
+  await ok('el plan Catálogo existe con su precio', 'sistema', () => q(`select * from planes where clave='catalogo'`), r => r.rows[0].activo && Number(r.rows[0].precio_mensual) === 14900 && Number(r.rows[0].precio_fundador) === 9900 && r.rows[0].max_productos === 3000)
+  await ok('planes_publicos lo ofrece', 'anon', () => q(`select planes_publicos() p`), r => r.rows[0].p.some(x => x.clave === 'catalogo'))
+  await sis(() => q(`select activar_plan($1,'catalogo')`, [V]))
+  await ok('con el plan Catálogo hay catálogo público y directorio', 'sistema', () => q(`select modulo_activo($1,'catalogo_publico') a, modulo_activo($1,'directorio_red') b, modulo_activo($1,'pedidos_en_linea') c`, [V]), r => r.rows[0].a && r.rows[0].b && r.rows[0].c)
+  await ok('con el plan Catálogo no hay caja ni fiados', 'sistema', () => q(`select modulo_activo($1,'caja') a, modulo_activo($1,'fiados') b`, [V]), r => !r.rows[0].a && !r.rows[0].b)
+  await sis(() => q(`select activar_plan($1,'vitrina')`, [V]))
+}
+
 console.log('\n--- Verificación automática de la base ---')
 const ver = await como('sistema', () => q(`select * from verificar_aislamiento()`))
 for (const f of ver.rows) { pruebas++; if (f.ok) console.log('✓', f.chequeo); else { fallas++; console.log('✗', f.chequeo, '→', f.detalle) } }
