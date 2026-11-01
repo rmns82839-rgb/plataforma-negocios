@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { claseInput } from '../lib/estilos'
 import { Campo } from './Modal'
 import { MEDIOS_DIGITALES } from '../lib/pagoDigital'
+import { conTiempo } from '../lib/conTiempo'
 
 export default function PagoDigitalConfig() {
   const [numero, setNumero] = useState('')
@@ -23,7 +24,7 @@ export default function PagoDigitalConfig() {
   const alternar = (id) => setMedios(m => (m.includes(id) ? m.filter(x => x !== id) : [...m, id]))
   const guardar = async () => {
     setGuardando(true); setMsg(null)
-    const { error } = await supabase.rpc('guardar_pago_digital', { p_numero: numero, p_medios: medios, p_titular: titular })
+    const { error } = await conTiempo(supabase.rpc('guardar_pago_digital', { p_numero: numero, p_medios: medios, p_titular: titular }))
     setGuardando(false)
     setMsg(error ? { tipo: 'error', texto: error.message } : { tipo: 'ok', texto: medios.length ? 'Listo: los clientes ya pueden pagar así.' : 'Pagos digitales apagados.' })
   }

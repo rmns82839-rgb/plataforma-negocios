@@ -8,6 +8,7 @@ import { logoADataUrl } from '../lib/imagen'
 import { cargarConfig } from '../lib/config'
 import { confirmar } from '../lib/confirmar'
 import { leerBorrador, guardarBorrador, DOCE_HORAS } from '../lib/borrador'
+import { conTiempo } from '../lib/conTiempo'
 import AvisoBorrador from './AvisoBorrador'
 import SelectorCiudad from '../../tienda/SelectorCiudad'
 import DomicilioKmConfig from './DomicilioKmConfig'
@@ -99,7 +100,7 @@ export default function Negocio() {
     if (malKm) return setAviso({ tipo: 'error', texto: malKm })
     setGuardando(true); setAviso(null)
     const limpio = (t) => (String(t ?? '').trim() || null)
-    const { error } = await supabase.from('negocio').update({
+    const { error } = await conTiempo(supabase.from('negocio').update({
       nombre: limpio(f.nombre), nit: limpio(f.nit), direccion: limpio(f.direccion),
       ciudad: limpio(f.ciudad), telefono: limpio(f.telefono), email: limpio(f.email), web: limpio(f.web),
       titulo_factura: limpio(f.titulo_factura) ?? 'Comprobante de venta',
@@ -125,9 +126,10 @@ export default function Negocio() {
         ...(hayV42 ? { dom_km_incluidos: porcentaje(f.dom_km_incluidos) ?? 0 } : {}),
       } : {}),
       actualizado_en: new Date().toISOString(),
-    }).eq('id', 1)
+    }).eq('id', 1))
     setGuardando(false)
     if (!error) { cargarConfig(); guardado.current = JSON.stringify(f); setRecuperado(false); guardarBorrador(CLAVE_BORRADOR, null) }
+    setTimeout(() => document.getElementById('resultado-guardar')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50)
     setAviso(error
       ? { tipo: 'error', texto: /prefijo|comision|margen|column/i.test(error.message) ? 'Falta ejecutar migracion-v8.sql en Supabase. ' + error.message : error.message }
       : { tipo: 'ok', texto: 'Datos guardados. Ya salen en las facturas.' })
@@ -293,12 +295,6 @@ export default function Negocio() {
         </label>
       </div>
 
-      {aviso && (
-        <p className={`text-sm rounded-lg px-3 py-2 ${aviso.tipo === 'ok' ? 'text-marca bg-lima/20' : 'text-red-600 bg-red-50'}`}>
-          {aviso.texto}
-        </p>
-      )}
-
       {hayV20 && (
         <div className="bg-white rounded-2xl shadow-sm p-4 space-y-4">
           <div>
@@ -344,6 +340,14 @@ export default function Negocio() {
         className="w-full h-14 rounded-xl bg-marca text-white text-lg font-semibold disabled:opacity-40 active:bg-marca-oscuro">
         {guardando ? 'Guardando…' : 'Guardar datos'}
       </button>
+      {guardando && (
+        <div role="status" aria-live="polite" className="space-y-2">
+          <div className="h-2 w-full overflow-hidden rounded-full bg-black/10"><div className="h-full w-1/3 animate-pulse rounded-full bg-marca" style={{ animation: 'barraIndeterminada 1.2s ease-in-out infinite' }} /></div>
+          <p className="text-center text-sm text-slate-500">Guardando tus datos… puede tardar unos segundos. No cierres la pantalla.</p>
+          <style>{'@keyframes barraIndeterminada{0%{margin-left:-35%}100%{margin-left:100%}}'}</style>
+        </div>
+      )}
+      {aviso && !guardando && <div id="resultado-guardar" role="alert" className={`rounded-xl px-4 py-3 text-base font-semibold break-words ${aviso.tipo === 'error' ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-800'}`}>{aviso.tipo === 'error' ? '⚠️ ' : '✅ '}{aviso.texto}</div>}
     </div>
   )
 }
