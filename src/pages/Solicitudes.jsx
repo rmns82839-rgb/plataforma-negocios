@@ -9,7 +9,7 @@ import Login from './Login'
 import { Cargando } from './Piezas'
 import { NOMBRE_TIPO, slugSugerido, slugValido, enlaceAviso, soloCelular } from '../lib/solicitud'
 
-const ESTADOS = [['pendiente', 'Pendientes'], ['aprobada', 'Aprobadas'], ['rechazada', 'Rechazadas']]
+const ESTADOS = [['pendiente', 'Pendientes'], ['aprobada', 'Aprobadas'], ['rechazada', 'Rechazadas'], ['publicar', 'Por publicar']]
 const fecha = (iso) => new Date(iso).toLocaleString('es-CO', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })
 
 function Dato({ k, children }) {
@@ -119,6 +119,50 @@ function Tarjeta({ s, planes, alResolver }) {
   )
 }
 
+function PorPublicar() {
+  const [tiendas, setTiendas] = useState(null)
+  const [error, setError] = useState('')
+  const [ocupado, setOcupado] = useState(null)
+  const cargar = useCallback(async () => {
+    const { data, error: e } = await supabase.rpc('tiendas_por_publicar')
+    if (e) { setError(e.message); setTiendas([]); return }
+    setError(''); setTiendas(data ?? [])
+  }, [])
+  useEffect(() => { cargar() }, [cargar])
+  const cambiar = async (t, publicada) => {
+    setOcupado(t.id); setError('')
+    const { error: e } = await supabase.rpc('publicar_tienda_admin', { p_negocio_id: t.id, p_publicada: publicada })
+    setOcupado(null)
+    if (e) { setError(e.message); return }
+    cargar()
+  }
+  if (!tiendas && !error) return <p className="py-10 text-center text-xl text-tinta/60">Cargando…</p>
+  return (
+    <div className="space-y-4">
+      {error && <Aviso tipo="error">{error}</Aviso>}
+      {tiendas?.length === 0 && !error && <Aviso>No hay tiendas todavía.</Aviso>}
+      {tiendas?.map((t) => (
+        <section key={t.id} className="rounded-2xl border-2 border-black/10 bg-white p-4">
+          <h2 className="break-words text-xl font-bold leading-tight">{t.nombre}</h2>
+          <p className="break-words text-base text-tinta/60">/{t.slug}{t.ciudad ? ` · ${t.ciudad}` : ''}</p>
+          <p className="mt-2 text-base font-semibold">
+            {t.publicada ? '✅ Publicada' : t.pidio_en ? `🔔 Pidió publicación (${fecha(t.pidio_en)})` : '⏳ Sin publicar'}
+            {!t.en_directorio && ' · Oculta del directorio por su dueño'}
+          </p>
+          {t.faltantes?.length > 0 && (
+            <ul className="mt-2 list-disc pl-5 text-base text-tinta/70">{t.faltantes.map((f) => <li key={f}>{f}</li>)}</ul>
+          )}
+          <div className="mt-3">
+            {t.publicada
+              ? <Btn variante="suave" disabled={ocupado === t.id} onClick={() => cambiar(t, false)}>{ocupado === t.id ? 'Quitando…' : 'Quitar de la red'}</Btn>
+              : <Btn disabled={ocupado === t.id || t.faltantes?.length > 0} onClick={() => cambiar(t, true)}>{ocupado === t.id ? 'Publicando…' : 'Publicar en la red'}</Btn>}
+          </div>
+        </section>
+      ))}
+    </div>
+  )
+}
+
 export default function Solicitudes() {
   const sesion = useSesion()
   const [admin, setAdmin] = useState(undefined)
@@ -140,7 +184,7 @@ export default function Solicitudes() {
     if (a.error) { setError(a.error.message); setLista([]); return }
     setLista(a.data ?? []); setPendientes((p.data ?? []).length)
   }, [estado])
-  useEffect(() => { if (admin) { setLista(null); cargar() } }, [admin, cargar])
+  useEffect(() => { if (admin && estado !== 'publicar') { setLista(null); cargar() } }, [admin, cargar, estado])
 
   if (sesion === undefined) return <Cargando />
   if (!sesion) return <Login titulo="Ingresar como administrador" />
@@ -159,7 +203,7 @@ export default function Solicitudes() {
     <main className="mx-auto w-full max-w-3xl px-4 py-8 text-lg">
       <div className="mb-6"><MarcaMatriz tamano={56} /></div>
       <h1 className="mb-4 break-words text-3xl font-bold leading-tight">Solicitudes de negocios</h1>
-      <div role="tablist" className="mb-5 grid grid-cols-3 gap-2">
+      <div role="tablist" className="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
         {ESTADOS.map(([k, t]) => (
           <button key={k} role="tab" aria-selected={estado === k} onClick={() => setEstado(k)}
             className={`min-h-[56px] rounded-2xl border-2 px-2 text-base font-semibold leading-tight ${estado === k ? 'border-principal bg-principal text-white' : 'border-black/10 bg-white'}`}>
@@ -167,11 +211,12 @@ export default function Solicitudes() {
           </button>
         ))}
       </div>
-      {error && <Aviso tipo="error">{error}</Aviso>}
-      {!lista && !error && <p className="py-10 text-center text-xl text-tinta/60">Cargando…</p>}
-      {lista?.length === 0 && !error && <Aviso>No hay solicitudes {estado === 'pendiente' ? 'pendientes' : estado === 'aprobada' ? 'aprobadas' : 'rechazadas'}.</Aviso>}
+      {estado === 'publicar' && <PorPublicar />}
+      {estado !== 'publicar' && error && <Aviso tipo="error">{error}</Aviso>}
+      {estado !== 'publicar' && !lista && !error && <p className="py-10 text-center text-xl text-tinta/60">Cargando…</p>}
+      {estado !== 'publicar' && lista?.length === 0 && !error && <Aviso>No hay solicitudes {estado === 'pendiente' ? 'pendientes' : estado === 'aprobada' ? 'aprobadas' : 'rechazadas'}.</Aviso>}
       <div className="space-y-4">
-        {lista?.map((s) => <Tarjeta key={s.id} s={s} planes={planes} alResolver={cargar} />)}
+        {estado !== 'publicar' && lista?.map((s) => <Tarjeta key={s.id} s={s} planes={planes} alResolver={cargar} />)}
       </div>
       <div className="mt-6"><Btn variante="suave" onClick={() => ir('/')}>← Volver</Btn></div>
       <PiePlataforma />

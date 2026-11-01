@@ -1832,6 +1832,24 @@ await ok('el administrador lo desmarca', 'adminCat', () => q(`select catalogo_ad
 await ok('un producto eliminado no sale aunque esté marcado', 'sistema', async () => { await q(`update catalogo_base set en_portada=true, eliminado_en=now() where id=$1`, [pCon]); return q(`select catalogo_destacados(24) r`) }, r => !r.rows[0].r.some(x => x.nombre === undefined))
 await q(`update catalogo_base set en_portada=false, eliminado_en=null where id=$1`, [pCon])
 
+// ---------- 57: publicar desde el panel ----------
+{
+  const f57 = fs.readFileSync(path.join(sqlDir, '57-publicar-desde-panel.sql'), 'utf8')
+  await db.exec(f57.split('-- ---------- VERIFICACIÓN')[0])
+  await db.exec(`grant execute on function tiendas_por_publicar(), publicar_tienda_admin(uuid, boolean) to authenticated`)
+  await falla('un dueño no lista las tiendas por publicar', 'duenoV', () => q(`select tiendas_por_publicar()`), 'administrador')
+  await falla('un dueño no publica con el panel', 'duenoV', () => q(`select publicar_tienda_admin($1,true)`, [V]), 'administrador')
+  await falla('anónimo no publica con el panel', 'anon', () => q(`select publicar_tienda_admin($1,true)`, [V]), 'permission denied')
+  await ok('el administrador lista las tiendas', 'adminCat', () => q(`select tiendas_por_publicar() r`), r => Array.isArray(r.rows[0].r) && r.rows[0].r.length >= 2 && r.rows[0].r.every(t => Array.isArray(t.faltantes)))
+  await ok('el administrador despublica', 'adminCat', () => q(`select publicar_tienda_admin($1,false) v`, [V]), r => r.rows[0].v === false)
+  await ok('el administrador publica', 'adminCat', () => q(`select publicar_tienda_admin($1,true) v`, [V]), r => r.rows[0].v === true)
+  await ok('quedó publicada', 'sistema', () => q(`select publicada from negocios where id=$1`, [V]), r => r.rows[0].publicada === true)
+  await sis(() => q(`update negocio_config set whatsapp=null where negocio_id=$1`, [V]))
+  await falla('no se publica sin WhatsApp', 'adminCat', () => q(`select publicar_tienda_admin($1,true)`, [V]), 'WhatsApp')
+  await sis(() => q(`update negocio_config set whatsapp='3001112233' where negocio_id=$1`, [V]))
+  await falla('tienda inexistente', 'adminCat', () => q(`select publicar_tienda_admin(gen_random_uuid(),false)`), 'no encontrada')
+}
+
 console.log('\n--- Verificación automática de la base ---')
 const ver = await como('sistema', () => q(`select * from verificar_aislamiento()`))
 for (const f of ver.rows) { pruebas++; if (f.ok) console.log('✓', f.chequeo); else { fallas++; console.log('✗', f.chequeo, '→', f.detalle) } }

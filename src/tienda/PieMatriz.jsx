@@ -6,7 +6,7 @@ import Instalar from './Instalar'
 import SelectorVista from './SelectorVista'
 
 const Enlace = ({ ruta, ancla, children }) => (
-  <li><a href={ruta} onClick={(e) => { e.preventDefault(); ir(ruta); if (ancla) setTimeout(() => document.getElementById(ancla)?.scrollIntoView({ behavior: 'smooth' }), 60) }}
+  <li><a href={ruta} onClick={(e) => { e.preventDefault(); ir(ruta); if (ancla) setTimeout(() => document.getElementById(ancla)?.scrollIntoView({ behavior: 'smooth' }), 60); else window.scrollTo({ top: 0, behavior: 'smooth' }) }}
     className="inline-flex min-h-[44px] items-center break-words py-1 text-base leading-snug text-white/75 hover:text-champagne-claro">{children}</a></li>
 )
 const Col = ({ titulo, children }) => (
