@@ -30,7 +30,7 @@ prueba('dirección sugerida de nombre larguísimo cabe y no termina en guion', (
 prueba('slugValido', () => { assert.ok(slugValido('moda-luna')); for (const s of ['Moda', 'a', '-ab', 'ab-', 'con espacio', 'ñandu', '']) assert.ok(!slugValido(s), s) })
 prueba('aviso de aprobada: lleva el nombre, el correo y la dirección', () => {
   const u = decodeURIComponent(enlaceAviso({ telefono: '300 123 4567', nombre_contacto: 'Luisa Pérez', nombre_negocio: 'Moda Luna', email: 'luisa@correo.com' }, { aprobada: true, slug: 'moda-luna', base: 'https://matriz.app' }))
-  assert.ok(u.startsWith('https://wa.me/573001234567?text=')); assert.match(u, /Hola \*Luisa\*/); assert.ok(u.includes('\n\n')); assert.match(u, /\*Mis tiendas\*/); assert.match(u, /luisa@correo\.com/); assert.match(u, /matriz\.app\/t\/moda-luna/)
+  assert.ok(u.startsWith('https://wa.me/573001234567?text=')); assert.match(u, /Hola \*Luisa\*/); assert.ok(u.includes('\n\n')); assert.match(u, /\*Mis tiendas\*/); assert.match(u, /Hotmail/); assert.match(u, /código a mi correo/); assert.match(u, /luisa@correo\.com/); assert.match(u, /matriz\.app\/t\/moda-luna/)
 })
 prueba('aviso de rechazada: lleva el motivo', () => assert.match(decodeURIComponent(enlaceAviso({ telefono: '3001234567', nombre_contacto: 'Luisa', nombre_negocio: 'X', email: 'a@b.co' }, { aprobada: false, nota: 'Datos incompletos' })), /\*Motivo:\* Datos incompletos/))
 console.log(`\n  ${n} pruebas correctas`)

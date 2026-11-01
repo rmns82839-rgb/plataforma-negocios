@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { Btn, Aviso, Campo, clsInput, PiePlataforma } from '../tienda/ui'
 import { entrarConGoogle } from '../lib/google'
 import { huboErrorDeLogin } from '../lib/reparar'
+import EntrarCodigo from '../tienda/EntrarCodigo'
 import MarcaMatriz from '../tienda/MarcaMatriz'
 import { ir } from '../lib/ruta'
 
@@ -38,8 +39,13 @@ export default function Login({ titulo = 'Ingresar' }) {
         <Btn type="submit" disabled={ocupado}>{ocupado ? 'Entrando…' : 'Entrar'}</Btn>
       </form>
       <div className="mt-5 space-y-3 rounded-2xl border-2 border-black/5 bg-white p-5">
-        <p className="text-lg font-semibold leading-snug">¿Te invitaron a una tienda con tu correo de Google?</p>
+        <p className="text-lg font-semibold leading-snug">¿Tu correo es de Gmail (Google)?</p>
         <Btn variante="suave" type="button" onClick={async () => { const e = await entrarConGoogle(); if (e) setError(e) }}>Entrar con Google</Btn>
+      </div>
+      <div className="mt-5 space-y-3 rounded-2xl border-2 border-black/5 bg-white p-5">
+        <p className="text-lg font-semibold leading-snug">¿Tu correo es Hotmail, Outlook u otro?</p>
+        <p className="text-base leading-snug text-tinta/70">Te enviamos un código a tu correo y entras con él. No necesitas contraseña ni cuenta de Google.</p>
+        <EntrarCodigo etiqueta="📧 Entrar con un código a mi correo" />
       </div>
       {huboErrorDeLogin(window.location.search, window.location.hash) && (
         <div className="mt-5"><Aviso tipo="error">Google no pudo terminar de entrar. Toca «Reparar» abajo y vuelve a intentar.</Aviso></div>

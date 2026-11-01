@@ -153,7 +153,7 @@ export default function Registro() {
           <Campo etiqueta="Tu celular (WhatsApp)" error={errores.telefono} ayuda="10 dígitos, por ejemplo 300 123 4567">
             <input value={f.telefono} onChange={(e) => set('telefono', e.target.value)} inputMode="tel" autoComplete="tel" maxLength={20} className={clsInput} />
           </Campo>
-          <Campo etiqueta="Tu correo" error={errores.email} ayuda="Con este correo entrarás a tu tienda (de preferencia uno de Google)">
+          <Campo etiqueta="Tu correo" error={errores.email} ayuda="Sirve cualquier correo: Gmail, Hotmail, Outlook… Con este correo entrarás a tu tienda.">
             <input type="email" value={f.email} onChange={(e) => set('email', e.target.value)} inputMode="email" autoComplete="email" maxLength={120} className={clsInput} />
           </Campo>
           <Campo etiqueta="¿Algo que quieras contarnos? (opcional)" error={errores.mensaje} ayuda={`${f.mensaje.length}/300`}>
