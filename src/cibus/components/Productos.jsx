@@ -10,7 +10,7 @@ import Modal, { Campo } from './Modal'
 import Miniatura from './Miniatura'
 import ProductoForm from './ProductoForm'
 import ImportarFotos from './ImportarFotos'
-import QuitarGenericas from './QuitarGenericas'
+import { esFotoDeTexto } from '../lib/fotoSoloTexto'
 import Repetidos from './Repetidos'
 import CargaMasiva from './CargaMasiva'
 import ProductosBase from './ProductosBase'
@@ -37,7 +37,10 @@ import { enlaceTienda } from '../lib/enlaces'
 export default function Productos() {
   const { modulos } = usePlataforma()
   const [verRepetidos, setVerRepetidos] = useState(false)
-  const [quitarGen, setQuitarGen] = useState(false)
+  const [soloMarcados, setSoloMarcados] = useState(false)
+  const [escaneo, setEscaneo] = useState(null)
+  const [quitando, setQuitando] = useState(false)
+  const cancelarEscaneo = useRef(false)
   const conCompras = modulos.includes('compras')       // «Compra» y «+ Stock» registran una compra: necesitan ese módulo
   const [productos, setProductos] = useState([])
   const [cargando, setCargando] = useState(true)
@@ -263,16 +266,13 @@ export default function Productos() {
           </button>
           <button onClick={() => { setModoBajar(v => !v); setMarcados(new Set()); setAvisoBajar('') }}
             className={`col-span-2 min-h-10 rounded-xl text-xs font-semibold px-2 leading-tight ${modoBajar ? 'bg-negro text-champagne' : 'bg-slate-100 text-slate-700'}`}>
-            {modoBajar ? 'Salir de descargar fotos' : 'Descargar fotos de productos'}
+            {modoBajar ? 'Salir de fotos (bajar / quitar)' : 'Bajar o quitar fotos de varios productos'}
           </button>
           <button onClick={() => {
             const url = URL.createObjectURL(new Blob([catalogoBaseCsv(productos)], { type: 'text/csv;charset=utf-8' }))
             const a = document.createElement('a'); a.href = url; a.download = 'catalogo-base-sin-precios.csv'; a.click(); setTimeout(() => URL.revokeObjectURL(url), 2000)
           }} className="col-span-2 min-h-10 rounded-xl bg-slate-100 text-slate-700 text-xs font-semibold px-2 leading-tight">
             Descargar catálogo base (sin precios)
-          </button>
-          <button onClick={() => setQuitarGen(true)} className="col-span-2 min-h-10 rounded-xl bg-red-50 text-red-800 text-xs font-semibold px-2 leading-tight">
-            Quitar imágenes genéricas (solo el nombre)
           </button>
           <button onClick={() => setPublicar(true)} className="col-span-2 h-10 rounded-xl bg-negro text-champagne text-xs font-semibold">
             Mostrar en línea los que ya tienen foto
@@ -286,26 +286,78 @@ export default function Productos() {
       {modoBajar && (() => {
         const conFoto = visibles.filter(p => fotosDe(p).length > 0)
         const elegidos = productos.filter(p => marcados.has(p.id) && fotosDe(p).length > 0)
+        const ocupado = bajando !== null || escaneo !== null || quitando
         const bajar = async (lista) => {
           setAvisoBajar(''); setBajando({ hechas: 0, total: lista.reduce((s, p) => s + fotosDe(p).length, 0) })
           const r = await descargarFotos(lista, (hechas, total) => setBajando({ hechas, total }))
           setBajando(null)
           setAvisoBajar(r.bajadas === 0 ? 'No se pudo bajar ninguna foto. Revisa la conexión.' : `Listo: ${r.bajadas} ${r.bajadas === 1 ? 'foto' : 'fotos'}${r.fallidas ? ` (${r.fallidas} no se pudieron bajar)` : ''}.`)
         }
+        // Revisa las fotos de lo que se ve (según buscador y filtros) y MARCA las que parecen «solo letras». Las genéricas se marcan sin bajarlas.
+        const detectar = async () => {
+          if (!(await confirmar({ titulo: `¿Revisar ${conFoto.length} productos?`, texto: 'Se miran sus fotos y se marcan las que parecen solo letras (sin producto). Gasta datos del celular: mejor con wifi. No se borra nada: tú revisas y decides.', si: 'Sí, revisar' }))) return
+          setAvisoBajar(''); cancelarEscaneo.current = false
+          const cola = [...conFoto]; let hechas = 0, sospechosas = 0, ilegibles = 0
+          setEscaneo({ hechas: 0, total: cola.length })
+          const obrero = async () => {
+            while (cola.length && !cancelarEscaneo.current) {
+              const p = cola.shift(); const fotos = fotosDe(p)
+              const r = fotos.every(esGenerica) ? true : await esFotoDeTexto(fotos[0])
+              if (r === null) ilegibles++
+              if (r === true) { sospechosas++; setMarcados(prev => new Set(prev).add(p.id)) }
+              hechas++; setEscaneo({ hechas, total: hechas + cola.length })
+            }
+          }
+          await Promise.all([obrero(), obrero(), obrero(), obrero()])
+          setEscaneo(null)
+          setAvisoBajar(`${cancelarEscaneo.current ? 'Detenido. ' : ''}Revisé ${hechas}: marqué ${sospechosas} que parecen solo letras${ilegibles ? ` (${ilegibles} no se pudieron leer)` : ''}. Toca «Ver solo los marcados» para repasarlas y desmarca las que sean buenas.`)
+          if (sospechosas > 0) setSoloMarcados(true)
+        }
+        const quitarFotos = async () => {
+          if (!(await confirmar({ titulo: `¿Quitar las fotos de ${elegidos.length} ${elegidos.length === 1 ? 'producto' : 'productos'}?`, texto: 'Los productos se quedan con todo (precio, stock, código). Solo pierden la foto y vuelven a salir en «Sin foto». No se puede deshacer.', si: 'Sí, quitar fotos' }))) return
+          setQuitando(true); setAvisoBajar('')
+          let ok = 0, fallos = 0, motivo = ''; const rutas = []
+          for (let i = 0; i < elegidos.length; i += 50) {
+            const trozo = elegidos.slice(i, i + 50)
+            const { error } = await supabase.from('productos').update({ imagenes: [] }).in('id', trozo.map(p => p.id))
+            if (error) { fallos += trozo.length; motivo = motivo || error.message } else {
+              ok += trozo.length
+              for (const p of trozo) for (const u of fotosDe(p)) { const m = /\/object\/public\/[^/]+\/(.+?)(?:\?|$)/.exec(u); if (m) rutas.push(decodeURIComponent(m[1])) }
+            }
+          }
+          try { for (let i = 0; i < rutas.length; i += 50) await supabase.storage.from('prendas').remove(rutas.slice(i, i + 50)) } catch { /* el archivo ya no se usa; si no hay permiso, no pasa nada */ }
+          setQuitando(false); setMarcados(new Set()); setSoloMarcados(false)
+          setAvisoBajar(`Listo: se quitó la foto de ${ok} ${ok === 1 ? 'producto' : 'productos'}.${fallos ? ` ${fallos} no se pudieron: ${motivo}` : ''}`)
+          cargar()
+        }
         return (
           <div className="rounded-2xl bg-white shadow-sm p-3 space-y-2">
-            <p className="text-xs text-slate-500">Marca los productos y baja sus fotos en un solo .zip, o usa ⬇️ en uno solo. Con el buscador y los filtros eliges cuáles ver.</p>
+            <p className="text-xs text-slate-500 break-words">Marca productos para bajar sus fotos en un .zip o para quitarles solo la foto. Con el buscador y los filtros eliges cuáles ver.</p>
             <div className="grid grid-cols-2 gap-2">
-              <button onClick={() => setMarcados(new Set(conFoto.map(p => p.id)))} disabled={bajando !== null}
-                className="min-h-10 rounded-xl bg-slate-100 text-slate-700 text-xs font-semibold px-2 leading-tight">Marcar los {conFoto.length} que se ven</button>
-              <button onClick={() => setMarcados(new Set())} disabled={bajando !== null}
-                className="min-h-10 rounded-xl bg-slate-100 text-slate-700 text-xs font-semibold px-2 leading-tight">Quitar marcas</button>
-              <button onClick={() => bajar(elegidos)} disabled={bajando !== null || elegidos.length === 0}
-                className="col-span-2 min-h-11 rounded-xl bg-negro text-champagne text-sm font-semibold disabled:opacity-40">
-                {bajando ? `Bajando ${bajando.hechas} de ${bajando.total}…` : `⬇️ Descargar fotos de ${elegidos.length} ${elegidos.length === 1 ? 'producto' : 'productos'}`}
+              <button onClick={() => setMarcados(new Set(conFoto.map(p => p.id)))} disabled={ocupado}
+                className="min-h-11 rounded-xl bg-slate-100 text-slate-700 text-xs font-semibold px-2 leading-tight">Marcar los {conFoto.length} que se ven</button>
+              <button onClick={() => { setMarcados(new Set()); setSoloMarcados(false) }} disabled={ocupado}
+                className="min-h-11 rounded-xl bg-slate-100 text-slate-700 text-xs font-semibold px-2 leading-tight">Quitar marcas</button>
+              {escaneo ? (
+                <button onClick={() => { cancelarEscaneo.current = true }}
+                  className="col-span-2 min-h-11 rounded-xl bg-amber-100 text-amber-900 text-xs font-semibold px-2 leading-tight">Revisando {escaneo.hechas} de {escaneo.total}… (toca para detener)</button>
+              ) : (
+                <button onClick={detectar} disabled={ocupado || conFoto.length === 0}
+                  className="col-span-2 min-h-11 rounded-xl bg-amber-50 text-amber-900 text-xs font-semibold px-2 leading-tight disabled:opacity-40">🔍 Detectar fotos de solo letras (en los {conFoto.length} que se ven)</button>
+              )}
+              <button onClick={() => setSoloMarcados(v => !v)} disabled={ocupado || (marcados.size === 0 && !soloMarcados)}
+                className={`col-span-2 min-h-11 rounded-xl text-xs font-semibold px-2 leading-tight disabled:opacity-40 ${soloMarcados ? 'bg-negro text-champagne' : 'bg-slate-100 text-slate-700'}`}>
+                {soloMarcados ? `Mostrando solo los ${marcados.size} marcados (toca para ver todos)` : `👁️ Ver solo los marcados (${marcados.size})`}</button>
+              <button onClick={() => bajar(elegidos)} disabled={ocupado || elegidos.length === 0}
+                className="min-h-12 rounded-xl bg-negro text-champagne text-xs font-semibold px-2 leading-tight disabled:opacity-40">
+                {bajando ? `Bajando ${bajando.hechas} de ${bajando.total}…` : `⬇️ Descargar fotos (${elegidos.length})`}
+              </button>
+              <button onClick={quitarFotos} disabled={ocupado || elegidos.length === 0}
+                className="min-h-12 rounded-xl bg-red-600 text-white text-xs font-semibold px-2 leading-tight disabled:opacity-40">
+                {quitando ? 'Quitando…' : `🗑️ Quitar fotos (${elegidos.length})`}
               </button>
             </div>
-            {avisoBajar && <p className="text-sm text-marca bg-lima/20 rounded-lg px-3 py-2">{avisoBajar}</p>}
+            {avisoBajar && <p className="text-sm text-marca bg-lima/20 rounded-lg px-3 py-2 break-words">{avisoBajar}</p>}
           </div>
         )
       })()}
@@ -323,27 +375,33 @@ export default function Productos() {
         </div>
       ) : (
         <ul className="bg-white rounded-2xl shadow-sm divide-y divide-slate-100 lg:bg-transparent lg:shadow-none lg:divide-y-0 lg:grid lg:grid-cols-2 lg:gap-3 [&>li]:lg:bg-white [&>li]:lg:rounded-2xl [&>li]:lg:shadow-sm lg:[&>li:last-child:nth-child(odd)]:col-span-2">
-          {visibles.map(p => {
+          {(modoBajar && soloMarcados ? visibles.filter(p => marcados.has(p.id)) : visibles).map(p => {
             const bajo = Number(p.stock) <= Number(p.stock_minimo)
             return (
               <li key={p.id} className="p-3 grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-x-3 gap-y-2 items-center">
                 {modoBajar && (
-                  <div className="sm:col-span-2 flex items-center justify-between gap-3">
+                  <div className="col-span-2">
                     {fotosDe(p).length > 0 ? (
-                      <>
-                        <label className="flex items-center gap-2 text-xs text-slate-600 min-h-10">
-                          <input type="checkbox" className="h-5 w-5" checked={marcados.has(p.id)}
-                            onChange={() => setMarcados(prev => { const n = new Set(prev); n.has(p.id) ? n.delete(p.id) : n.add(p.id); return n })} />
-                          Elegir para descargar
-                        </label>
-                        <button disabled={bajando !== null} onClick={async () => {
+                      <div className="grid grid-cols-3 gap-2">
+                        <button type="button" role="checkbox" aria-checked={marcados.has(p.id)} disabled={bajando !== null}
+                          onClick={() => setMarcados(prev => { const n = new Set(prev); n.has(p.id) ? n.delete(p.id) : n.add(p.id); return n })}
+                          className={`min-h-11 rounded-lg text-xs font-semibold px-1 leading-tight ${marcados.has(p.id) ? 'bg-marca text-white' : 'bg-slate-100 text-slate-700'}`}>
+                          {marcados.has(p.id) ? '✓ Marcado' : 'Marcar'}
+                        </button>
+                        <button disabled={bajando !== null || quitando} onClick={async () => {
                             setAvisoBajar(''); setBajando({ hechas: 0, total: fotosDe(p).length })
                             const r = await descargarFotos([p], (hechas, total) => setBajando({ hechas, total }))
                             setBajando(null); if (r.bajadas === 0) setAvisoBajar('No se pudo bajar la foto. Revisa la conexión.')
                           }}
-                          className="min-h-10 px-3 rounded-lg bg-negro text-champagne text-xs font-semibold disabled:opacity-40">⬇️ Descargar foto</button>
-                      </>
-                    ) : <p className="text-xs text-slate-400">Sin foto</p>}
+                          className="min-h-11 rounded-lg bg-negro text-champagne text-xs font-semibold px-1 leading-tight disabled:opacity-40">⬇️ Bajar</button>
+                        <button disabled={bajando !== null || quitando} onClick={async () => {
+                            if (!(await confirmar({ titulo: `¿Quitar la foto de "${p.nombre}"?`, texto: 'El producto se queda; solo pierde la foto.', si: 'Sí, quitar' }))) return
+                            const { error } = await supabase.from('productos').update({ imagenes: [] }).eq('id', p.id)
+                            if (error) setAvisoBajar('No se pudo quitar: ' + error.message); else { setAvisoBajar('Foto quitada.'); setMarcados(prev => { const n = new Set(prev); n.delete(p.id); return n }); cargar() }
+                          }}
+                          className="min-h-11 rounded-lg bg-red-50 text-red-700 text-xs font-semibold px-1 leading-tight disabled:opacity-40">🗑️ Quitar</button>
+                      </div>
+                    ) : <p className="text-xs text-slate-400 min-h-11 grid items-center">Sin foto</p>}
                   </div>
                 )}
                 <button onClick={() => setForm(p)} className="min-w-0 text-left grid grid-cols-[auto_1fr] gap-3 items-center">
@@ -408,10 +466,6 @@ export default function Productos() {
 
       {fotos && dueno === true && (
         <ImportarFotos productos={productos} onCerrar={() => setFotos(false)} onGuardado={cargar} />
-      )}
-
-      {quitarGen && dueno === true && (
-        <QuitarGenericas productos={productos} onCerrar={() => setQuitarGen(false)} onGuardado={cargar} />
       )}
 
       {publicar && dueno === true && (
