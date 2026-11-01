@@ -102,10 +102,10 @@ export default function Productos() {
     setTexto(String(codigo ?? '').trim()); setFiltro('todos'); setCategoria('todas')
   }, [])
 
-  const agotados = useMemo(() => productos.filter(p => Number(p.stock) <= 0), [productos])
+  const agotados = useMemo(() => productos.filter(p => p.controla_stock !== false && Number(p.stock) <= 0), [productos])      // los servicios (sin control de stock) nunca se «agotan»
 
   const bajos = useMemo(
-    () => productos.filter(p => Number(p.stock) <= Number(p.stock_minimo)), [productos])
+    () => productos.filter(p => p.controla_stock !== false && Number(p.stock) <= Number(p.stock_minimo)), [productos])
 
   const sinFotos = useMemo(() => productos.filter(p => sinFoto(p) && !(fotosHechas[p.id] > 0)), [productos, fotosHechas])
 

@@ -8,6 +8,9 @@ import { disponible, NUEVAS, LEGADO } from './lib/etapas'
 import Legado from './Legado'
 import AvisosPlataforma from './AvisosPlataforma'
 import Caja from './components/Caja'
+import Servicios from './components/Servicios'
+import ListasUtiles from './components/ListasUtiles'
+import Encargos from './components/Encargos'
 import Productos from './components/Productos'
 import Fiados from './components/Fiados'
 import Prestamos from './components/Prestamos'
@@ -82,6 +85,9 @@ const MAS = [
   { id: 'domiciliarios', texto: 'Domiciliarios',   nota: 'Repartidores de la red', icono: 'ventas' },
   { id: 'agenda',      texto: 'Agenda de citas',   nota: 'Citas y mascotas',     icono: 'nota' },
   { id: 'codigos',  texto: 'Códigos de productos', nota: 'Frutas, verduras, pan', icono: 'etiqueta', soloDueno: true },
+  { id: 'servicios',   texto: 'Servicios',         nota: 'Fotocopias, impresiones…', icono: 'etiqueta' },
+  { id: 'utiles',      texto: 'Listas de útiles',  nota: 'Por colegio y grado',  icono: 'nota' },
+  { id: 'encargos',    texto: 'Encargos',          nota: 'Tortas y pedidos con anticipo', icono: 'nota' },
   { id: 'referencias', texto: 'Referencias',       nota: 'Marca, medida, compatible', icono: 'buscar' },
   { id: 'garantias',   texto: 'Garantías',         nota: 'Serial, IMEI y vencimiento', icono: 'etiqueta' },
   { id: 'ropa',     texto: 'Catálogo de ropa',    nota: 'Pedidos WhatsApp',     icono: 'ropa' },
@@ -451,6 +457,9 @@ function Contenido() {
         {activa === 'mas' && sub === 'ropa'     && <RopaAdmin />}
         {activa === 'mas' && sub === 'domiciliarios' && <DomiciliariosRed />}
         {activa === 'mas' && sub === 'agenda'      && <Agenda />}
+        {activa === 'mas' && sub === 'servicios'   && <Servicios irACaja={() => irA('caja')} />}
+        {activa === 'mas' && sub === 'utiles'      && <ListasUtiles irACaja={() => irA('caja')} />}
+        {activa === 'mas' && sub === 'encargos'    && <Encargos />}
         {activa === 'mas' && sub === 'referencias' && <Referencias />}
         {activa === 'mas' && sub === 'codigos' && dueno === true && <CodigosImprimir />}
         {activa === 'mas' && sub === 'garantias'   && <Garantias />}

@@ -7,6 +7,7 @@ export const TIPOS_NEGOCIO = [
   { clave: 'ferreteria', imagen: '/iconos/ferreteria.webp', nombre: 'Ferretería', ejemplos: 'Herramientas, tornillería, pinturas, eléctricos, plomería', icono: '🔨' },
   { clave: 'papeleria', imagen: '/iconos/papeleria.webp', nombre: 'Papelería', ejemplos: 'Útiles, fotocopias, impresiones, regalos, oficina', icono: '✏️' },
   { clave: 'veterinaria', imagen: '/iconos/veterinaria.webp', nombre: 'Veterinaria y mascotas', ejemplos: 'Alimento, medicinas, accesorios, peluquería', icono: '🐾' },
+  { clave: 'panaderia', imagen: '/iconos/panaderia.webp', nombre: 'Panadería y pastelería', ejemplos: 'Pan, tortas, pasabocas, encargos por fecha', icono: '🥖' },
   { clave: 'ropa', imagen: '/iconos/ropa.webp', nombre: 'Ropa y calzado', ejemplos: 'Boutique, moda, zapatos, accesorios', icono: '👗' },
   { clave: 'repuestos', imagen: '/iconos/repuestos.webp', nombre: 'Repuestos', ejemplos: 'Motos, carros, autopartes', icono: '🔧' },
   { clave: 'mixto', imagen: '/iconos/mixto.webp', nombre: 'Productos y ropa', ejemplos: 'Vendes de los dos tipos', icono: '🏬' },

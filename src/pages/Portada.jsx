@@ -118,7 +118,7 @@ export default function Portada() {
       </section>
 
       {/* Tipos de negocio */}
-      <Seccion titulo="Hecho para tu tipo de negocio" sub="Cada negocio arranca con lo que necesita: tiendas, miscelánea, celulares, ferretería, papelería, veterinaria, ropa y más.">
+      <Seccion titulo="Hecho para tu tipo de negocio" sub="Cada negocio arranca con lo que necesita: tiendas, miscelánea, celulares, ferretería, papelería, panadería, veterinaria, ropa y más.">
         <div style={cols(3, 132, 12)}>
           {TIPOS_NEGOCIO.map((t) => (
             <button key={t.clave} onClick={() => ir('/registro')} className="flex flex-col items-start gap-1 rounded-2xl border-2 border-black/5 bg-white p-3 text-left shadow-sm transition hover:border-oro/40 sm:p-4">

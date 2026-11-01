@@ -30,7 +30,7 @@ grant select, insert, update, delete on storage.objects, realtime.messages to au
 grant select on storage.buckets to authenticated;
 `)
 const U = {}
-for (const n of ['duenoA', 'cajeroA', 'duenoB', 'soporte', 'extra', 'duenoV', 'google1', 'google2', 'otro', 'adminCat', 'duenoVet', 'duenoVet2', 'duenoFer', 'duenoTec', 'domi1', 'domi2', 'domi3']) {
+for (const n of ['duenoA', 'cajeroA', 'duenoB', 'soporte', 'extra', 'duenoV', 'google1', 'google2', 'otro', 'adminCat', 'duenoVet', 'duenoVet2', 'duenoFer', 'duenoTec', 'domi1', 'domi2', 'domi3', 'duenoPap', 'duenoPap2', 'duenoPan', 'duenoPan2']) {
   const r = await db.query(`insert into auth.users (email) values ($1) returning id`, [n + '@prueba.com'])
   U[n] = r.rows[0].id
 }
@@ -1727,6 +1727,64 @@ await falla('una venta que no existe', 'duenoA', () => q(`select reversar_venta(
 await ok('(preparar) un producto publicado con 150 en stock', 'sistema', async () => { await q(`update productos set stock=150 where id=$1`, [pA]); return { rows: [{ n: 1 }] } }, () => true)
 await ok('la tienda online dice cuántos quedan: 150 exacto, no «50+»', 'anon', () => q(`select catalogo_tienda('tienda-a') c`), r => { const p = r.rows[0].c.productos.find(x => x.id === pA); return p && Number(p.quedan) === 150 })
 await ok('un producto agotado muestra 0, nunca negativo', 'anon', () => q(`select catalogo_tienda('tienda-a') c`), r => { const p = r.rows[0].c.productos.find(x => x.id === pH); return p && Number(p.quedan) === 0 && p.disponible === false })
+
+
+console.log('\n--- Papelería y panadería (54) ---')
+await db.exec(fs.readFileSync(path.join(sqlDir, '54-papeleria-panaderia.sql'), 'utf8'))
+await db.exec(fs.readFileSync(path.join(sqlDir, '54-papeleria-panaderia.sql'), 'utf8'))   // idempotente
+const PAP = (await como('sistema', () => crear('pap-uno', 'Papelería Uno', 'papeleria', 'duenoPap@prueba.com', 'gestion'))).id
+const PAP2 = (await como('sistema', () => crear('pap-dos', 'Papelería Dos', 'papeleria', 'duenoPap2@prueba.com', 'gestion'))).id
+const PAN = (await como('sistema', () => crear('pan-uno', 'Panadería Uno', 'panaderia', 'duenoPan@prueba.com', 'gestion'))).id
+const PAN2 = (await como('sistema', () => crear('pan-dos', 'Panadería Dos', 'panaderia', 'duenoPan2@prueba.com', 'gestion'))).id
+await ok('la papelería trae servicios y listas de útiles, no encargos', 'sistema', () => modsTipo(PAP), r => r.includes('servicios') && r.includes('listas_utiles') && !r.includes('encargos') && r.includes('caja'))
+await ok('la panadería trae encargos, no listas ni servicios', 'sistema', () => modsTipo(PAN), r => r.includes('encargos') && !r.includes('listas_utiles') && !r.includes('servicios') && r.includes('caja'))
+await ok('una tienda común no recibe ninguno de los tres', 'sistema', () => modsTipo(A), r => !r.includes('servicios') && !r.includes('listas_utiles') && !r.includes('encargos'))
+{
+  pruebas++
+  const dat = JSON.stringify({ nombre_negocio: 'Panadería La Espiga', tipo: 'panaderia', ciudad: 'Barranquilla', nombre_contacto: 'Ana Gómez', email: 'pan@correo.com', telefono: '3001112233', plan: 'vitrina', acepta_datos: true })
+  try {
+    const r = await como('anon', () => q(`select enviar_solicitud_negocio($1::jsonb) r`, [dat]))
+    if (r.rows[0].r.ok === true) console.log('✓ se puede solicitar un negocio de tipo panadería'); else { fallas++; console.log('✗ solicitud panadería', JSON.stringify(r.rows)) }
+  } catch (e) { fallas++; console.log('✗ solicitud panadería →', e.message) }
+}
+// Servicios: producto sin control de stock; se vende sin importar el stock
+const sFoto = (await q(`insert into productos (negocio_id,nombre,categoria,precio_venta,controla_stock,stock,cantidad_mayor,precio_mayor) values ($1,'Fotocopia blanco y negro','Servicios',100,false,0,50,80) returning id`, [PAP])).rows[0].id
+await ok('la papelería vende un servicio sin stock (no sale «agotado»)', 'duenoPap', () => q(`select registrar_venta($1::uuid,$2::jsonb,$3::jsonb,null,null,null,0,null,null) id`, [PAP, JSON.stringify([{ producto_id: sFoto, cantidad: 30 }]), JSON.stringify([{ metodo: 'efectivo', monto: 3000 }])]), r => !!r.rows[0].id)
+// Listas de útiles
+const pL1 = (await q(`insert into productos (negocio_id,nombre,precio_venta,stock) values ($1,'Cuaderno 100 hojas',4500,20),($1,'Lápiz HB',1200,50) returning id`, [PAP])).rows.map(x => x.id)
+const pL2 = (await q(`insert into productos (negocio_id,nombre,precio_venta,stock) values ($1,'Cuaderno ajeno',4000,5) returning id`, [PAP2])).rows[0].id
+let lPap, lPap2
+await ok('la papelería crea una lista de útiles', 'duenoPap', async () => (lPap = (await q(`insert into listas_utiles (negocio_id,nombre,colegio,grado) values ($1,'Transición','Colegio San José','Transición') returning id`, [PAP])).rows[0].id))
+await ok('la lista lleva productos con cantidad', 'duenoPap', () => q(`insert into lista_utiles_items (negocio_id,lista_id,producto_id,cantidad) values ($1,$2,$3,4),($1,$2,$4,10)`, [PAP, lPap, pL1[0], pL1[1]]))
+await ok('otra papelería crea su lista', 'duenoPap2', async () => (lPap2 = (await q(`insert into listas_utiles (negocio_id,nombre) values ($1,'Primero') returning id`, [PAP2])).rows[0].id))
+await ok('cada papelería ve solo sus listas', 'duenoPap', () => q(`select nombre from listas_utiles`), r => r.rows.length === 1 && r.rows[0].nombre === 'Transición')
+await ok('cada papelería ve solo los ítems de sus listas', 'duenoPap', () => q(`select count(*)::int n from lista_utiles_items`), r => r.rows[0].n === 2)
+await falla('no se pone en la lista un producto de otra papelería', 'duenoPap', () => q(`insert into lista_utiles_items (negocio_id,lista_id,producto_id,cantidad) values ($1,$2,$3,1)`, [PAP, lPap, pL2]), 'foreign key|violates')
+await falla('no se agrega a la lista de otra papelería', 'duenoPap', () => q(`insert into lista_utiles_items (negocio_id,lista_id,producto_id,cantidad) values ($1,$2,$3,1)`, [PAP, lPap2, pL1[0]]), 'foreign key|violates')
+await falla('no se escribe en la papelería ajena', 'duenoPap', () => q(`insert into listas_utiles (negocio_id,nombre) values ($1,'Colada')`, [PAP2]), 'row-level security')
+await falla('un producto no se repite en la misma lista', 'duenoPap', () => q(`insert into lista_utiles_items (negocio_id,lista_id,producto_id,cantidad) values ($1,$2,$3,1)`, [PAP, lPap, pL1[0]]), 'unique|duplicate')
+await falla('la cantidad debe ser positiva', 'duenoPap', () => q(`update lista_utiles_items set cantidad = 0 where lista_id=$1`, [lPap]), 'check')
+await falla('una tienda sin el módulo no usa listas de útiles', 'duenoA', () => q(`insert into listas_utiles (negocio_id,nombre) values ($1,'X')`, [A]), 'no está activo')
+await falla('la panadería no usa listas de útiles', 'duenoPan', () => q(`insert into listas_utiles (negocio_id,nombre) values ($1,'X')`, [PAN]), 'no está activo')
+await falla('anónimo no ve listas', 'anon', () => q(`select * from listas_utiles`), 'permission denied')
+await ok('el soporte solo mira las listas', 'soporte', () => q(`select count(*)::int n from listas_utiles`), r => r.rows[0].n === 2)
+await falla('el soporte no escribe', 'soporte', () => q(`insert into listas_utiles (negocio_id,nombre) values ($1,'Soporte')`, [PAP]), 'solo puede consultar|row-level security')
+await ok('al borrar una lista desaparecen sus ítems (cascada)', 'duenoPap', async () => { await q(`delete from listas_utiles where id=$1`, [lPap]); return q(`select count(*)::int n from lista_utiles_items`) }, r => r.rows[0].n === 0)
+// Encargos de panadería
+let eP
+await ok('la panadería registra un encargo con anticipo', 'duenoPan', async () => (eP = (await q(`insert into encargos (negocio_id,cliente_nombre,telefono,descripcion,entrega,total,anticipo) values ($1,'Marta','3001234567','Torta de chocolate para 20 personas', now() + interval '2 days', 120000, 50000) returning id`, [PAN])).rows[0].id))
+await ok('otra panadería registra el suyo', 'duenoPan2', () => q(`insert into encargos (negocio_id,cliente_nombre,descripcion,entrega,total) values ($1,'Luis','100 pasabocas', now() + interval '1 day', 80000)`, [PAN2]))
+await ok('cada panadería ve solo sus encargos', 'duenoPan', () => q(`select cliente_nombre from encargos`), r => r.rows.length === 1 && r.rows[0].cliente_nombre === 'Marta')
+await falla('el anticipo no puede pasar del total', 'duenoPan', () => q(`insert into encargos (negocio_id,cliente_nombre,descripcion,entrega,total,anticipo) values ($1,'X','Y', now(), 1000, 2000)`, [PAN]), 'check')
+await falla('el estado del encargo es de una lista cerrada', 'duenoPan', () => q(`update encargos set estado='inventado' where id=$1`, [eP]), 'check')
+await ok('se marca el encargo como listo', 'duenoPan', () => q(`update encargos set estado='listo' where id=$1 returning estado`, [eP]), r => r.rows[0].estado === 'listo')
+await falla('no se escribe en la panadería ajena', 'duenoPan', () => q(`insert into encargos (negocio_id,cliente_nombre,descripcion,entrega) values ($1,'Colado','Y', now())`, [PAN2]), 'row-level security')
+await falla('no se mueve un encargo a otra panadería', 'duenoPan', () => q(`update encargos set negocio_id=$2 where id=$1`, [eP, PAN2]), 'row-level security|negocio')
+await falla('una papelería no usa encargos', 'duenoPap', () => q(`insert into encargos (negocio_id,cliente_nombre,descripcion,entrega) values ($1,'X','Y', now())`, [PAP]), 'no está activo')
+await falla('anónimo no ve encargos', 'anon', () => q(`select * from encargos`), 'permission denied')
+await falla('el soporte no escribe encargos', 'soporte', () => q(`insert into encargos (negocio_id,cliente_nombre,descripcion,entrega) values ($1,'S','Y', now())`, [PAN]), 'solo puede consultar|row-level security')
+await falla('solo el dueño borra: el cajero no', 'cajeroA', () => q(`delete from encargos`), 'cero|permission|row-level')
+await ok('el dueño borra su encargo', 'duenoPan', () => q(`delete from encargos where id=$1`, [eP]))
 
 console.log('\n--- Verificación automática de la base ---')
 const ver = await como('sistema', () => q(`select * from verificar_aislamiento()`))
