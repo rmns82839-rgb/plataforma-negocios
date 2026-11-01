@@ -4,9 +4,10 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useDueno } from '../context/rol'
 import { claseInput } from '../lib/estilos'
-import { requisitosClave, errorClaveNueva, mensajeErrorAuth } from '../lib/clave'
+import { requisitosClave, errorClaveNueva, mensajeErrorAuth, tieneClavePropia } from '../lib/clave'
 import { Campo } from './Modal'
 import DosPasos from './DosPasos'
+import CrearClave from './CrearClave'
 
 export default function MiCuenta() {
   const { sesion } = useAuth()
@@ -19,6 +20,8 @@ export default function MiCuenta() {
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState('')
   const [listo, setListo] = useState('')
+  const [recienCreada, setRecienCreada] = useState(false)
+  const sinClave = !tieneClavePropia(sesion?.user) && !recienCreada      // entró con Google o con código: aún no tiene contraseña
 
   const requisitos = requisitosClave(nueva)
   const tipo = ver ? 'text' : 'password'
@@ -52,6 +55,9 @@ export default function MiCuenta() {
         <span className="text-slate-400">Rol</span>
         <span className="font-medium">{dueno === true ? 'Dueño' : dueno === false ? 'Cajero' : '…'}</span>
       </div>
+
+      {sinClave && <CrearClave correo={correo} onCreada={() => setRecienCreada(true)} />}
+      {recienCreada && <p role="status" className="text-sm text-esmeralda bg-esmeralda/10 rounded-lg px-3 py-2">✅ Contraseña creada. Desde ahora puedes entrar con tu correo y tu contraseña.</p>}
 
       <div className="bg-white rounded-2xl shadow-sm p-4 space-y-3">
         <h2 className="font-display text-lg font-semibold">Cambiar mi contraseña</h2>

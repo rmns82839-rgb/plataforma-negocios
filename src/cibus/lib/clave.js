@@ -17,6 +17,16 @@ export function errorClaveNueva(actual, nueva, repetir) {
   return ''
 }
 
+/** Crear la contraseña por primera vez (quien entró con Google o con un código no tiene una): motivo por el que NO se puede, o ''. */
+export function errorClaveCrear(nueva, repetir) {
+  if (requisitosClave(nueva).some(r => !r.ok)) return `La contraseña necesita mínimo ${MIN_CLAVE} caracteres, con letras y números`
+  if (nueva !== repetir) return 'Las dos contraseñas no coinciden'
+  return ''
+}
+
+/** ¿Esta persona ya creó una contraseña propia? (se anota en su perfil al crearla) */
+export const tieneClavePropia = (user) => user?.user_metadata?.tiene_clave === true
+
 /** Traduce los errores de Supabase Auth a mensajes claros. */
 export function mensajeErrorAuth(err) {
   const c = err?.code || ''
