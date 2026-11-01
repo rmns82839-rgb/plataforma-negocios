@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { Btn, Aviso, Campo, clsInput, PiePlataforma } from '../tienda/ui'
 import { entrarConGoogle } from '../lib/google'
+import { huboErrorDeLogin } from '../lib/reparar'
 import MarcaMatriz from '../tienda/MarcaMatriz'
 import { ir } from '../lib/ruta'
 
@@ -39,6 +40,14 @@ export default function Login({ titulo = 'Ingresar' }) {
       <div className="mt-5 space-y-3 rounded-2xl border-2 border-black/5 bg-white p-5">
         <p className="text-lg font-semibold leading-snug">¿Te invitaron a una tienda con tu correo de Google?</p>
         <Btn variante="suave" type="button" onClick={async () => { const e = await entrarConGoogle(); if (e) setError(e) }}>Entrar con Google</Btn>
+      </div>
+      {huboErrorDeLogin(window.location.search, window.location.hash) && (
+        <div className="mt-5"><Aviso tipo="error">Google no pudo terminar de entrar. Toca «Reparar» abajo y vuelve a intentar.</Aviso></div>
+      )}
+      <div className="mt-5 space-y-3 rounded-2xl border-2 border-black/5 bg-white p-5">
+        <p className="text-lg font-semibold leading-snug">¿No te deja entrar o se queda en blanco?</p>
+        <p className="text-base leading-snug text-tinta/70">Esto borra lo que este navegador guardó de la plataforma. No pierdes nada de tu tienda; solo vuelves a iniciar sesión.</p>
+        <Btn variante="suave" type="button" onClick={() => window.location.assign('/reparar')}>🔧 Reparar y reintentar</Btn>
       </div>
       <div className="mt-5 space-y-3 rounded-2xl border-2 border-black/5 bg-white p-5">
         <p className="text-lg font-semibold leading-snug">¿Buscas una tienda para comprar?</p>

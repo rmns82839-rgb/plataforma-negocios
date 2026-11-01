@@ -72,8 +72,28 @@ export const slugValido = (s) => /^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$/.test(String
 /** Enlace de WhatsApp al solicitante cuando su tienda quedó creada (o con la razón si no). */
 export function enlaceAviso({ telefono, nombre_contacto, nombre_negocio, email }, { aprobada, slug, base, nota }) {
   const nombre = limpio(nombre_contacto).split(' ')[0] || ''
+  const saludo = nombre ? `Hola *${nombre}* 👋` : 'Hola 👋'
   const texto = aprobada
-    ? `Hola ${nombre}, ¡ya está creada tu tienda "${nombre_negocio}" en Matriz! Entra con el correo ${email} (con Google) en ${base}/ y la verás en "Mis tiendas". Tu dirección será ${base}/t/${slug}. Cualquier duda, aquí estamos.`
-    : `Hola ${nombre}, revisamos la solicitud de "${nombre_negocio}" en Matriz y por ahora no pudimos aprobarla.${nota ? ` Motivo: ${nota}.` : ''} Escríbenos si quieres que lo revisemos de nuevo.`
+    ? [
+      saludo, '',
+      `✅ ¡Ya está creada tu tienda *${nombre_negocio}* en Matriz!`, '',
+      '🔑 *Cómo entrar*',
+      `1️⃣ Abre este enlace:\n${base}/`,
+      '2️⃣ Toca *Entrar con Google*',
+      `3️⃣ Usa el correo *${email}*`,
+      '4️⃣ Tu tienda aparece en *Mis tiendas*', '',
+      '🏪 *La dirección de tu tienda*',
+      `${base}/t/${slug}`, '',
+      '📧 ¿Ese correo no es de Google? Escríbenos y te ayudamos a entrar.', '',
+      '💬 Cualquier duda, aquí estamos.',
+      '— *Equipo Matriz* ✨',
+    ].join('\n')
+    : [
+      saludo, '',
+      `📋 Revisamos la solicitud de *${nombre_negocio}* en Matriz y por ahora no pudimos aprobarla.`,
+      ...(nota ? ['', `📝 *Motivo:* ${nota}`] : []), '',
+      '🔁 Escríbenos si quieres que lo revisemos de nuevo.', '',
+      '— *Equipo Matriz* ✨',
+    ].join('\n')
   return `https://wa.me/57${soloCelular(telefono)}?text=${encodeURIComponent(texto)}`
 }
