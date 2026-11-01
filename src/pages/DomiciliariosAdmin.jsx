@@ -55,10 +55,83 @@ function Tarjeta({ d, alResolver }) {
   )
 }
 
+const dinero = (n) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(Number(n) || 0)
+
+// Comisión por pedido entregado: se cobra al domiciliario. Aquí se ve lo que debe cada uno y se registran sus pagos.
+function Comisiones() {
+  const [d, setD] = useState(null)
+  const [error, setError] = useState('')
+  const [valor, setValor] = useState('')
+  const [dias, setDias] = useState('')
+  const [montos, setMontos] = useState({})
+  const [ocupado, setOcupado] = useState(false)
+  const cargar = useCallback(async () => {
+    const { data, error: e } = await supabase.rpc('comisiones_domiciliarios')
+    if (e) return setError(e.message)
+    setD(data); setValor(String(data.valor)); setDias(String(data.dias_gratis))
+  }, [])
+  useEffect(() => { cargar() }, [cargar])
+  async function guardarConfig() {
+    setOcupado(true); setError('')
+    const { error: e } = await supabase.rpc('cambiar_comision', { p_valor: Number(valor), p_dias: Number(dias) })
+    setOcupado(false)
+    if (e) return setError(e.message)
+    cargar()
+  }
+  async function pagar(f) {
+    const monto = Number(montos[f.id] ?? f.debe)
+    setOcupado(true); setError('')
+    const { error: e } = await supabase.rpc('registrar_pago_comision', { p_domiciliario_id: f.id, p_monto: monto, p_nota: null })
+    setOcupado(false)
+    if (e) return setError(e.message)
+    setMontos((m) => ({ ...m, [f.id]: undefined }))
+    cargar()
+  }
+  if (!d && !error) return <p className="py-10 text-center text-xl text-tinta/60">Cargando…</p>
+  return (
+    <div className="space-y-4">
+      {error && <Aviso tipo="error">{error}</Aviso>}
+      {d && (
+        <>
+          <section className="space-y-3 rounded-2xl border-2 border-black/5 bg-white p-4 shadow-sm">
+            <h2 className="break-words text-xl font-bold leading-tight">Cuánto se cobra</h2>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block text-base text-tinta/60">Por pedido entregado<input value={valor} onChange={(e) => setValor(e.target.value)} inputMode="numeric" className={clsInput} /></label>
+              <label className="block text-base text-tinta/60">Días gratis al empezar<input value={dias} onChange={(e) => setDias(e.target.value)} inputMode="numeric" className={clsInput} /></label>
+            </div>
+            <Btn disabled={ocupado} onClick={guardarConfig}>Guardar</Btn>
+            <p className="break-words text-base text-tinta/60">Solo cambia las entregas nuevas. Se le cobra al domiciliario; el negocio no paga nada.</p>
+          </section>
+          {d.filas.length === 0 && <Aviso>Todavía no hay domiciliarios aprobados.</Aviso>}
+          {d.filas.map((f) => (
+            <article key={f.id} className="space-y-3 rounded-2xl border-2 border-black/5 bg-white p-4 shadow-sm">
+              <header className="grid grid-cols-[1fr_auto] items-start gap-3">
+                <div className="min-w-0">
+                  <h2 className="break-words text-xl font-bold leading-tight">{f.nombre}</h2>
+                  <p className="break-words text-base text-tinta/60">{f.ciudad} · {f.telefono}</p>
+                </div>
+                <span className={`rounded-full px-3 py-1 text-lg font-bold ${Number(f.debe) > 0 ? 'bg-amber-100 text-amber-800' : 'bg-principal/10 text-principal'}`}>{dinero(f.debe)}</span>
+              </header>
+              <p className="break-words text-base text-tinta/60">Generado {dinero(f.generada)} · Pagado {dinero(f.pagada)}{new Date(f.gratis_hasta) > new Date() ? ` · Gratis hasta el ${new Date(f.gratis_hasta).toLocaleDateString('es-CO', { day: 'numeric', month: 'short' })}` : ''}</p>
+              {Number(f.debe) > 0 && (
+                <div className="grid grid-cols-[1fr_auto] gap-2">
+                  <input value={montos[f.id] ?? f.debe} onChange={(e) => setMontos((m) => ({ ...m, [f.id]: e.target.value }))} inputMode="numeric" aria-label="Monto que pagó" className={clsInput} />
+                  <Btn disabled={ocupado} onClick={() => pagar(f)}>Registrar pago</Btn>
+                </div>
+              )}
+            </article>
+          ))}
+        </>
+      )}
+    </div>
+  )
+}
+
 export default function DomiciliariosAdmin() {
   const sesion = useSesion()
   const [admin, setAdmin] = useState(undefined)
   const [estado, setEstado] = useState('pendiente')
+  const [vista, setVista] = useState('red')
   const [lista, setLista] = useState(null)
   const [error, setError] = useState('')
 
@@ -90,6 +163,14 @@ export default function DomiciliariosAdmin() {
     <main className="mx-auto w-full max-w-3xl px-4 py-8 text-lg">
       <div className="mb-6"><MarcaMatriz tamano={56} /></div>
       <h1 className="mb-4 break-words text-3xl font-bold leading-tight">Domiciliarios de la red</h1>
+      <div role="tablist" className="mb-4 grid grid-cols-2 gap-2">
+        {[['red', 'Domiciliarios'], ['comisiones', 'Comisiones']].map(([k, t]) => (
+          <button key={k} role="tab" aria-selected={vista === k} onClick={() => setVista(k)}
+            className={`min-h-[56px] rounded-2xl border-2 px-2 text-lg font-semibold leading-tight ${vista === k ? 'border-negro bg-negro text-white' : 'border-black/15 bg-white'}`}>{t}</button>
+        ))}
+      </div>
+      {vista === 'comisiones' ? <Comisiones /> : (
+        <>
       <div role="tablist" className="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
         {ESTADOS.map(([k, t]) => (
           <button key={k} role="tab" aria-selected={estado === k} onClick={() => setEstado(k)}
@@ -100,6 +181,8 @@ export default function DomiciliariosAdmin() {
       {!lista && !error && <p className="py-10 text-center text-xl text-tinta/60">Cargando…</p>}
       {lista?.length === 0 && !error && <Aviso>No hay domiciliarios en esta lista.</Aviso>}
       <div className="space-y-4">{lista?.map((d) => <Tarjeta key={d.id} d={d} alResolver={cargar} />)}</div>
+        </>
+      )}
       <div className="mt-6 grid gap-3 sm:grid-cols-2">
         <Btn variante="suave" onClick={() => ir('/solicitudes')}>Solicitudes de negocios</Btn>
         <Btn variante="suave" onClick={() => ir('/')}>← Volver</Btn>

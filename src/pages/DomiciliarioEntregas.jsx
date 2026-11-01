@@ -83,13 +83,14 @@ export default function DomiciliarioEntregas({ disponible }) {
   const [ofertas, setOfertas] = useState(null)
   const [mias, setMias] = useState(null)
   const [ganancias, setGanancias] = useState(null)
+  const [comision, setComision] = useState(null)
   const [error, setError] = useState('')
   const [ocupado, setOcupado] = useState('')
 
   const cargar = useCallback(async () => {
-    const [o, m, g] = await Promise.all([supabase.rpc('ofertas_disponibles'), supabase.rpc('mis_entregas'), supabase.rpc('mis_ganancias')])
+    const [o, m, g, cm] = await Promise.all([supabase.rpc('ofertas_disponibles'), supabase.rpc('mis_entregas'), supabase.rpc('mis_ganancias'), supabase.rpc('mi_comision')])
     if (o.error || m.error) setError((o.error || m.error).message)
-    setOfertas(o.data ?? []); setMias(m.data ?? { activas: [], recientes: [] }); setGanancias(g.data ?? null)
+    setOfertas(o.data ?? []); setMias(m.data ?? { activas: [], recientes: [] }); setGanancias(g.data ?? null); setComision(cm.data ?? null)
   }, [])
   useEffect(() => {
     cargar()
@@ -124,6 +125,20 @@ export default function DomiciliarioEntregas({ disponible }) {
             <p className="text-2xl font-bold">{dinero(ganancias.pagado_total)}</p>
             <p className="text-base text-tinta/60">{ganancias.calificacion ? `★ ${Number(ganancias.calificacion).toFixed(1)} (${ganancias.calificaciones})` : 'Sin calificaciones'}</p>
           </div>
+        </div>
+      )}
+
+      {comision && (
+        <div className="rounded-2xl border-2 border-black/5 bg-white p-4">
+          <p className="text-base text-tinta/60">Comisión por usar la app</p>
+          {comision.en_gratis ? (
+            <p className="break-words text-lg font-semibold">Sin comisión hasta el {new Date(comision.gratis_hasta).toLocaleDateString('es-CO', { day: 'numeric', month: 'long' })}. Después son {dinero(comision.valor)} por pedido entregado.</p>
+          ) : (
+            <>
+              <p className="text-2xl font-bold">{dinero(comision.debe)}</p>
+              <p className="break-words text-base text-tinta/60">Es lo que debes a Matriz. Son {dinero(comision.valor)} por pedido entregado; se paga por semana.</p>
+            </>
+          )}
         </div>
       )}
 
