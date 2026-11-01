@@ -10,6 +10,7 @@ import Modal, { Campo } from './Modal'
 import Miniatura from './Miniatura'
 import ProductoForm from './ProductoForm'
 import ImportarFotos from './ImportarFotos'
+import QuitarGenericas from './QuitarGenericas'
 import Repetidos from './Repetidos'
 import CargaMasiva from './CargaMasiva'
 import ProductosBase from './ProductosBase'
@@ -36,6 +37,7 @@ import { enlaceTienda } from '../lib/enlaces'
 export default function Productos() {
   const { modulos } = usePlataforma()
   const [verRepetidos, setVerRepetidos] = useState(false)
+  const [quitarGen, setQuitarGen] = useState(false)
   const conCompras = modulos.includes('compras')       // «Compra» y «+ Stock» registran una compra: necesitan ese módulo
   const [productos, setProductos] = useState([])
   const [cargando, setCargando] = useState(true)
@@ -269,6 +271,9 @@ export default function Productos() {
           }} className="col-span-2 min-h-10 rounded-xl bg-slate-100 text-slate-700 text-xs font-semibold px-2 leading-tight">
             Descargar catálogo base (sin precios)
           </button>
+          <button onClick={() => setQuitarGen(true)} className="col-span-2 min-h-10 rounded-xl bg-red-50 text-red-800 text-xs font-semibold px-2 leading-tight">
+            Quitar imágenes genéricas (solo el nombre)
+          </button>
           <button onClick={() => setPublicar(true)} className="col-span-2 h-10 rounded-xl bg-negro text-champagne text-xs font-semibold">
             Mostrar en línea los que ya tienen foto
           </button>
@@ -403,6 +408,10 @@ export default function Productos() {
 
       {fotos && dueno === true && (
         <ImportarFotos productos={productos} onCerrar={() => setFotos(false)} onGuardado={cargar} />
+      )}
+
+      {quitarGen && dueno === true && (
+        <QuitarGenericas productos={productos} onCerrar={() => setQuitarGen(false)} onGuardado={cargar} />
       )}
 
       {publicar && dueno === true && (
