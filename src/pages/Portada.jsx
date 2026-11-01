@@ -81,7 +81,9 @@ export default function Portada() {
   useEffect(() => {
     supabase.rpc('directorio_tiendas', { p_limite: 6 }).then(({ data }) => setTiendas(Array.isArray(data) ? data : []), () => setTiendas([]))
     supabase.rpc('planes_publicos').then(({ data }) => setPlanes(Array.isArray(data) ? data : []), () => {})
-    fetch('/muestra-cibus.json').then((r) => (r.ok ? r.json() : [])).then((d) => setProductos(Array.isArray(d) ? d.slice(0, 12) : []), () => setProductos([]))
+    // Los productos de la presentación salen del catálogo base (los que el administrador marca con ⭐); si falla, se usa el archivo de respaldo
+    const respaldo = () => fetch('/muestra-cibus.json').then((r) => (r.ok ? r.json() : [])).then((d) => setProductos(Array.isArray(d) ? d.slice(0, 12) : []), () => setProductos([]))
+    supabase.rpc('catalogo_destacados', { p_limite: 12 }).then(({ data, error }) => (!error && Array.isArray(data) && data.length > 0 ? setProductos(data) : respaldo()), respaldo)
   }, [])
 
   // Celular con el navegador en «sitio de computador»: la página mide ~1000 px y se encogería; se amplía para que se lea como en el celular.

@@ -1815,6 +1815,23 @@ await falla('valor fuera de rango', 'adminCat', () => q(`select cambiar_comision
 await ok('el administrador cambia la comisión a 800 y 15 días', 'adminCat', () => q(`select cambiar_comision(800,15)`))
 await ok('lo ya entregado no cambia de valor', 'sistema', () => q(`select comision::int c from entregas where id=$1`, [e5]), r => r.rows[0].c === 700)
 
+console.log('\n--- Portada con productos del catálogo (56) ---')
+await db.exec(fs.readFileSync(path.join(sqlDir, '56-portada-catalogo.sql'), 'utf8'))
+await db.exec(fs.readFileSync(path.join(sqlDir, '56-portada-catalogo.sql'), 'utf8'))   // idempotente
+await ok('la portada arranca con los productos marcados', 'anon', () => q(`select catalogo_destacados(12) r`), r => r.rows[0].r.length > 0 && r.rows[0].r.length <= 12 && r.rows[0].r.every(x => x.foto && x.nombre && !('precio' in x) && !('codigo' in x)))
+await ok('el límite se respeta', 'anon', () => q(`select catalogo_destacados(2) r`), r => r.rows[0].r.length <= 2)
+let pSin, pCon
+await ok('hay un producto con foto sin marcar y uno sin foto', 'sistema', async () => { pCon = (await q(`select id from catalogo_base where foto is not null and not en_portada and eliminado_en is null limit 1`)).rows[0]?.id; pSin = (await q(`select id from catalogo_base where foto is null and eliminado_en is null limit 1`)).rows[0].id; return q(`select 1`) }, () => pCon && pSin)
+await falla('un dueño de tienda no marca', 'duenoA', () => q(`select catalogo_admin_portada($1,true)`, [pCon]), 'administrador')
+await falla('anónimo no marca', 'anon', () => q(`select catalogo_admin_portada($1,true)`, [pCon]), 'permission denied')
+await falla('no se marca un producto sin foto', 'adminCat', () => q(`select catalogo_admin_portada($1,true)`, [pSin]), 'con foto')
+await ok('el administrador lee la marca (apagada)', 'adminCat', () => q(`select catalogo_admin_portada($1) v`, [pCon]), r => r.rows[0].v === false)
+await ok('el administrador marca un producto', 'adminCat', () => q(`select catalogo_admin_portada($1,true) v`, [pCon]), r => r.rows[0].v === true)
+await ok('ahora sale en la presentación', 'anon', () => q(`select catalogo_destacados(24) r`), r => r.rows.length === 1 && r.rows[0].r.length > 0)
+await ok('el administrador lo desmarca', 'adminCat', () => q(`select catalogo_admin_portada($1,false) v`, [pCon]), r => r.rows[0].v === false)
+await ok('un producto eliminado no sale aunque esté marcado', 'sistema', async () => { await q(`update catalogo_base set en_portada=true, eliminado_en=now() where id=$1`, [pCon]); return q(`select catalogo_destacados(24) r`) }, r => !r.rows[0].r.some(x => x.nombre === undefined))
+await q(`update catalogo_base set en_portada=false, eliminado_en=null where id=$1`, [pCon])
+
 console.log('\n--- Verificación automática de la base ---')
 const ver = await como('sistema', () => q(`select * from verificar_aislamiento()`))
 for (const f of ver.rows) { pruebas++; if (f.ok) console.log('✓', f.chequeo); else { fallas++; console.log('✗', f.chequeo, '→', f.detalle) } }
