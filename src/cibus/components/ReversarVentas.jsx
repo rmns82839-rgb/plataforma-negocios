@@ -6,6 +6,8 @@ import { supabase } from '../lib/supabase'
 import { dinero } from '../lib/formato'
 import { confirmar } from '../lib/confirmar'
 import { numeroFactura } from '../lib/factura'
+import { cantidadTexto } from '../lib/cantidadVenta'
+import Miniatura from './Miniatura'
 
 const hora = (f) => new Date(f).toLocaleString('es-CO', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
 
@@ -48,14 +50,35 @@ export default function ReversarVentas({ dueno, onReversada, onCerrar }) {
           {ventas === null && <p className="text-center text-sm text-slate-400 py-6">Cargando…</p>}
           {ventas?.length === 0 && !error && <p className="text-center text-sm text-slate-400 py-6">No hay ventas para reversar.</p>}
           {ventas?.map(v => (
-            <div key={v.id} className="p-3 space-y-2">
-              <div className="flex items-start justify-between gap-3">
+            <div key={v.id} className="p-3 space-y-3">
+              <div className="grid grid-cols-[1fr_auto] items-start gap-3">
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-slate-800">{numeroFactura(v.numero)} · {hora(v.fecha)}</p>
-                  <p className="text-xs text-slate-500 break-words">{v.resumen}</p>
+                  <p className="text-sm font-semibold text-slate-800">{numeroFactura(v.numero)}</p>
+                  <p className="text-xs text-slate-500">{hora(v.fecha)}</p>
                 </div>
-                <p className="text-sm font-bold tabular-nums text-marca shrink-0">{dinero(v.total)}</p>
+                <p className="text-base font-bold tabular-nums text-marca">{dinero(v.total)}</p>
               </div>
+              {Array.isArray(v.items) && v.items.length > 0 ? (
+                <ul className="space-y-2">
+                  {v.items.map((it, i) => {
+                    const c = cantidadTexto(it)
+                    return (
+                      <li key={i} className="grid grid-cols-[auto_1fr_auto] items-center gap-3">
+                        <Miniatura producto={{ nombre: it.nombre, imagenes: it.imagenes }} tam="h-12 w-12" />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-slate-800 break-words leading-snug">{it.nombre}</p>
+                          <p className="text-xs text-slate-500">
+                            <span className="font-semibold text-slate-700">{c.principal}</span>{c.extra ? ` · ${c.extra}` : ''} · a {dinero(it.precio)}
+                          </p>
+                        </div>
+                        <p className="text-sm font-semibold tabular-nums text-slate-700">{dinero(it.total)}</p>
+                      </li>
+                    )
+                  })}
+                </ul>
+              ) : (
+                v.resumen && <p className="text-xs text-slate-500 break-words">{v.resumen}</p>
+              )}
               <button onClick={() => reversar(v)} disabled={trabajando !== null}
                       className="w-full min-h-11 rounded-xl bg-negro text-champagne text-sm font-semibold active:opacity-90 disabled:opacity-50">
                 {trabajando === v.id ? 'Reversando…' : '↩️ Reversar a la caja'}

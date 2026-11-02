@@ -1890,6 +1890,19 @@ await q(`update catalogo_base set en_portada=false, eliminado_en=null where id=$
   }
 }
 
+// ---------- 61: reversar una venta con el detalle por producto ----------
+{
+  await db.exec(fs.readFileSync(path.join(sqlDir, '61-ventas-recientes-detalle.sql'), 'utf8').split('-- ---------- VERIFICACIÓN')[0])
+  for (const f of (await q(fs.readFileSync(path.join(sqlDir, '61-ventas-recientes-detalle.sql'), 'utf8').split(/-- -+ VERIFICACIÓN[^\n]*\n/)[1])).rows) { pruebas++; if (f.ok) console.log('✓', f.chequeo); else { fallas++; console.log('✗', f.chequeo) } }
+  const kg = (await sis(() => q(`insert into productos (negocio_id, nombre, precio_compra, precio_venta, stock, unidad, imagenes) values ($1,'Queso costeño',20000,28000,10,'kg', array['${A}/productos/queso.jpg']) returning id`, [A]))).rows[0].id
+  const venta = await como('duenoA', () => q(`select registrar_venta($1::uuid,$2::jsonb,$3::jsonb,null,null,null,0,null) id`, [A, JSON.stringify([{ producto_id: kg, cantidad: 0.35 }]), JSON.stringify(efectivo(9800))])).catch((e) => ({ err: e.message }))
+  if (venta?.err) console.log('   (aviso: no se pudo armar la venta de prueba:', venta.err.slice(0, 90), ')')
+  else {
+    await ok('el resumen ya no redondea: 0.35 kg sale como 0.35', 'duenoA', () => q(`select ventas_recientes($1, 3) r`, [A]), r => r.rows[0].r[0].resumen.startsWith('0.35 × Queso'))
+    await ok('items trae cantidad exacta, unidad, precio, total y fotos', 'duenoA', () => q(`select ventas_recientes($1, 3) r`, [A]), r => { const it = r.rows[0].r[0].items[0]; return Number(it.cantidad) === 0.35 && it.unidad === 'kg' && Number(it.precio) === 28000 && Number(it.total) === 9800 && it.imagenes[0].endsWith('queso.jpg') })
+  }
+}
+
 console.log('\n--- Verificación automática de la base ---')
 const ver = await como('sistema', () => q(`select * from verificar_aislamiento()`))
 for (const f of ver.rows) { pruebas++; if (f.ok) console.log('✓', f.chequeo); else { fallas++; console.log('✗', f.chequeo, '→', f.detalle) } }
