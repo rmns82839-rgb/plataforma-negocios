@@ -110,10 +110,11 @@ export default function PrestamosRapidos({ clientes, onCambio }) {
         <ul className="bg-white rounded-2xl shadow-sm divide-y divide-slate-100 lg:bg-transparent lg:shadow-none lg:divide-y-0 lg:grid lg:grid-cols-2 lg:gap-3 [&>li]:lg:bg-white [&>li]:lg:rounded-2xl [&>li]:lg:shadow-sm lg:[&>li:last-child:nth-child(odd)]:col-span-2">
           {visibles.map(f => {
             const vencido = f.debe > 0 && yaVencio(f.fecha_limite)
+            const barra = f.debe <= 0 ? 'border-lima' : vencido ? 'border-red-400' : f.debe < Number(f.monto) ? 'border-champagne' : 'border-transparent'      // pagado · vencido · con abonos · sin abonos
             return (
               <li key={f.id}>
                 <button onClick={() => abrirCliente(f)}
-                  className="w-full min-h-16 px-4 py-2 grid grid-cols-[1fr_auto] gap-3 items-center text-left active:bg-slate-50">
+                  className={`w-full min-h-16 pl-3 pr-4 py-2 grid grid-cols-[1fr_auto] gap-3 items-center text-left active:bg-slate-50 border-l-4 ${barra}`}>
                   <div className="min-w-0">
                     <p className="text-sm font-medium break-words">{f.clientes?.nombre ?? 'Cliente'}</p>
                     <p className="text-xs text-slate-500 break-words">{f.nota && f.nota !== 'Préstamo rápido' ? f.nota : 'Sin nota'}</p>
@@ -129,7 +130,7 @@ export default function PrestamosRapidos({ clientes, onCambio }) {
                     <span className="text-sm font-semibold">{dinero(f.monto)}</span>
                     <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
                       f.debe <= 0 ? 'bg-lima/20 text-marca' : vencido ? 'bg-red-50 text-red-600' : 'bg-champagne/40 text-naranja-oscuro'}`}>
-                      {f.debe <= 0 ? 'Pagado' : f.debe < Number(f.monto) ? `Falta ${dinero(f.debe)}` : 'Debe'}
+                      {f.debe <= 0 ? 'Pagado' : f.debe < Number(f.monto) ? `Abonó · falta ${dinero(f.debe)}` : 'Debe'}
                     </span>
                   </div>
                 </button>

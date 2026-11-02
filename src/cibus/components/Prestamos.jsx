@@ -92,25 +92,30 @@ export default function Prestamos() {
         <p className="text-center text-sm text-slate-400 py-8">No hay préstamos aquí</p>
       ) : (
         <ul className="bg-white rounded-2xl shadow-sm divide-y divide-slate-100 lg:bg-transparent lg:shadow-none lg:divide-y-0 lg:grid lg:grid-cols-2 lg:gap-3 [&>li]:lg:bg-white [&>li]:lg:rounded-2xl [&>li]:lg:shadow-sm lg:[&>li:last-child:nth-child(odd)]:col-span-2">
-          {visibles.map(p => (
+          {visibles.map(p => {
+            const abono = p.estado === 'activo' && Number(p.pagado_total) > 0
+            const barra = p.estado === 'pagado' ? 'border-lima' : vencido(p) ? 'border-red-400' : abono ? 'border-champagne' : 'border-transparent'      // pagado · vencido · con abonos
+            return (
             <li key={p.id}>
               <button onClick={() => setAbierto(p)}
-                className="w-full min-h-14 px-4 py-2 grid grid-cols-[1fr_auto] gap-3 items-center text-left active:bg-slate-50">
+                className={`w-full min-h-14 pl-3 pr-4 py-2 grid grid-cols-[1fr_auto] gap-3 items-center text-left active:bg-slate-50 border-l-4 ${barra}`}>
                 <div className="min-w-0">
                   <p className="text-sm font-medium break-words">{p.cliente_nombre}</p>
                   <p className={`text-xs break-words ${vencido(p) ? 'text-red-500 font-medium' : 'text-slate-400'}`}>
                     {p.estado === 'activo'
                       ? (vencido(p) ? `${p.cuotas_vencidas} cuota(s) vencida(s)` : `Próximo pago ${fechaSolo(p.proxima_fecha)}`)
-                      : p.estado === 'pagado' ? 'Pagado' : 'Cancelado'}
+                      : p.estado === 'pagado' ? 'Pagado completo' : 'Cancelado'}
+                    {abono ? ` · abonó ${dinero(p.pagado_total)}` : ''}
                     {` · ${Number(p.tasa_mensual).toLocaleString("es-CO")}%`}
                   </p>
                 </div>
-                <span className={`text-sm font-semibold ${vencido(p) ? 'text-red-500' : 'text-slate-700'}`}>
+                <span className={`text-sm font-semibold ${vencido(p) ? 'text-red-500' : p.estado === 'pagado' ? 'text-marca' : 'text-slate-700'}`}>
                   {dinero(p.estado === 'activo' ? p.saldo : p.total_a_pagar)}
                 </span>
               </button>
             </li>
-          ))}
+            )
+          })}
         </ul>
       )}
 

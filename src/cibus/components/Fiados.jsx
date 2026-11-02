@@ -6,6 +6,7 @@ import { dinero } from '../lib/formato'
 import { claseInput } from '../lib/estilos'
 import { coincide } from '../lib/buscar'
 import { diasDesde, estaVencido, desgloseDeuda, actividadCliente } from '../lib/cartera'
+import { estadoCuenta, ordenarClientes, ORDENES } from '../lib/estadoCuenta'
 import ClienteForm from './ClienteForm'
 import ClienteDetalle from './ClienteDetalle'
 import PrestamoRapido from './PrestamoRapido'
@@ -24,6 +25,8 @@ const FILTROS = [
 
 export default function Fiados() {
   const [clientes, setClientes] = useState([])
+  const [actividad, setActividad] = useState(() => new Map())      // última actividad y abonos por cliente (vista clientes_actividad_fiado)
+  const [orden, setOrden] = useState('recientes')
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
   const [texto, setTexto] = useState('')
@@ -36,16 +39,20 @@ export default function Fiados() {
 
   const cargar = useCallback(async () => {
     setCargando(true)
-    const { data, error: err } = await supabase.from('clientes_saldo').select('*').order('nombre').range(0, 4999)
+    const [{ data, error: err }, act] = await Promise.all([
+      supabase.from('clientes_saldo').select('*').order('nombre').range(0, 4999),
+      supabase.from('clientes_actividad_fiado').select('*').range(0, 4999),
+    ])
     if (err) setError(err.message)
     setClientes(data ?? [])
+    setActividad(new Map((act.error ? [] : act.data ?? []).map(a => [a.cliente_id, a])))      // si la vista aún no existe, la lista sigue funcionando (sin colores de abonos)
     setCargando(false)
   }, [])
   useEffect(() => { cargar() }, [cargar])
 
   const totalDeuda = clientes.reduce((s, c) => s + Math.max(Number(c.saldo), 0), 0)
   const vencidos = useMemo(() => clientes.filter(estaVencido), [clientes])
-  const visibles = clientes.filter(c => {
+  const filtrados = clientes.filter(c => {
     if (!coincide([c.nombre, c.documento, c.telefono, c.email, c.direccion], texto)) return false
     if (filtro === 'deben') return Number(c.saldo) > 0
     if (filtro === 'vencidos') return estaVencido(c)
@@ -54,6 +61,7 @@ export default function Fiados() {
     if (filtro === 'sindeuda') return !(Number(c.saldo) > 0)
     return true
   })
+  const visibles = useMemo(() => ordenarClientes(filtrados, actividad, orden), [filtrados, actividad, orden])
   const cuenta = useMemo(() => ({
     vencidos: vencidos.length,
     fiado: clientes.filter(c => desgloseDeuda(c).fiado > 0).length,
@@ -122,6 +130,17 @@ export default function Fiados() {
           </button>
         ))}
       </div>
+      <div className="grid grid-cols-3 gap-2" role="group" aria-label="Orden de la lista">
+        {ORDENES.map(([id, t]) => (
+          <button key={id} onClick={() => setOrden(id)} aria-pressed={orden === id}
+            className={`h-9 rounded-xl text-xs font-medium ${orden === id ? 'bg-negro text-champagne' : 'bg-white text-slate-500 shadow-sm'}`}>{t}</button>
+        ))}
+      </div>
+      <p className="flex flex-wrap justify-center gap-x-4 gap-y-1 text-[11px] text-slate-400">
+        <span><i className="inline-block w-2 h-2 rounded-full bg-red-400 align-middle" /> Vencido</span>
+        <span><i className="inline-block w-2 h-2 rounded-full bg-champagne align-middle" /> Abonó</span>
+        <span><i className="inline-block w-2 h-2 rounded-full bg-lima align-middle" /> Pagado</span>
+      </p>
       </BarraFija>
 
       {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
@@ -136,11 +155,12 @@ export default function Fiados() {
             const debe = Number(c.saldo) > 0
             const vencido = estaVencido(c)
             const d = desgloseDeuda(c)
-            const actividad = actividadCliente(c, dinero)
+            const actividadTxt = actividadCliente(c, dinero)
+            const est = estadoCuenta({ saldo: c.saldo, vencido }, actividad.get(c.id), dinero)
             return (
               <li key={c.id}>
                 <button onClick={() => setAbierto(c)}
-                  className="w-full min-h-14 px-4 py-2 grid grid-cols-[1fr_auto] gap-3 items-center text-left active:bg-slate-50">
+                  className={`w-full min-h-14 pl-3 pr-4 py-2 grid grid-cols-[1fr_auto] gap-3 items-center text-left active:bg-slate-50 border-l-4 ${est.barra}`}>
                   <div className="min-w-0">
                     <p className="text-sm font-medium break-words">{c.nombre}</p>
                     <p className={`text-xs break-words ${vencido ? 'text-red-500 font-medium' : 'text-slate-400'}`}>
@@ -148,17 +168,23 @@ export default function Fiados() {
                         ? `${vencido ? 'Vencido · ' : ''}debe hace ${diasDesde(c.deuda_desde)} días`
                         : [c.documento && `${c.tipo_documento ?? ''} ${c.documento}`.trim(), c.telefono].filter(Boolean).join(' · ') || 'Sin deuda'}
                     </p>
-                    {actividad && <p className="text-[11px] text-slate-400 break-words">{actividad}</p>}
+                    {actividadTxt && <p className="text-[11px] text-slate-400 break-words">{actividadTxt}</p>}
+                    {est.detalle && <p className={`text-[11px] font-medium break-words ${est.tipo === "vencido" ? "text-red-500" : "text-marca"}`}>{est.detalle}</p>}
                     {debe && d.hay && (
                       <p className="text-[11px] text-slate-400 break-words">
                         {d.fiado > 0 ? `Fiado ${dinero(d.fiado)} · ` : ''}Préstamo rápido {dinero(d.prestamo)}
                       </p>
                     )}
                   </div>
+                  <div className="grid justify-items-end gap-1">
                   <span className={`text-sm font-semibold ${
                     vencido ? 'text-red-500' : debe ? 'text-naranja-oscuro' : 'text-slate-400'}`}>
                     {dinero(c.saldo)}
                   </span>
+                    {est.etiqueta && (
+                      <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${est.tipo === "pagado" ? "bg-lima/20 text-marca" : est.tipo === "abonando" ? "bg-champagne/40 text-naranja-oscuro" : "bg-red-50 text-red-600"}`}>{est.etiqueta}</span>
+                    )}
+                  </div>
                 </button>
               </li>
             )

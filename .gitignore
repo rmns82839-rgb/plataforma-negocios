@@ -3,3 +3,6 @@ dist
 .env
 .env.local
 .vercel
+
+# Respaldos de la migración de Cibus (traen datos de clientes: NUNCA se suben a GitHub)
+respaldo-nelson/

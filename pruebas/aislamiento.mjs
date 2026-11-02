@@ -1861,6 +1861,35 @@ await q(`update catalogo_base set en_portada=false, eliminado_en=null where id=$
   await sis(() => q(`select activar_plan($1,'vitrina')`, [V]))
 }
 
+// ---------- 59: preparar la migración de Cibus ----------
+{
+  await db.exec(fs.readFileSync(path.join(sqlDir, '59-preparar-migracion-cibus.sql'), 'utf8').split('-- ---------- VERIFICACIÓN')[0])
+  await db.exec(fs.readFileSync(path.join(sqlDir, '59-preparar-migracion-cibus.sql'), 'utf8').split('-- ---------- VERIFICACIÓN')[0])   // idempotente
+  await ok('el dueño ve sus avisos automáticos y no los de otra tienda', 'duenoV', async () => { await q(`reset role`); await db.exec(`insert into avisos_auto (negocio_id, activo) select id, true from negocios where id in ('${V}', '${A}')`); await db.exec(`set role authenticated; select set_config('request.jwt.claim.sub','${U.duenoV}',false)`); return q(`select negocio_id from avisos_auto`) }, r => r.rows.length === 1 && r.rows[0].negocio_id === V)
+  await falla('un dueño no escribe directo en instalaciones_app', 'duenoV', () => q(`insert into instalaciones_app (negocio_id, dispositivo) values ($1, 'abcdefghijklmnop1234')`, [V]), 'row-level|permission')
+  await falla('anónimo no lee avisos_auto', 'anon', () => q(`select * from avisos_auto`), 'permission denied')
+}
+
+// ---------- 60: fiados con colores ----------
+{
+  await db.exec(fs.readFileSync(path.join(sqlDir, '60-fiados-con-colores.sql'), 'utf8').split('-- ---------- VERIFICACIÓN')[0])
+  await db.exec(fs.readFileSync(path.join(sqlDir, '60-fiados-con-colores.sql'), 'utf8').split('-- ---------- VERIFICACIÓN')[0])   // idempotente
+  await sis(async () => {
+    await q(`insert into clientes (negocio_id, id, nombre) values ($1, 'c0000000-0000-0000-0000-0000000000f1', 'Cliente Fiado') on conflict do nothing`, [V]).catch(() => {})
+  })
+  const cf = (await sis(() => q(`select id from clientes where negocio_id=$1 limit 1`, [V]))).rows[0]?.id
+  if (cf) {
+    await sis(async () => {
+      await db.exec(`set session_replication_role = replica`)
+      await q(`insert into fiado_movimientos (negocio_id, cliente_id, tipo, monto, fecha) values ($1,$2,'cargo',10000, now() - interval '5 days'), ($1,$2,'abono',3000, now() - interval '3 days'), ($1,$2,'abono',2000, now() - interval '1 day')`, [V, cf])
+      await db.exec(`set session_replication_role = origin`)
+    })
+    await ok('la vista da último abono, totales y último movimiento', 'duenoV', () => q(`select * from clientes_actividad_fiado where cliente_id=$1`, [cf]), r => r.rows.length === 1 && Number(r.rows[0].abonado_total) === 5000 && Number(r.rows[0].cargado_total) === 10000 && Number(r.rows[0].ultimo_abono_monto) === 2000)
+    await ok('el dueño de otra tienda no ve esa actividad', 'duenoA', () => q(`select * from clientes_actividad_fiado where cliente_id=$1`, [cf]), r => r.rows.length === 0)
+    await falla('anónimo no lee la actividad de fiados', 'anon', () => q(`select * from clientes_actividad_fiado`), 'permission denied')
+  }
+}
+
 console.log('\n--- Verificación automática de la base ---')
 const ver = await como('sistema', () => q(`select * from verificar_aislamiento()`))
 for (const f of ver.rows) { pruebas++; if (f.ok) console.log('✓', f.chequeo); else { fallas++; console.log('✗', f.chequeo, '→', f.detalle) } }
