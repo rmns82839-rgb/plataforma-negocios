@@ -46,11 +46,11 @@ export default function ReversarVentas({ dueno, onReversada, onCerrar }) {
           <p className="text-xs text-slate-500">{dueno ? 'Las últimas 20 ventas. Para una más antigua, búscala en Ventas.' : 'Tus últimas 5 ventas. Para otra, pídele al dueño.'}</p>
         </div>
         {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2 break-words">{error}</p>}
-        <div className="overflow-y-auto overscroll-contain divide-y divide-slate-100 rounded-2xl ring-1 ring-slate-100">
+        <div className="overflow-y-auto overscroll-contain space-y-3">
           {ventas === null && <p className="text-center text-sm text-slate-400 py-6">Cargando…</p>}
           {ventas?.length === 0 && !error && <p className="text-center text-sm text-slate-400 py-6">No hay ventas para reversar.</p>}
-          {ventas?.map(v => (
-            <div key={v.id} className="p-3 space-y-3">
+          {ventas?.map((v, n) => (
+            <div key={v.id} className={`p-3 space-y-3 rounded-2xl border-l-8 ring-1 ${n % 2 === 0 ? 'bg-white border-slate-400 ring-slate-200' : 'bg-amber-50 border-amber-400 ring-amber-200'}`}>
               <div className="grid grid-cols-[1fr_auto] items-start gap-3">
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-slate-800">{numeroFactura(v.numero)}</p>
