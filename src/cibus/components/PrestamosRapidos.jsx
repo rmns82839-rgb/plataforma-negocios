@@ -110,7 +110,7 @@ export default function PrestamosRapidos({ clientes, onCambio }) {
         <ul className="bg-white rounded-2xl shadow-sm divide-y divide-slate-100 lg:bg-transparent lg:shadow-none lg:divide-y-0 lg:grid lg:grid-cols-2 lg:gap-3 [&>li]:lg:bg-white [&>li]:lg:rounded-2xl [&>li]:lg:shadow-sm lg:[&>li:last-child:nth-child(odd)]:col-span-2">
           {visibles.map(f => {
             const vencido = f.debe > 0 && yaVencio(f.fecha_limite)
-            const barra = f.debe <= 0 ? 'border-lima' : vencido ? 'border-red-400' : f.debe < Number(f.monto) ? 'border-champagne' : 'border-transparent'      // pagado · vencido · con abonos · sin abonos
+            const barra = f.debe <= 0 ? 'border-emerald-500' : vencido ? 'border-red-400' : f.debe < Number(f.monto) ? 'border-amber-400' : 'border-transparent'      // pagado · vencido · con abonos · sin abonos
             return (
               <li key={f.id}>
                 <button onClick={() => abrirCliente(f)}
@@ -129,7 +129,7 @@ export default function PrestamosRapidos({ clientes, onCambio }) {
                   <div className="grid justify-items-end gap-1">
                     <span className="text-sm font-semibold">{dinero(f.monto)}</span>
                     <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
-                      f.debe <= 0 ? 'bg-lima/20 text-marca' : vencido ? 'bg-red-50 text-red-600' : 'bg-champagne/40 text-naranja-oscuro'}`}>
+                      f.debe <= 0 ? 'bg-emerald-100 text-emerald-700' : vencido ? 'bg-red-50 text-red-600' : f.debe < Number(f.monto) ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600'}`}>
                       {f.debe <= 0 ? 'Pagado' : f.debe < Number(f.monto) ? `Abonó · falta ${dinero(f.debe)}` : 'Debe'}
                     </span>
                   </div>

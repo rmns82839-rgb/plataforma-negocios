@@ -138,8 +138,8 @@ export default function Fiados() {
       </div>
       <p className="flex flex-wrap justify-center gap-x-4 gap-y-1 text-[11px] text-slate-400">
         <span><i className="inline-block w-2 h-2 rounded-full bg-red-400 align-middle" /> Vencido</span>
-        <span><i className="inline-block w-2 h-2 rounded-full bg-champagne align-middle" /> Abonó</span>
-        <span><i className="inline-block w-2 h-2 rounded-full bg-lima align-middle" /> Pagado</span>
+        <span><i className="inline-block w-2 h-2 rounded-full bg-amber-400 align-middle" /> Abonó</span>
+        <span><i className="inline-block w-2 h-2 rounded-full bg-emerald-500 align-middle" /> Pagado</span>
       </p>
       </BarraFija>
 
@@ -169,7 +169,7 @@ export default function Fiados() {
                         : [c.documento && `${c.tipo_documento ?? ''} ${c.documento}`.trim(), c.telefono].filter(Boolean).join(' · ') || 'Sin deuda'}
                     </p>
                     {actividadTxt && <p className="text-[11px] text-slate-400 break-words">{actividadTxt}</p>}
-                    {est.detalle && <p className={`text-[11px] font-medium break-words ${est.tipo === "vencido" ? "text-red-500" : "text-marca"}`}>{est.detalle}</p>}
+                    {est.detalle && <p className={`text-[11px] font-medium break-words ${est.tipo === "vencido" ? "text-red-500" : est.tipo === "pagado" ? "text-emerald-700" : "text-amber-700"}`}>{est.detalle}</p>}
                     {debe && d.hay && (
                       <p className="text-[11px] text-slate-400 break-words">
                         {d.fiado > 0 ? `Fiado ${dinero(d.fiado)} · ` : ''}Préstamo rápido {dinero(d.prestamo)}
@@ -182,7 +182,7 @@ export default function Fiados() {
                     {dinero(c.saldo)}
                   </span>
                     {est.etiqueta && (
-                      <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${est.tipo === "pagado" ? "bg-lima/20 text-marca" : est.tipo === "abonando" ? "bg-champagne/40 text-naranja-oscuro" : "bg-red-50 text-red-600"}`}>{est.etiqueta}</span>
+                      <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${est.tipo === "pagado" ? "bg-emerald-100 text-emerald-700" : est.tipo === "abonando" ? "bg-amber-100 text-amber-800" : "bg-red-50 text-red-600"}`}>{est.etiqueta}</span>
                     )}
                   </div>
                 </button>

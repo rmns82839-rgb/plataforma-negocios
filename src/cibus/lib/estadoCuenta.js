@@ -15,9 +15,9 @@ export function estadoCuenta({ saldo, vencido = false }, act, dinero) {
   const tuvoCredito = (Number(act?.cargado_total) || 0) > 0
   const abono = act?.ultimo_abono ? `Último abono ${dinero(act.ultimo_abono_monto)} · ${hace(act.ultimo_abono)}` : ''
   if (debe && vencido) return { tipo: 'vencido', barra: 'border-red-400', etiqueta: abonado > 0 ? 'Vencido · abonó' : 'Vencido', detalle: abono }
-  if (debe && abonado > 0) return { tipo: 'abonando', barra: 'border-champagne', etiqueta: 'Abonó', detalle: abono }
+  if (debe && abonado > 0) return { tipo: 'abonando', barra: 'border-amber-400', etiqueta: 'Abonó', detalle: abono }
   if (debe) return { tipo: 'debe', barra: 'border-transparent', etiqueta: '', detalle: '' }
-  if (tuvoCredito) return { tipo: 'pagado', barra: 'border-lima', etiqueta: 'Pagado', detalle: abono || (act?.ultimo_movimiento ? `Saldó ${hace(act.ultimo_movimiento)}` : '') }
+  if (tuvoCredito) return { tipo: 'pagado', barra: 'border-emerald-500', etiqueta: 'Pagado', detalle: abono || (act?.ultimo_movimiento ? `Saldó ${hace(act.ultimo_movimiento)}` : '') }
   return { tipo: 'libre', barra: 'border-transparent', etiqueta: '', detalle: '' }
 }
 

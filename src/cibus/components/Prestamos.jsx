@@ -94,7 +94,7 @@ export default function Prestamos() {
         <ul className="bg-white rounded-2xl shadow-sm divide-y divide-slate-100 lg:bg-transparent lg:shadow-none lg:divide-y-0 lg:grid lg:grid-cols-2 lg:gap-3 [&>li]:lg:bg-white [&>li]:lg:rounded-2xl [&>li]:lg:shadow-sm lg:[&>li:last-child:nth-child(odd)]:col-span-2">
           {visibles.map(p => {
             const abono = p.estado === 'activo' && Number(p.pagado_total) > 0
-            const barra = p.estado === 'pagado' ? 'border-lima' : vencido(p) ? 'border-red-400' : abono ? 'border-champagne' : 'border-transparent'      // pagado · vencido · con abonos
+            const barra = p.estado === 'pagado' ? 'border-emerald-500' : vencido(p) ? 'border-red-400' : abono ? 'border-amber-400' : 'border-transparent'      // pagado · vencido · con abonos
             return (
             <li key={p.id}>
               <button onClick={() => setAbierto(p)}
@@ -109,7 +109,7 @@ export default function Prestamos() {
                     {` · ${Number(p.tasa_mensual).toLocaleString("es-CO")}%`}
                   </p>
                 </div>
-                <span className={`text-sm font-semibold ${vencido(p) ? 'text-red-500' : p.estado === 'pagado' ? 'text-marca' : 'text-slate-700'}`}>
+                <span className={`text-sm font-semibold ${vencido(p) ? 'text-red-500' : p.estado === 'pagado' ? 'text-emerald-700' : 'text-slate-700'}`}>
                   {dinero(p.estado === 'activo' ? p.saldo : p.total_a_pagar)}
                 </span>
               </button>
