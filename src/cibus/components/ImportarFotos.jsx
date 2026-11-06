@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { supabase } from '../lib/supabase'
+import { supabase, negocioActual } from '../lib/supabase'
 import { comprimirImagen } from '../lib/imagen'
 import { usePersistido, TREINTA_MIN } from '../lib/usePersistido'
 import { leerCsv, planImportacion, plantillaSinFoto, sinFoto, limpiarTextoCsv } from '../lib/importarFotos'
@@ -70,7 +70,7 @@ export default function ImportarFotos({ productos, onCerrar, onGuardado }) {
 
   const traer = async (url, token) => {
     const r = await fetch('/api/traer-foto', {
-      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ url }),
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ url, negocio_id: negocioActual() }),
     })
     if (!r.ok) {
       const j = await r.json().catch(() => ({}))
