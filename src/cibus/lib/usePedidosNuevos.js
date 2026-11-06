@@ -5,14 +5,23 @@ import { supabase } from './supabase'
 import { sonar } from './sonidos'
 
 const contar = async (tabla) => {
-  const { count, error } = await supabase.from(tabla).select('id', { count: 'exact', head: true }).eq('estado', 'pendiente')
-  return error ? 0 : (count ?? 0)
+  const base = () => supabase.from(tabla).select('id', { count: 'exact', head: true }).eq('estado', 'pendiente')
+  // los pedidos de la tienda que ya pasaron a la Caja no cuentan como «nuevos»
+  let r = tabla === 'pedidos_tienda' ? await base().eq('en_caja', false) : await base()
+  if (r.error && tabla === 'pedidos_tienda') r = await base()          // sin la columna en_caja (falta el SQL)
+  return r.error ? 0 : (r.count ?? 0)
 }
 
 // Resumen de los pendientes de la tienda (número, entrega y total) para el aviso. Si falta la columna "entrega", se pide sin ella.
 const resumenTienda = async () => {
-  let r = await supabase.from('pedidos_tienda').select('numero, entrega, total').eq('estado', 'pendiente').order('creado_en', { ascending: false }).range(0, 4)
-  if (r.error) r = await supabase.from('pedidos_tienda').select('numero, total').eq('estado', 'pendiente').order('creado_en', { ascending: false }).range(0, 4)
+  const pedir = (cols, enCaja) => {
+    let q = supabase.from('pedidos_tienda').select(cols).eq('estado', 'pendiente')
+    if (enCaja) q = q.eq('en_caja', false)
+    return q.order('creado_en', { ascending: false }).range(0, 4)
+  }
+  let r = await pedir('numero, entrega, total', true)
+  if (r.error) r = await pedir('numero, entrega, total', false)
+  if (r.error) r = await pedir('numero, total', false)
   return r.error ? [] : (r.data ?? [])
 }
 
@@ -49,6 +58,7 @@ export function usePedidosNuevos(activo = true, conOpiniones = false) {
       for (const c of supabase.getChannels()) if (c.topic === 'realtime:avisos-pedidos') supabase.removeChannel(c)
       canal = supabase.channel('avisos-pedidos')
       for (const tabla of ['pedidos_tienda']) canal.on('postgres_changes', { event: 'INSERT', schema: 'public', table: tabla }, () => { clearTimeout(espera); espera = setTimeout(revisar, 800) })
+      canal.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pedidos_tienda' }, () => { clearTimeout(espera); espera = setTimeout(revisar, 800) })      // al pasar a la Caja o devolverlo
       canal.subscribe()
     } catch { canal = null }
     return () => { clearInterval(t); clearTimeout(espera); document.removeEventListener('visibilitychange', v); if (canal) { try { supabase.removeChannel(canal) } catch { /* ya cerrado */ } } }

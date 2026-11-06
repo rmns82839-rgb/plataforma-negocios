@@ -12,6 +12,9 @@ import { alCambiarCola, listarCola } from '../lib/sincronizar'
 import { leerBorrador, guardarBorrador, DOCE_HORAS } from '../lib/borrador'
 import { usePersistido, TREINTA_MIN } from '../lib/usePersistido'
 import PedidoDetalle from './PedidoDetalle'
+import ItemsConFoto from './ItemsConFoto'
+import { imagenesDeProductos } from '../lib/imagenesProductos'
+import { marcarEnCaja, lineaDePedido, etapaProceso, claseEtapa, resumenProceso } from '../lib/pedidosCaja'
 import AsignarDomiciliario from './AsignarDomiciliario'
 import { ESTADO_PAGO, textoMedio, confirmarPago } from '../lib/pagoDigital'
 
@@ -43,6 +46,8 @@ export default function PedidosTienda({ onCobrar }) {
   const [cuentas, setCuentas] = useState({})
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
+  const [proceso, setProceso] = useState([])          // pedidos que ya salieron de «Pendientes»: en caja, preparando, en camino…
+  const [verProceso, setVerProceso] = useState(false)
   const [recibiendo, setRecibiendo] = usePersistido('pedidostienda:recibiendo', null, true, TREINTA_MIN)   // id del pedido con el detalle abierto
 
   const cargar = useCallback(async () => {
@@ -50,11 +55,18 @@ export default function PedidosTienda({ onCobrar }) {
     const { data, error: err } = await supabase.from('pedidos_tienda').select('*, pedido_tienda_items(*)')
       .eq('estado', estado).order('creado_en', { ascending: false }).range(0, 99)
     setError(err ? (/pedidos_tienda|schema cache|does not exist/i.test(err.message) ? 'Falta ejecutar migracion-v12.sql en Supabase.' : err.message) : '')
-    setLista(data ?? [])
-    const { data: todos } = await supabase.from('pedidos_tienda').select('estado').range(0, 999)
+    const filas = data ?? []
+    const imgs = await imagenesDeProductos(filas.flatMap(p => (p.pedido_tienda_items ?? []).map(it => it.producto_id)))
+    const conFoto = filas.map(p => ({ ...p, pedido_tienda_items: (p.pedido_tienda_items ?? []).map(it => ({ ...it, imagenes: imgs[it.producto_id]?.imagenes ?? [] })) }))
+    setLista(estado === 'pendiente' ? conFoto.filter(p => !p.en_caja) : conFoto)       // los que ya pasaron a la Caja quedan en «En proceso»
+    const cols = 'id, estado, numero, nombre, total, entrega, seguimiento, creado_en'
+    let t = await supabase.from('pedidos_tienda').select(cols + ', en_caja').order('creado_en', { ascending: false }).range(0, 999)
+    if (t.error) t = await supabase.from('pedidos_tienda').select(cols).order('creado_en', { ascending: false }).range(0, 999)       // sin la columna en_caja
+    const todos = t.data ?? []
     const c = {}
-    for (const x of todos ?? []) c[x.estado] = (c[x.estado] ?? 0) + 1
+    for (const x of todos) c[x.estado] = (c[x.estado] ?? 0) + (x.estado === 'pendiente' && x.en_caja ? 0 : 1)
     setCuentas(c)
+    setProceso(todos.filter(x => (x.estado === 'pendiente' && x.en_caja) || (x.estado === 'atendido' && x.seguimiento !== 'entregado')))
     setCargando(false)
   }, [estado])
   useEffect(() => { cargar() }, [cargar])
@@ -74,8 +86,11 @@ export default function PedidosTienda({ onCobrar }) {
     cargar()
   }
 
+  // Devuelve un pedido de la Caja a «Pendientes» (por si se pasó por error)
+  const soltar = async (x) => { await marcarEnCaja(x.id, false); cargar() }
+
   // Pasa el pedido a la Caja: productos, cliente y domicilio ya cargados; solo falta elegir la forma de pago
-  const cobrarEnCaja = (p, costoElegido) => {
+  const cobrarEnCaja = async (p, costoElegido) => {
     setRecibiendo(null)
     const g = leerBorrador(CLAVE_CAJA, DOCE_HORAS)
     if ((g?.lineas ?? []).length > 0) return setError('En Caja hay una venta sin terminar. Termínala o ponla en espera y vuelve a intentar.')
@@ -88,6 +103,7 @@ export default function PedidosTienda({ onCobrar }) {
       pedido: { id: p.id, numero: p.numero },
     })
     setError('')
+    await marcarEnCaja(p.id, true)       // sale del aviso de «pedido nuevo» y queda en «En proceso»
     onCobrar?.()
   }
 
@@ -108,6 +124,36 @@ export default function PedidosTienda({ onCobrar }) {
         <p className="rounded-2xl bg-red-600 text-white px-4 py-3 text-base font-semibold break-words">
           ⚠ {lista.filter(p => p.entrega !== 'recoger' && p.dom_por_confirmar).length === 1 ? 'Hay 1 pedido' : `Hay ${lista.filter(p => p.entrega !== 'recoger' && p.dom_por_confirmar).length} pedidos`} con el domicilio por confirmar. Avísale al cliente cuánto cuesta.
         </p>
+      )}
+      {estado === 'pendiente' && proceso.length > 0 && (
+        <div className="rounded-2xl bg-white shadow-sm overflow-hidden">
+          <button onClick={() => setVerProceso(v => !v)} aria-expanded={verProceso}
+            className="w-full min-h-12 px-4 py-2 grid grid-cols-[1fr_auto] gap-3 items-center text-left active:bg-slate-50">
+            <span className="min-w-0">
+              <span className="block text-sm font-semibold text-slate-700">En proceso ({proceso.length})</span>
+              <span className="block text-xs text-slate-400 break-words">{resumenProceso(proceso)}</span>
+            </span>
+            <span className="text-slate-400 text-sm" aria-hidden="true">{verProceso ? '▴' : '▾'}</span>
+          </button>
+          {verProceso && (
+            <ul className="divide-y divide-slate-100 border-t border-slate-100">
+              {proceso.map(x => (
+                <li key={x.id} className="px-4 py-3 grid grid-cols-[1fr_auto] gap-3 items-center">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium break-words">N.º {x.numero} · {x.nombre}</p>
+                    <p className="text-xs text-slate-400">{dinero(x.total)} · {x.entrega === 'recoger' ? 'Recoge en tienda' : 'A domicilio'}</p>
+                  </div>
+                  <div className="grid gap-1 justify-items-end">
+                    <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${claseEtapa(x)}`}>{etapaProceso(x)}</span>
+                    {x.estado === 'pendiente'
+                      ? <button onClick={() => soltar(x)} className="text-xs text-slate-500 underline">Devolver a pendientes</button>
+                      : <button onClick={() => setEstado('atendido')} className="text-xs text-slate-500 underline">Ver en Atendidos</button>}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       )}
       {cargando ? <p className="text-center text-sm text-slate-400 py-8">Cargando…</p>
         : lista.length === 0 ? <p className="text-center text-sm text-slate-400 py-8">{estado === 'pendiente' ? 'No hay pedidos pendientes. Llegan cuando un cliente envía su pedido desde /tienda.' : 'Nada por aquí.'}</p>
@@ -136,14 +182,7 @@ export default function PedidosTienda({ onCobrar }) {
                   </div>
                   <p className="text-base font-bold">{dinero(p.total)}</p>
                 </div>
-                <ul className="text-sm text-slate-600 space-y-0.5">
-                  {p.pedido_tienda_items.map(it => (
-                    <li key={it.id} className="grid grid-cols-[1fr_auto] gap-2">
-                      <span className="min-w-0">{numero(it.cantidad)}{it.unidad === 'und' ? '×' : ' ' + it.unidad} {it.nombre}{it.promo ? <span className="text-xs text-oro-oscuro"> · {it.promo}</span> : null}</span>
-                      <span className="text-sm text-slate-800 tabular-nums">{dinero(Math.round(Number(it.precio_unitario) * Number(it.cantidad)) - Number(it.descuento ?? 0))}</span>
-                    </li>
-                  ))}
-                </ul>
+                <ItemsConFoto items={p.pedido_tienda_items.map(lineaDePedido)} />
                 <div className="border-t border-slate-100 pt-2 space-y-0.5 text-xs text-slate-500">
                   {p.estado === 'pendiente' && p.entrega !== 'recoger' && p.dom_por_confirmar && (
                     <p className="rounded-lg bg-red-50 text-red-700 px-3 py-2 text-sm font-semibold break-words">El total NO incluye el domicilio. Confírmalo con el cliente por WhatsApp y súmalo al cobrar.</p>

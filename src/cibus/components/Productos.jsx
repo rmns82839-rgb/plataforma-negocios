@@ -3,7 +3,7 @@ import { usePersistido, borrarBorradores, TREINTA_MIN } from '../lib/usePersisti
 import { supabase } from '../lib/supabase'
 import { traerTodo } from '../lib/traerTodo'
 import { dinero, numero, aCantidad, aNumero } from '../lib/formato'
-import { coincide } from '../lib/buscar'
+import { coincide, ordenarPorInicio } from '../lib/buscar'
 import { claseInput } from '../lib/estilos'
 import Escaner from './Escaner'
 import Modal, { Campo } from './Modal'
@@ -34,6 +34,8 @@ import { confirmar } from '../lib/confirmar'
 import { usePlataforma } from '../context/plataforma'
 import { enlaceTienda } from '../lib/enlaces'
 
+let cacheProductos = null      // la lista de la última vez: se muestra al instante mientras llega la nueva
+
 export default function Productos() {
   const { modulos } = usePlataforma()
   const [verRepetidos, setVerRepetidos] = useState(false)
@@ -43,7 +45,8 @@ export default function Productos() {
   const cancelarEscaneo = useRef(false)
   const conCompras = modulos.includes('compras')       // «Compra» y «+ Stock» registran una compra: necesitan ese módulo
   const [productos, setProductos] = useState([])
-  const [cargando, setCargando] = useState(true)
+  const [cargando, setCargando] = useState(!cacheProductos)
+  const [mostrar, setMostrar] = useState(60)      // se dibujan de a 60: con miles de productos, dibujarlos todos traba el celular
   const [error, setError] = useState('')
   const [texto, setTexto] = useState('')
   const [filtro, setFiltro] = useState('todos')     // todos | bajos | vencer
@@ -78,7 +81,7 @@ export default function Productos() {
   const modalAbierto = Boolean(form || compra || ingreso || ajuste || fotos || publicar || carga || base || verRepetidos)
   const listaRef = useRef([])
   const cargar = useCallback(async () => {
-    setCargando(true)
+    if (cacheProductos) { listaRef.current = cacheProductos; setProductos(cacheProductos); setCargando(false) } else setCargando(true)
     const [pr, lo] = await Promise.all([
       traerTodo(() => supabase.from('productos').select('*').eq('activo', true).order('nombre').order('id')),
       traerTodo(() => supabase.from('lotes_saldo').select('producto_id,fecha_vencimiento,restante').gt('restante', 0)
@@ -92,6 +95,7 @@ export default function Productos() {
     }
     listaRef.current = (pr.data ?? []).map(p => ({ ...p, vence: prox[p.id] ?? null }))
     setProductos(listaRef.current)
+    cacheProductos = listaRef.current
     setCargando(false)
   }, [])
   useEffect(() => { cargar() }, [cargar])
@@ -116,10 +120,12 @@ export default function Productos() {
 
   const visibles = useMemo(() => {
     const base = filtro === 'bajos' ? bajos : filtro === 'agotados' ? agotados : filtro === 'vencer' ? aVencer : filtro === 'sinfoto' ? productos.filter(p => sinFoto(p) || fotosHechas[p.id] > 0) : productos
-    return base.filter(p => (categoria === 'todas' || p.categoria === categoria) && coincide([p.nombre, p.codigo], texto))
+    const lista = base.filter(p => (categoria === 'todas' || p.categoria === categoria) && coincide([p.nombre, p.codigo], texto))
+    return texto.trim() ? ordenarPorInicio(lista, texto) : lista      // al buscar, lo que mejor encaja va primero
   }, [productos, bajos, agotados, aVencer, fotosHechas, texto, filtro, categoria])
 
   const categorias = useMemo(() => ['todas', ...new Set(productos.map(p => p.categoria).filter(Boolean))], [productos])
+  useEffect(() => { setMostrar(60) }, [texto, filtro, categoria])
 
   const sumarStock = async () => {
     const n = aCantidad(cantidad)
@@ -375,7 +381,7 @@ export default function Productos() {
         </div>
       ) : (
         <ul className="bg-white rounded-2xl shadow-sm divide-y divide-slate-100 lg:bg-transparent lg:shadow-none lg:divide-y-0 lg:grid lg:grid-cols-2 lg:gap-3 [&>li]:lg:bg-white [&>li]:lg:rounded-2xl [&>li]:lg:shadow-sm lg:[&>li:last-child:nth-child(odd)]:col-span-2">
-          {(modoBajar && soloMarcados ? visibles.filter(p => marcados.has(p.id)) : visibles).map(p => {
+          {(modoBajar && soloMarcados ? visibles.filter(p => marcados.has(p.id)) : visibles.slice(0, mostrar)).map(p => {
             const bajo = Number(p.stock) <= Number(p.stock_minimo)
             return (
               <li key={p.id} className="p-3 grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-x-3 gap-y-2 items-center">
@@ -444,6 +450,11 @@ export default function Productos() {
             )
           })}
         </ul>
+      )}
+      {!cargando && visibles.length > mostrar && (
+        <button onClick={() => setMostrar(m => m + 60)} className="w-full min-h-12 rounded-xl bg-white shadow-sm text-sm font-medium text-slate-600 active:bg-slate-50">
+          Mostrar más ({visibles.length - mostrar} restantes)
+        </button>
       )}
 
       {form && (

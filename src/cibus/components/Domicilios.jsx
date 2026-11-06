@@ -5,6 +5,8 @@ import { dinero, fechaHora } from '../lib/formato'
 import { numeroFactura } from '../lib/factura'
 import { useConfig } from '../lib/config'
 import BarraFija from './BarraFija'
+import ItemsConFoto from './ItemsConFoto'
+import { imagenesDeProductos } from '../lib/imagenesProductos'
 import DesgloseDomicilio from './DesgloseDomicilio'
 
 const ESTADOS = [
@@ -24,9 +26,29 @@ export default function Domicilios() {
   const [lista, setLista] = useState([])
   const [pedidos, setPedidos] = useState({})            // venta → pedido de la tienda en línea de donde salió (con la ruta y la tarifa)
   const [filtro, setFiltro] = useState('pendiente')
+  const [items, setItems] = useState({})                 // venta → sus productos con foto y cantidad exacta
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
   const [trabajando, setTrabajando] = useState('')
+
+  const cargarItems = async (ids) => {
+    if (ids.length === 0) return
+    let filas = []
+    for (let i = 0; i < ids.length; i += 100) {
+      const { data } = await supabase.from('venta_items').select('id, venta_id, producto_id, nombre, cantidad, precio_unitario, descuento_linea').in('venta_id', ids.slice(i, i + 100)).order('id')
+      filas = filas.concat(data ?? [])
+    }
+    const imgs = await imagenesDeProductos(filas.map(f => f.producto_id))
+    const por = {}
+    for (const f of filas) {
+      const info = imgs[f.producto_id]
+      ;(por[f.venta_id] ??= []).push({
+        id: f.id, nombre: f.nombre, cantidad: f.cantidad, unidad: info?.unidad ?? 'und', precio: f.precio_unitario,
+        total: Math.round(Number(f.precio_unitario) * Number(f.cantidad)) - Number(f.descuento_linea ?? 0), imagenes: info?.imagenes ?? [],
+      })
+    }
+    setItems(por)
+  }
 
   const cargar = useCallback(async () => {
     const { data, error: err } = await supabase.from('ventas')
@@ -35,6 +57,7 @@ export default function Domicilios() {
     if (err) setError(/domicilio|column|schema cache/i.test(err.message) ? 'Falta ejecutar migracion-v9.sql en Supabase.' : err.message)
     setLista(data ?? [])
     setCargando(false)
+    cargarItems((data ?? []).map(v => v.id))
     const ids = (data ?? []).map(v => v.id)
     if (ids.length > 0) {
       let r = await supabase.from('pedidos_tienda').select('venta_id, direccion, domicilio, dom_km, dom_tarifa, dom_por_confirmar').in('venta_id', ids)
@@ -90,6 +113,7 @@ export default function Domicilios() {
                   </span>
                 </div>
                 <p className="text-sm">{v.dom_direccion}</p>
+                {items[v.id]?.length > 0 && <ItemsConFoto items={items[v.id]} />}
                 <div className="grid grid-cols-2 gap-3 text-xs">
                   <div className="rounded-xl bg-slate-50 px-3 py-2"><p className="text-slate-400">Total a cobrar</p><p className="text-base font-bold">{dinero(v.total)}</p></div>
                   <div className="rounded-xl bg-slate-50 px-3 py-2"><p className="text-slate-400">Costo del envío</p><p className="text-base font-bold">{dinero(v.dom_costo)}</p></div>

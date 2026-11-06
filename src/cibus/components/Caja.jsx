@@ -20,6 +20,7 @@ import { hoyTexto } from '../lib/periodo'
 import Factura from './Factura'
 import BotonCelular from './BotonCelular'
 import { confirmar } from '../lib/confirmar'
+import { marcarEnCaja } from '../lib/pedidosCaja'
 import { ordenarPorInicio, buscarProductosPorNombre, coincide } from '../lib/buscar'
 import DialogoResto from './DialogoResto'
 import { usePractica, practicaActiva, moverPrepagoSimulado } from '../lib/practica'
@@ -340,6 +341,7 @@ export default function Caja() {
   }, [carrito, clienteId, descuentoTxt, dom, notaVenta, pedidoTienda])
 
   const vaciarVenta = () => {
+    if (pedidoTienda?.id) marcarEnCaja(pedidoTienda.id, false)        // si la venta era un pedido de la tienda en línea, vuelve a «Pendientes»
     setCarrito([]); setRecibido(''); setParcial(''); setBusqueda(''); setResultados([]); setEditandoId(null); setPesandoId(null)
     setDescuentoTxt(''); setVerDescuento(false); setMixto(false); setFilas([]); setAbonoTxt(''); setAbonoRecibido(''); setVerParte(false)
     setClienteId(''); setBuscaCliente(''); setFechaLimite(''); setVerCliente(false); setRestoForma('')
@@ -550,7 +552,7 @@ export default function Caja() {
       {pedidoTienda && (
         <div className="rounded-2xl bg-champagne/30 ring-1 ring-oro/40 px-4 py-2.5 grid grid-cols-[1fr_auto] gap-3 items-center">
           <span className="text-sm font-semibold text-negro">Cobrando el pedido N.º {pedidoTienda.numero} de la tienda en línea</span>
-          <button onClick={() => setPedidoTienda(null)} className="h-8 px-3 rounded-lg bg-white text-xs font-medium text-slate-600 ring-1 ring-slate-200 active:bg-slate-50">Soltar</button>
+          <button onClick={() => { if (pedidoTienda?.id) marcarEnCaja(pedidoTienda.id, false); setPedidoTienda(null) }} className="h-8 px-3 rounded-lg bg-white text-xs font-medium text-slate-600 ring-1 ring-slate-200 active:bg-slate-50">Soltar</button>
         </div>
       )}
       <div className="space-y-4 lg:space-y-0 lg:grid lg:grid-cols-[minmax(0,1fr)_26rem] xl:grid-cols-[minmax(0,1fr)_30rem] lg:gap-6 lg:items-start">

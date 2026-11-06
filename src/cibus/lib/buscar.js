@@ -52,27 +52,31 @@ function puntoPalabra(t, texto, palabras) {
   return null
 }
 
-/** null si no encaja; si encaja, un número (menor = mejor). */
-export function puntaje(campos, consulta) {
+/** null si no encaja; si encaja, { total (menor = mejor), aprox (algún término solo «se parece», no está escrito igual) }. */
+export function evaluar(campos, consulta) {
   const tokens = plegar(consulta).split(' ').filter(Boolean)
-  if (tokens.length === 0) return 0
+  if (tokens.length === 0) return { total: 0, aprox: false }
   const lista = campos.map(c => c ?? '')
   const textos = lista.map(plegar)
   const todo = textos.join(' | ')
   const digitos = lista.map(c => String(c).replace(/\D/g, '')).join(' | ')
   const palabras = todo.split(/[ |]+/).filter(Boolean)
-  let total = 0
+  let total = 0, aprox = false
   for (const t of tokens) {
     let p = puntoPalabra(t, todo, palabras)
     if (p === null && /^\d+$/.test(t) && digitos.includes(t)) p = 2
     if (p === null) { total = null; break }
+    if (p === 3) aprox = true
     total += p
   }
-  if (total !== null) return total
+  if (total !== null) return { total, aprox }
   const junto = tokens.join('')                                                  // "cocacola" ↔ "coca cola"
-  if (junto.length >= 4 && textos.some(x => x.replace(/ /g, '').includes(junto))) return 2
+  if (junto.length >= 4 && textos.some(x => x.replace(/ /g, '').includes(junto))) return { total: 2, aprox: false }
   return null
 }
+
+/** null si no encaja; si encaja, un número (menor = mejor). */
+export const puntaje = (campos, consulta) => evaluar(campos, consulta)?.total ?? null
 
 /** @param campos lista de textos donde buscar  @param consulta lo que escribió la persona */
 export const coincide = (campos, consulta) => puntaje(campos, consulta) !== null
@@ -80,8 +84,14 @@ export const coincide = (campos, consulta) => puntaje(campos, consulta) !== null
 /** Los mejores primero (empieza igual, luego una palabra, luego adentro, luego parecidos) y a igual puntaje por nombre. */
 export function ordenarPorInicio(filas, consulta, campo = 'nombre') {
   const q = normalizar(consulta).trim()
-  const rango = (f) => (puntaje([f[campo]], consulta) ?? 9) + (normalizar(f[campo]).startsWith(q) ? 0 : normalizar(f[campo]).includes(q) ? 0.25 : 0.5)   // a igual puntaje, el que lo tiene escrito tal cual va antes
-  return [...filas].map(f => [rango(f), f]).sort((a, b) => a[0] - b[0] || String(a[1][campo]).localeCompare(String(b[1][campo]), 'es')).map(x => x[1])
+  const ev = filas.map(f => ({ f, e: evaluar([f[campo]], consulta) }))
+  const hayExactos = ev.some(x => x.e && !x.e.aprox)               // si hay productos que lo tienen escrito tal cual, los que solo «se parecen» (canela ~ panela) se esconden
+  const rango = (x) => {
+    const n = normalizar(x.f[campo])
+    return (x.e ? x.e.total : 9) + (plegar(n) === plegar(q) ? -1 : 0) + (n.startsWith(q) ? 0 : n.includes(q) ? 0.25 : 0.5)   // a igual puntaje, el que lo tiene escrito tal cual va antes
+  }
+  return ev.filter(x => !(hayExactos && x.e?.aprox)).map(x => [rango(x), x.f])
+    .sort((a, b) => a[0] - b[0] || String(a[1][campo]).localeCompare(String(b[1][campo]), 'es')).map(x => x[1])
 }
 
 // ---------- Búsqueda en la base de datos ----------
@@ -103,8 +113,14 @@ async function indice(clave, armar, refrescar = false) {
 /** Busca en una lista liviana de una tabla. `armar()` devuelve una consulta NUEVA (con select, filtros y order). `campos(f)` = textos donde buscar. */
 export async function buscarEnIndice(clave, armar, texto, { campos = (f) => [f.nombre], max = 5 } = {}) {
   const q = String(texto ?? '').trim()
-  const buscar = (filas) => filas.map(f => [puntaje(campos(f), q), f]).filter(x => x[0] !== null)
-    .sort((a, b) => a[0] - b[0] || String(a[1].nombre).localeCompare(String(b[1].nombre), 'es')).slice(0, max).map(x => x[1])
+  const nq = normalizar(q)
+  const buscar = (filas) => {
+    const ev = filas.map(f => [evaluar(campos(f), q), f]).filter(x => x[0] !== null)
+    const hayExactos = ev.some(x => !x[0].aprox)                       // lo que solo «se parece» se esconde si hay algo escrito tal cual
+    return ev.filter(x => !(hayExactos && x[0].aprox))
+      .map(x => [x[0].total + (normalizar(x[1].nombre).startsWith(nq) ? 0 : 0.25), x[1]])
+      .sort((a, b) => a[0] - b[0] || String(a[1].nombre).localeCompare(String(b[1].nombre), 'es')).slice(0, max).map(x => x[1])
+  }
   let filas = await indice(clave, armar)
   if (!filas) return null
   let r = buscar(filas)

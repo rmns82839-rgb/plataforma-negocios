@@ -1903,6 +1903,19 @@ await q(`update catalogo_base set en_portada=false, eliminado_en=null where id=$
   }
 }
 
+// ---------- 62: pedidos que ya pasaron a la Caja ----------
+{
+  const sql62 = fs.readFileSync(path.join(sqlDir, '62-pedidos-en-caja.sql'), 'utf8')
+  await db.exec(sql62.split('-- ---------- VERIFICACIÓN')[0])
+  for (const f of (await q(sql62.split(/-- -+ VERIFICACIÓN[^\n]*\n/)[1])).rows) { pruebas++; if (f.ok) console.log('✓', f.chequeo); else { fallas++; console.log('✗', f.chequeo) } }
+  const pa = (await sis(() => q(`select id from pedidos_tienda where negocio_id=$1 and estado='pendiente' limit 1`, [A]))).rows[0]?.id
+  if (pa) {
+    await ok('un pedido nuevo no está en caja', 'duenoA', () => q(`select en_caja from pedidos_tienda where id=$1`, [pa]), r => r.rows[0].en_caja === false)
+    await ok('el dueño pasa el pedido a la caja y lo devuelve', 'duenoA', async () => { await q(`update pedidos_tienda set en_caja=true where id=$1`, [pa]); const a = (await q(`select en_caja from pedidos_tienda where id=$1`, [pa])).rows[0].en_caja; await q(`update pedidos_tienda set en_caja=false where id=$1`, [pa]); return { a } }, r => r.a === true)
+    await ok('el dueño de otra tienda no puede cambiarlo', 'duenoB', async () => (await q(`update pedidos_tienda set en_caja=true where id=$1 returning id`, [pa])), r => r.rows.length === 0)
+  } else console.log('   (aviso: no hay pedido pendiente de A para probar en_caja)')
+}
+
 console.log('\n--- Verificación automática de la base ---')
 const ver = await como('sistema', () => q(`select * from verificar_aislamiento()`))
 for (const f of ver.rows) { pruebas++; if (f.ok) console.log('✓', f.chequeo); else { fallas++; console.log('✗', f.chequeo, '→', f.detalle) } }

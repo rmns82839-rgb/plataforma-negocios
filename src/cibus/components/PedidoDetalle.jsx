@@ -6,6 +6,7 @@ import { usePersistido, borrarBorradores, TREINTA_MIN } from '../lib/usePersisti
 import { enlaceWhatsApp } from '../lib/datosCliente'
 import Modal from './Modal'
 import DesgloseDomicilio from './DesgloseDomicilio'
+import ItemsConFoto from './ItemsConFoto'
 
 const hora = (iso) => new Date(iso).toLocaleString('es-CO', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })
 
@@ -44,7 +45,7 @@ export default function PedidoDetalle({ pedido: p, onCerrar, onCobrar, onCambio 
     }
     setGuardando(false)
     borrarBorradores(base)
-    onCobrar(p, costo)
+    await onCobrar(p, costo)
     onCambio?.()
   }
 
@@ -59,21 +60,9 @@ export default function PedidoDetalle({ pedido: p, onCerrar, onCobrar, onCambio 
 
       <div className="space-y-1">
         <p className="text-xs font-medium text-slate-500">Productos ({lineas.length})</p>
-        <ul className="divide-y divide-slate-100 rounded-xl ring-1 ring-slate-100 px-3">
-          {lineas.map(l => (
-            <li key={l.id} className="py-2 grid grid-cols-[1fr_auto] gap-x-3 items-start">
-              <span className="min-w-0">
-                <span className="block text-sm font-medium break-words">{l.nombre}</span>
-                <span className="block text-xs text-slate-400">
-                  {numero(l.cantidad)}{l.unidad === 'und' ? '' : ' ' + l.unidad} × {dinero(l.precio_unitario)}
-                  {l.promo ? <span className="text-oro-oscuro"> · {l.promo}</span> : null}
-                </span>
-                {l.desc > 0 && <span className="block text-xs text-marca">Descuento − {dinero(l.desc)}</span>}
-              </span>
-              <span className="text-sm font-semibold tabular-nums">{dinero(l.neto)}</span>
-            </li>
-          ))}
-        </ul>
+        <div className="rounded-xl ring-1 ring-slate-100 p-3">
+          <ItemsConFoto items={lineas.map(l => ({ id: l.id, nombre: l.nombre, cantidad: l.cantidad, unidad: l.unidad, precio: l.precio_unitario, total: l.neto, imagenes: l.imagenes, nota: l.promo, descuento: l.desc }))} />
+        </div>
       </div>
 
       {domicilio && (
