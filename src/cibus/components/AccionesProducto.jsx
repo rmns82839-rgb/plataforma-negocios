@@ -32,16 +32,16 @@ export default function AccionesProducto({ producto, abierto, onToggle, onEditar
     }
   }
   const ocupado = estado === 'subiendo'
-  const boton = 'min-h-12 rounded-lg bg-slate-50 ring-1 ring-slate-200 text-slate-700 text-xs font-semibold grid place-items-center gap-0.5 py-1 active:bg-slate-100 cursor-pointer'
+  const boton = 'min-w-0 min-h-14 rounded-lg bg-slate-50 ring-1 ring-slate-200 text-slate-700 text-[11px] leading-tight font-semibold grid grid-rows-[auto_auto] place-content-center justify-items-center gap-1 px-1 py-1.5 active:bg-slate-100 cursor-pointer'
   return (
-    <div className="sm:col-span-2">
+    <div className="col-span-full min-w-0">
       <button type="button" onClick={onToggle} aria-expanded={abierto}
-        className="w-full min-h-8 text-xs text-slate-400 active:text-slate-600">
+        className="w-full min-h-8 text-xs text-slate-400 text-center active:text-slate-600">
         {abierto ? 'Cerrar acciones ▴' : 'Acciones ▾'}
       </button>
       {abierto && (
         <div className="space-y-1.5">
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-4 gap-2 w-full">
             <label className={`${boton} ${ocupado ? 'opacity-40' : ''}`}>
               <span aria-hidden="true">📷</span><span>Foto</span>
               <input type="file" accept="image/*" capture="environment" className="hidden" onChange={subir} disabled={ocupado} />
