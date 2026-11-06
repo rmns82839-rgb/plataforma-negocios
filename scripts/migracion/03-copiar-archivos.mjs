@@ -12,13 +12,13 @@ const viejo = createClient(e.NELSON_URL, e.NELSON_SERVICE_KEY, op), nuevo = crea
 const informe = JSON.parse(fs.readFileSync(path.join(dir, 'informe-importacion.json'), 'utf8'))
 let bien = 0; const fallos = []
 if (informe.logo) {
-  const { error } = await nuevo.storage.from(informe.logo.espacio).upload(informe.logo.nueva, fs.readFileSync(informe.logo.archivo), { contentType: informe.logo.tipo, upsert: true })
+  const { error } = await nuevo.storage.from(informe.logo.espacio).upload(informe.logo.nueva, fs.readFileSync(informe.logo.archivo), { contentType: informe.logo.tipo, upsert: true, cacheControl: '31536000' })
   if (error) fallos.push('logo: ' + error.message); else { bien++; console.log('✓ logo') }
 }
 for (const a of informe.archivos.filter((x) => x.bucket)) {
   const { data, error } = await viejo.storage.from(a.bucket).download(a.ruta)
   if (error) { fallos.push(`${a.bucket}/${a.ruta}: ${error.message}`); continue }
-  const { error: e2 } = await nuevo.storage.from(a.espacio).upload(a.nueva, Buffer.from(await data.arrayBuffer()), { contentType: data.type || undefined, upsert: true })
+  const { error: e2 } = await nuevo.storage.from(a.espacio).upload(a.nueva, Buffer.from(await data.arrayBuffer()), { contentType: data.type || undefined, upsert: true, cacheControl: (data.type || '').startsWith('image/') ? '31536000' : '3600' })
   if (e2) fallos.push(`${a.nueva}: ${e2.message}`); else bien++
 }
 console.log(`Copiados: ${bien} · con error: ${fallos.length}`); for (const f of fallos) console.log('  ✗', f)
