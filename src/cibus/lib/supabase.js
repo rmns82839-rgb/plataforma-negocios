@@ -41,7 +41,7 @@ function negocioFalso() {
     if (typeof v.logo === 'string' && v.logo.startsWith('data:')) {      // logo nuevo: se sube a la carpeta de marca de la tienda
       const blob = await (await fetch(v.logo)).blob()
       const ruta = `${negocioId}/marca/logo-${Date.now()}.${blob.type === 'image/png' ? 'png' : 'jpg'}`
-      const s = await plataforma.storage.from('negocios').upload(ruta, blob, { contentType: blob.type })
+      const s = await plataforma.storage.from('negocios').upload(ruta, blob, { contentType: blob.type, cacheControl: '31536000' })
       if (s.error) return { data: null, error: s.error, count: null, status: 400 }
       v.logo = ruta; cfg.icono_path = ruta
     } else if (typeof v.logo === 'string' && /^https?:/.test(v.logo)) delete v.logo      // sin cambios (ya es la dirección pública)

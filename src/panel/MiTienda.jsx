@@ -62,7 +62,7 @@ export default function MiTienda({ ctx, volver }) {
     try {
       const blob = await reducirImagen(a, 600)
       const ruta = `${nid}/marca/logo-${nombreArchivo()}`
-      const { error } = await supabase.storage.from('negocios').upload(ruta, blob, { contentType: 'image/webp' })
+      const { error } = await supabase.storage.from('negocios').upload(ruta, blob, { contentType: 'image/webp', cacheControl: '31536000' })
       if (error) throw error
       const { error: e2 } = await supabase.from('negocio_config').update({ logo_path: ruta, icono_path: ruta }).eq('negocio_id', nid)
       if (e2) throw e2

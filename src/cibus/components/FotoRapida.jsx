@@ -19,7 +19,7 @@ export default function FotoRapida({ producto, nuevas = 0, onHecho }) {
       if (previas.length >= MAX_FOTOS) { setEstado(`Ya tiene ${MAX_FOTOS} fotos`); return }
       const blob = await comprimirImagen(archivo, 1000, 0.8)
       const ruta = `productos/${crypto.randomUUID()}.jpg`
-      const { error: e1 } = await supabase.storage.from('prendas').upload(ruta, blob, { contentType: 'image/jpeg' })
+      const { error: e1 } = await supabase.storage.from('prendas').upload(ruta, blob, { contentType: 'image/jpeg', cacheControl: '31536000' })
       if (e1) throw e1
       const url = supabase.storage.from('prendas').getPublicUrl(ruta).data.publicUrl
       const todas = [...previas, url]

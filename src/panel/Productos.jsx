@@ -156,7 +156,7 @@ function Formulario({ ctx, producto, volver }) {
     try {
       const blob = await reducirImagen(archivo, 900)
       const ruta = `${nid}/productos/${nombreArchivo()}`
-      const { error: e2 } = await supabase.storage.from('negocios').upload(ruta, blob, { contentType: 'image/webp' })
+      const { error: e2 } = await supabase.storage.from('negocios').upload(ruta, blob, { contentType: 'image/webp', cacheControl: '31536000' })
       if (e2) throw e2
       setF((x) => ({ ...x, imagenes: [...x.imagenes, ruta] }))
     } catch (x) { setError(mensajeError(x)) }

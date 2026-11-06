@@ -99,7 +99,7 @@ function MenuHoy({ nid, puede }) {
     try {
       const blob = await reducirImagen(a, 900)
       const ruta = `${nid}/anuncios/menu-${nombreArchivo()}`
-      const { error } = await supabase.storage.from('negocios').upload(ruta, blob, { contentType: 'image/webp' })
+      const { error } = await supabase.storage.from('negocios').upload(ruta, blob, { contentType: 'image/webp', cacheControl: '31536000' })
       if (error) throw error
       setF((x) => ({ ...x, foto: ruta }))
     } catch (x) { setMsg({ tipo: 'error', texto: mensajeError(x) }) }

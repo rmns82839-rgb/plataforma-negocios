@@ -20,7 +20,7 @@ export default function FotosEditor({ fotos, onChange, carpeta = '', max = MAX_F
         const blob = await comprimirImagen(archivo)
         const ruta = `${carpeta}${crypto.randomUUID()}.jpg`
         const { error: err } = await supabase.storage
-          .from(bucket).upload(ruta, blob, { contentType: 'image/jpeg' })
+          .from(bucket).upload(ruta, blob, { contentType: 'image/jpeg', cacheControl: '31536000' })
         if (err) throw err
         nuevas.push(supabase.storage.from(bucket).getPublicUrl(ruta).data.publicUrl)
       }

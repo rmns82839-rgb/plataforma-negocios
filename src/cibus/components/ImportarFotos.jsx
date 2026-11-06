@@ -159,7 +159,7 @@ export default function ImportarFotos({ productos, onCerrar, onGuardado }) {
         const urls = []
         for (const f of buenas(it).slice(0, MAX_FOTOS)) {
           const ruta = `productos/${it.generica ? 'generica-' : ''}${crypto.randomUUID()}.jpg`
-          const { error: e1 } = await supabase.storage.from('prendas').upload(ruta, f.blob, { contentType: 'image/jpeg' })
+          const { error: e1 } = await supabase.storage.from('prendas').upload(ruta, f.blob, { contentType: 'image/jpeg', cacheControl: '31536000' })
           if (e1) throw e1
           urls.push(supabase.storage.from('prendas').getPublicUrl(ruta).data.publicUrl)
         }

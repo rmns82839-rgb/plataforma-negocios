@@ -55,7 +55,7 @@ function FormPrenda({ prenda, onGuardado, onCerrar }) {
         const blob = await comprimirImagen(archivo)
         const ruta = `${crypto.randomUUID()}.jpg`
         const { error: err } = await supabase.storage
-          .from('prendas').upload(ruta, blob, { contentType: 'image/jpeg' })
+          .from('prendas').upload(ruta, blob, { contentType: 'image/jpeg', cacheControl: '31536000' })
         if (err) throw err
         nuevas.push(supabase.storage.from('prendas').getPublicUrl(ruta).data.publicUrl)
       }

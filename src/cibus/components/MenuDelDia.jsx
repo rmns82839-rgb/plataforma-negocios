@@ -85,7 +85,7 @@ export default function MenuDelDia() {
     try {
       const blob = await comprimirImagen(f, 1000, 0.8)
       const ruta = `menus/${crypto.randomUUID()}.jpg`
-      const { error: e1 } = await supabase.storage.from('prendas').upload(ruta, blob, { contentType: 'image/jpeg' })
+      const { error: e1 } = await supabase.storage.from('prendas').upload(ruta, blob, { contentType: 'image/jpeg', cacheControl: '31536000' })
       if (e1) throw e1
       setElegido(m => ({ ...m, foto_url: supabase.storage.from('prendas').getPublicUrl(ruta).data.publicUrl }))
     } catch (err) { setError('No se pudo subir la foto: ' + (err?.message || 'intenta de nuevo')) }
