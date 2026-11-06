@@ -20,6 +20,7 @@ import { fotosDe } from '../lib/fotos'
 import { descargarFotos } from '../lib/descargarFotos'
 import PublicarEnLinea from './PublicarEnLinea'
 import FotoRapida from './FotoRapida'
+import AccionesProducto from './AccionesProducto'
 import { useDueno } from '../context/rol'
 import { sinFoto } from '../lib/importarFotos'
 import AjusteStock from './AjusteStock'
@@ -52,6 +53,7 @@ export default function Productos() {
   const [filtro, setFiltro] = useState('todos')     // todos | bajos | vencer
   const [categoria, setCategoria] = useState('todas')
   const [verEscaner, setVerEscaner] = useState(false)
+  const [accionesDe, setAccionesDe] = useState(null)      // producto con el desplegable de acciones abierto (uno a la vez)
   const [form, setForm] = usePersistido('productos:form', null, true, TREINTA_MIN)        // producto (o {codigo}) abierto en el formulario
   const [ingreso, setIngreso] = usePersistido('ingreso:producto', null, true, TREINTA_MIN)  // producto al que se le suma stock
   const [cantidad, setCantidad] = usePersistido('ingreso:cantidad', '')
@@ -446,6 +448,9 @@ export default function Productos() {
                   )}
                 </div>
                 )}
+                <AccionesProducto producto={p} abierto={accionesDe === p.id} onToggle={() => setAccionesDe(a => a === p.id ? null : p.id)}
+                  onEditar={() => setForm(p)}
+                  onHecho={(prod, imagenes) => { listaRef.current = listaRef.current.map(x => x.id === prod.id ? { ...x, imagenes } : x); setProductos(listaRef.current) }} />
               </li>
             )
           })}
