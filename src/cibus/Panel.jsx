@@ -254,6 +254,7 @@ function BarraLateral({ activa, sub, dueno, soporte = false, onIr, onSub, onSali
       </nav>
       <div className="p-3 border-t border-champagne/15 space-y-1">
         {!rail && <InstalarApp clase="w-full h-10 rounded-xl" />}
+        {!rail && <SelectorVista oscuro />}
         <button onClick={onAlternar} title={rail ? 'Mostrar menú' : undefined} aria-label={rail ? 'Mostrar menú' : 'Ocultar menú'}
           className="w-full h-10 px-3 rounded-xl flex items-center text-left text-sm text-hueso/70 hover:bg-white/5 hover:text-hueso transition-colors">
           <Icono nombre="atras" className={`h-5 w-5 shrink-0 transition-transform duration-300 ${rail ? 'rotate-180' : ''}`} />
